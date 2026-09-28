@@ -110,6 +110,14 @@ async function diagnostics(): Promise<string> {
 }
 
 async function main(): Promise<void> {
+  // Chống treo (vd. app hiện hộp thoại chờ người bấm): quá 10 phút thì báo lỗi, đóng app và thoát
+  setTimeout(() => {
+    const msg = `Kiểm thử bị treo quá 10 phút. Đã qua ${passed.length} bước, bước cuối: ${passed[passed.length - 1] ?? '(chưa có)'}`
+    console.error(msg)
+    annotate('error', `E2E ${process.platform} bị treo`, msg)
+    appRef?.process().kill()
+    process.exit(1)
+  }, 10 * 60_000).unref()
   if (!existsSync(join(AUDIO, '03-bass-cuc-manh.mp3'))) makeTestAudio(AUDIO, 40)
   rmSync(OUT, { recursive: true, force: true })
   mkdirSync(OUT, { recursive: true })
@@ -297,6 +305,17 @@ async function main(): Promise<void> {
     await page.keyboard.press('Control+z')
     assert(await until(async () => (await state()).layers.find((l) => l.type === 'visualizer')!.timing.start === 0), 'Ctrl+Z trả lại thanh cột sóng')
 
+    // Kéo THÂN thanh flicker đang chạy suốt video → bắt đầu muộn hơn, vẫn kéo dài đến hết video
+    await page.locator('.layer', { hasText: 'Flicker' }).click()
+    await page.waitForTimeout(150)
+    const fb = await boxOf(page.locator('.tl-clip.t-flicker'))
+    await dragBy({ ...fb, x: fb.x + fb.width / 2 - 20, width: 40 }, 150)
+    const flick = (await state()).layers.find((l) => l.type === 'flicker')!.timing
+    assert(flick.start > 5 && flick.end === null, `kéo thân thanh flicker: bắt đầu từ ${flick.start}s, vẫn đến hết video`)
+    await page.locator('.timeline').focus()
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await state()).layers.find((l) => l.type === 'flicker')!.timing.start === 0), 'Ctrl+Z trả lại thanh flicker')
+
     // Nút Đăng ký: kéo lần hiện tự động → thành mốc tự chỉnh
     await page.locator('.layer', { hasText: 'Đăng ký / Like' }).click()
     await page.waitForTimeout(150)
@@ -348,6 +367,26 @@ async function main(): Promise<void> {
     assert(chapters.split('\n').length === 3, 'có 3 dòng timestamp')
     await page.keyboard.press('Escape')
 
+    // Bộ lọc màu: thêm lớp, lưới ảnh mẫu, chọn "Đen trắng" cho cả khung hình → preview mất màu
+    await page.getByRole('button', { name: 'Thêm lớp' }).click()
+    await page.getByRole('button', { name: 'Bộ lọc màu' }).click()
+    assert(await until(async () => (await page.locator('.filter-thumb img').count()) >= 13, 10000), 'thêm lớp bộ lọc màu, hiện lưới 13 ảnh mẫu')
+    const layerOrder = async (): Promise<string> => (await state()).layers.map((l) => l.type).join('>')
+    assert((await layerOrder()).startsWith('background>filter'), 'bộ lọc mới nằm ngay trên lớp nền (chỉ lọc ảnh nền)')
+    await page.locator('.filter-thumb', { hasText: 'Đen trắng' }).click()
+    await page.getByRole('button', { name: 'Lọc cả khung hình' }).click()
+    assert(await until(async () => (await layerOrder()).endsWith('>filter')), 'nút "Lọc cả khung hình" đưa bộ lọc lên trên cùng')
+    const colorfulness = (): Promise<number> =>
+      page.evaluate(`(() => {
+        const c = document.querySelector('.stage-canvas')
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+        let worst = 0
+        for (let i = 0; i < d.length; i += 4 * 97) worst = Math.max(worst, Math.abs(d[i] - d[i + 1]), Math.abs(d[i + 1] - d[i + 2]))
+        return worst
+      })()`) as Promise<number>
+    assert(await until(async () => (await colorfulness()) <= 3), `preview đen trắng (lệch màu tối đa ${await colorfulness()})`)
+    await page.screenshot({ path: join(OUT, '7-filter.png') })
+
     // Bộ nhớ đệm: xem dung lượng, xoá → các bài tự phân tích lại
     await page.getByRole('button', { name: 'Cài đặt project' }).click()
     const cacheInfo = page.locator('.cache-info b')
@@ -374,7 +413,31 @@ async function main(): Promise<void> {
     const testFile = outFile.replace(/\.mp4$/, ' (xem thử).mp4')
     assert(existsSync(testFile), 'có file video xuất thử')
     const dur = mediaDuration(testFile)
+    // Bộ lọc đen trắng phủ cả khung hình → video xuất ra cũng mất màu (đúng như preview)
+    const px = spawnSync(ffmpegPath(), ['-v', 'error', '-ss', '5', '-i', testFile, '-frames:v', '1', '-vf', 'scale=64:36', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1'], { windowsHide: true })
+    let worstPx = 0
+    for (let i = 0; i + 2 < px.stdout.length; i += 3) worstPx = Math.max(worstPx, Math.abs(px.stdout[i] - px.stdout[i + 1]), Math.abs(px.stdout[i + 1] - px.stdout[i + 2]))
+    assert(px.stdout.length === 64 * 36 * 3 && worstPx <= 12, `video xuất ra cũng đen trắng (lệch màu tối đa ${worstPx})`)
     assert(Math.abs(dur - 15) < 0.2, `thời lượng video ~15s (${dur})`)
+    // Lỡ thả một đường link vào cửa sổ: không chỗ nào nhận nên bị chặn, app không chuyển trang
+    const dropBlocked = await page.evaluate(`(() => {
+      const dt = new DataTransfer()
+      dt.setData('text/uri-list', 'https://example.com/')
+      const target = document.querySelector('.stage-canvas')
+      const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt })
+      const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt })
+      target.dispatchEvent(over)
+      target.dispatchEvent(drop)
+      return over.defaultPrevented && drop.defaultPrevented
+    })()`)
+    assert(dropBlocked === true, 'thả đường link vào cửa sổ không làm app chuyển trang')
+    // Lớp chặn thứ hai ở tiến trình chính: có gì cố chuyển trang cũng bị giữ lại.
+    // (Bỏ đánh dấu "chưa lưu" trước, nếu không hộp thoại "Project chưa lưu" sẽ hiện ra chờ bấm.)
+    await page.evaluate('window.__pvm.store.setState({ dirty: false })')
+    const appUrl = page.url()
+    await page.evaluate("location.href = 'https://example.com/'")
+    await new Promise((r) => setTimeout(r, 1000))
+    assert(page.url() === appUrl && (await page.locator('section.timeline').count()) === 1, 'không bị chuyển sang trang web lạ')
     console.log('\nTẤT CẢ KIỂM THỬ ĐỀU QUA')
     annotate('notice', `E2E ${process.platform}: qua ${passed.length} bước`, `${await diagnostics()}\n${passed.join('\n')}`)
   } catch (err) {

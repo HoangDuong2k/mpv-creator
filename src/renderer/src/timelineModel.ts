@@ -68,7 +68,8 @@ export type RangePart = 'move' | 'start' | 'end' | 'fadeIn' | 'fadeOut'
 
 /**
  * Kéo layer trên timeline. `delta`/`at` đã được bắt dính.
- * - move: dời cả khoảng (không ra ngoài [0, cuối video])
+ * - move: dời cả khoảng (không ra ngoài [0, cuối video]); layer "đến hết video" thì chỉ dời
+ *   điểm bắt đầu và vẫn kéo dài đến hết video (kể cả layer đang chạy suốt video)
  * - start / end: kéo mép (giữ độ dài tối thiểu)
  * - fadeIn / fadeOut: kéo núm hiện dần / ẩn dần
  */
@@ -79,12 +80,15 @@ export function dragRange(part: RangePart, t0: LayerTiming, total: number, value
   switch (part) {
     case 'move': {
       // value = độ dời (giây)
+      if (t0.end === null) {
+        // Giữ nguyên "đến hết video": kéo sang phải → bắt đầu muộn hơn, sang trái → sớm hơn
+        const ns = Math.max(0, Math.min(start + value, (Number.isFinite(limit) ? limit : start + value + MIN_LAYER) - MIN_LAYER))
+        return { start: round(ns), ...fitFades(t0.fadeIn, t0.fadeOut, end - ns) }
+      }
       let d = value
       d = Math.max(d, -start)
       if (Number.isFinite(limit)) d = Math.min(d, limit - end)
-      const ns = start + d
-      const ne = end + d
-      return { start: round(ns), end: t0.end === null && d >= 0 ? null : endValue(ne, total) }
+      return { start: round(start + d), end: endValue(end + d, total) }
     }
     case 'start': {
       const ns = Math.min(Math.max(0, value), end - MIN_LAYER)

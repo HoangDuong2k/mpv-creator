@@ -289,7 +289,8 @@ export function Timeline(): ReactNode {
           const r = layerRange(s.timing0, total)
           let dlt = t - s.t0
           const a = snapTime(r.start + dlt, cands, thr)
-          const b = snapTime(r.end + dlt, cands, thr)
+          // Layer "đến hết video": mép phải cố định ở cuối video, chỉ bắt dính mép trái
+          const b = s.timing0.end === null ? { t: r.end + dlt, snapped: null } : snapTime(r.end + dlt, cands, thr)
           if (a.snapped !== null && (b.snapped === null || Math.abs(a.t - (r.start + dlt)) <= Math.abs(b.t - (r.end + dlt)))) {
             dlt = a.t - r.start
             snapped = a.snapped

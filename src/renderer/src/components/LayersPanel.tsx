@@ -6,7 +6,7 @@ import { Inspector } from './Inspector'
 import { TrackInspector } from './TrackInspector'
 import { Icon, IconButton } from './ui'
 
-const ADDABLE: LayerType[] = ['visualizer', 'text', 'image', 'cta', 'particles', 'flicker', 'vignette', 'progress', 'background']
+const ADDABLE: LayerType[] = ['visualizer', 'text', 'image', 'cta', 'filter', 'particles', 'flicker', 'vignette', 'progress', 'background']
 
 export function LayersPanel(): ReactNode {
   const layers = useStore((s) => s.project.layers)

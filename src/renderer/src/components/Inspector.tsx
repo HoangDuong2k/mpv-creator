@@ -2,7 +2,9 @@ import type { ReactNode } from 'react'
 import { FULL_TIMING, LAYER_LABELS } from '../../../shared/defaults'
 import { isFullLength } from '../../../shared/timing'
 import type { Layer } from '../../../shared/types'
+import { FILTER_KEYS } from '../../../shared/filterPresets'
 import { FIELDS, type Field } from '../fields'
+import { FilterPanel } from './FilterPanel'
 import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { dragRange, layerRange } from '../timelineModel'
@@ -14,8 +16,12 @@ export function Inspector({ layer }: { layer: Layer }): ReactNode {
   const setLayerProps = useStore((s) => s.setLayerProps)
   const renameLayer = useStore((s) => s.renameLayer)
   const props = layer.props as unknown as Record<string, unknown>
-  const set = (key: string, value: unknown, coalesce = false): void =>
-    setLayerProps(layer.id, { [key]: value }, coalesce ? `${layer.id}.${key}` : undefined)
+  const set = (key: string, value: unknown, coalesce = false): void => {
+    const patch: Record<string, unknown> = { [key]: value }
+    // Tinh chỉnh tay một bộ lọc → không còn đúng mẫu nữa
+    if (layer.type === 'filter' && (FILTER_KEYS as string[]).includes(key)) patch.preset = 'custom'
+    setLayerProps(layer.id, patch, coalesce ? `${layer.id}.${key}` : undefined)
+  }
 
   return (
     <div className="inspector">
@@ -31,6 +37,7 @@ export function Inspector({ layer }: { layer: Layer }): ReactNode {
       ) : (
         <TimingSection layer={layer} />
       )}
+      {layer.type === 'filter' && <FilterPanel layer={layer} />}
       {FIELDS[layer.type].map((f, i) => (f.show && !f.show(props) ? null : <FieldView key={`${f.kind}-${'key' in f ? f.key : f.label}-${i}`} field={f} props={props} set={set} />))}
     </div>
   )

@@ -66,6 +66,8 @@ interface State {
   removeLayer(id: string): void
   duplicateLayer(id: string): void
   moveLayer(id: string, dir: 1 | -1): void
+  /** Đưa layer tới vị trí `index` (0 = dưới cùng) */
+  moveLayerTo(id: string, index: number): void
   toggleLayer(id: string): void
   renameLayer(id: string, name: string): void
   setLayerProps<T extends LayerType>(id: string, patch: Partial<LayerPropsMap[T]>, coalesceKey?: string): void
@@ -211,11 +213,21 @@ export const useStore = create<State>((set, get) => ({
   addLayer(type) {
     const layer = createLayer(type)
     get().update((p) => {
-      // Nền luôn thêm ở dưới cùng, các lớp khác thêm ở trên cùng
+      // Nền thêm ở dưới cùng; bộ lọc màu thêm ngay trên lớp nền (lọc ảnh nền); các lớp khác ở trên cùng
       if (type === 'background') p.layers.unshift(layer)
+      else if (type === 'filter') p.layers.splice(aboveBackground(p.layers), 0, layer)
       else p.layers.push(layer)
     })
     set({ selectedLayerId: layer.id })
+  },
+
+  moveLayerTo(id, index) {
+    get().update((p) => {
+      const from = p.layers.findIndex((l) => l.id === id)
+      if (from < 0) return
+      const [l] = p.layers.splice(from, 1)
+      p.layers.splice(Math.max(0, Math.min(index, p.layers.length)), 0, l)
+    })
   },
 
   removeLayer(id) {
@@ -320,6 +332,15 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
   }
 }))
+
+/** Vị trí ngay trên lớp nền cuối cùng (bộ lọc đặt ở đây chỉ tác động lên ảnh nền) */
+export function aboveBackground(layers: Layer[]): number {
+  let last = -1
+  layers.forEach((l, i) => {
+    if (l.type === 'background') last = i
+  })
+  return last + 1
+}
 
 /** Khi undo/redo vẫn giữ dữ liệu phân tích (analysisKey, thời lượng) mới nhất của từng bài */
 function keepDerived(target: Project, current: Project): Project {

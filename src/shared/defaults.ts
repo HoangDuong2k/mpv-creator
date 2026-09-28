@@ -1,3 +1,4 @@
+import { presetById } from './filterPresets'
 import type { Layer, LayerPropsMap, LayerTiming, LayerType, Project } from './types'
 
 export const FULL_TIMING: LayerTiming = { start: 0, end: null, fadeIn: 0, fadeOut: 0 }
@@ -135,6 +136,11 @@ export const LAYER_DEFAULTS: LayerPropsMap = {
     amount: 0.55,
     size: 0.65,
     color: '#000000'
+  },
+  filter: {
+    preset: 'warm',
+    intensity: 1,
+    ...presetById('warm')!.values
   }
 }
 
@@ -147,7 +153,8 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   cta: 'Đăng ký / Like',
   flicker: 'Flicker (nháy sáng)',
   particles: 'Hạt bay (bụi/tuyết)',
-  vignette: 'Viền tối (vignette)'
+  vignette: 'Viền tối (vignette)',
+  filter: 'Bộ lọc màu'
 }
 
 let idCounter = 0

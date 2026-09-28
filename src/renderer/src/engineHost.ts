@@ -65,6 +65,7 @@ export class BrowserAssets implements EngineAssets {
     if (this.images.has(path)) return this.images.get(path) ?? null
     this.images.set(path, null)
     const img = new Image()
+    img.crossOrigin = 'anonymous'
     img.src = api.fileUrl(path)
     img
       .decode()
@@ -80,6 +81,7 @@ export class BrowserAssets implements EngineAssets {
     let v = this.videos.get(path)
     if (!v) {
       v = document.createElement('video')
+      v.crossOrigin = 'anonymous'
       v.muted = true
       v.loop = true
       v.playsInline = true

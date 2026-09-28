@@ -30,7 +30,15 @@ export function registerFileProtocol(): void {
     if (!path || !mime || !existsSync(path)) return new Response('Not found', { status: 404 })
     const size = statSync(path).size
     const range = request.headers.get('range')
-    const headers: Record<string, string> = { 'Content-Type': mime, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache' }
+    // CORS: ảnh/video nạp ở chế độ crossOrigin nên canvas không bị "tainted" — đọc lại được điểm ảnh
+    // (ảnh xem trước bộ lọc, kiểm thử). Chỉ trang của app dùng được giao thức này: cửa sổ bị chặn
+    // điều hướng sang trang khác (will-navigate) và không mở cửa sổ mới.
+    const headers: Record<string, string> = {
+      'Content-Type': mime,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'no-cache',
+      'Access-Control-Allow-Origin': '*'
+    }
     if (range) {
       const m = /bytes=(\d*)-(\d*)/.exec(range)
       let start = m?.[1] ? parseInt(m[1], 10) : 0

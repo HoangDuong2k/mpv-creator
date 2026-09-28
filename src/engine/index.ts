@@ -6,6 +6,7 @@ import type { EngineAssets, Rect, RenderEnv } from './env'
 import { drawBackground } from './layers/background'
 import { drawCta } from './layers/cta'
 import { drawFlicker, drawImageLayer, drawParticles, drawVignette } from './layers/effects'
+import { drawFilter } from './layers/filter'
 import { drawProgress, drawText } from './layers/text'
 import { drawVisualizer } from './layers/visualizer'
 
@@ -23,7 +24,8 @@ const DRAWERS: { [K in LayerType]: LayerDrawer<K> } = {
   cta: drawCta,
   flicker: drawFlicker,
   particles: drawParticles,
-  vignette: drawVignette
+  vignette: drawVignette,
+  filter: drawFilter
 }
 
 export interface RenderArgs {

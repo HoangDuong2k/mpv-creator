@@ -259,6 +259,11 @@ function createWindow(): void {
     if (/^https?:/.test(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
+  // Cửa sổ app không bao giờ rời trang của mình (vd. lỡ thả một đường link vào cửa sổ):
+  // trang web lạ không được chạy trong app và không đọc được file cục bộ qua pvm://
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== mainWindow?.webContents.getURL()) event.preventDefault()
+  })
 
   if (!app.isPackaged) {
     mainWindow.webContents.on('before-input-event', (_e, input) => {

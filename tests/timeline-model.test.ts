@@ -36,14 +36,19 @@ describe('khoảng thời gian của layer', () => {
     expect(dragRange('move', t0, 100, 20)).toEqual({ start: 30, end: 50 })
     expect(dragRange('move', t0, 100, -50)).toEqual({ start: 0, end: 20 })
     expect(dragRange('move', t0, 100, 500)).toEqual({ start: 80, end: null })
+    expect(dragRange('move', { ...t0, end: 30 }, 100, 500)).toEqual({ start: 80, end: null })
     expect(dragRange('end', t0, 100, 100)).toMatchObject({ end: null })
     expect(dragRange('end', t0, 100, 5)).toMatchObject({ end: 10.5 })
     expect(dragRange('start', t0, 100, 50)).toMatchObject({ start: 29.5 })
   })
 
-  it('layer chạy suốt video không dời được; layer "đến hết" dời trái thành mốc cụ thể', () => {
-    expect(dragRange('move', FULL_TIMING, 100, 10)).toEqual({ start: 0, end: null })
-    expect(dragRange('move', { ...FULL_TIMING, start: 40 }, 100, -10)).toEqual({ start: 30, end: 90 })
+  it('kéo thân layer "đến hết video" (kể cả đang chạy suốt video): chỉ dời điểm bắt đầu', () => {
+    expect(dragRange('move', FULL_TIMING, 100, 10)).toMatchObject({ start: 10 })
+    expect(dragRange('move', FULL_TIMING, 100, 10).end).toBeUndefined()
+    expect(dragRange('move', { ...FULL_TIMING, start: 40 }, 100, -10)).toMatchObject({ start: 30 })
+    expect(dragRange('move', { ...FULL_TIMING, start: 40 }, 100, -100)).toMatchObject({ start: 0 })
+    // Không kéo quá cuối video (còn tối thiểu 0,5 giây)
+    expect(dragRange('move', FULL_TIMING, 100, 500)).toMatchObject({ start: 99.5 })
   })
 
   it('hiện dần + ẩn dần không vượt độ dài', () => {

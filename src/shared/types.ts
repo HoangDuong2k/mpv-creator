@@ -186,6 +186,34 @@ export interface VignetteProps {
   color: string
 }
 
+/** Bộ lọc màu: tác động lên mọi lớp nằm dưới nó (đặt ngay trên Nền = chỉ lọc ảnh nền) */
+export interface FilterProps {
+  /** Mẫu đang dùng ('custom' = đã chỉnh tay) */
+  preset: string
+  /** Mức áp dụng 0..1 (trộn giữa ảnh gốc và ảnh đã lọc) */
+  intensity: number
+  /** Các chỉnh −1..1 (0 = giữ nguyên) */
+  brightness: number
+  contrast: number
+  saturation: number
+  /** Âm = lạnh (xanh), dương = ấm (cam) */
+  temperature: number
+  /** Âm = ngả xanh lá, dương = ngả hồng tím */
+  tint: number
+  /** Xoay màu (độ) */
+  hue: number
+  /** 0..1 */
+  sepia: number
+  /** Nâng vùng tối, kiểu ảnh phim nhạt màu (0..1) */
+  fade: number
+  /** Hạt phim (0..1) */
+  grain: number
+  /** Viền tối (0..1) */
+  vignette: number
+  /** Làm mờ mơ màng (px ở khung 1080p) */
+  blur: number
+}
+
 export interface LayerPropsMap {
   background: BackgroundProps
   visualizer: VisualizerProps
@@ -196,6 +224,7 @@ export interface LayerPropsMap {
   flicker: FlickerProps
   particles: ParticlesProps
   vignette: VignetteProps
+  filter: FilterProps
 }
 
 export type LayerType = keyof LayerPropsMap

@@ -309,6 +309,23 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
     { kind: 'range', key: 'width', label: 'Chiều rộng vùng', min: 0.05, max: 1, step: 0.01 },
     { kind: 'range', key: 'height', label: 'Chiều cao vùng', min: 0.05, max: 1, step: 0.01 }
   ],
+  // Bộ lọc màu: chọn mẫu ở lưới ảnh xem trước (Inspector), các ô dưới để tinh chỉnh
+  filter: [
+    { kind: 'range', key: 'intensity', label: 'Cường độ', min: 0, max: 1, step: 0.01 },
+    { kind: 'section', label: 'Chỉnh màu' },
+    { kind: 'range', key: 'brightness', label: 'Độ sáng', min: -1, max: 1, step: 0.01 },
+    { kind: 'range', key: 'contrast', label: 'Tương phản', min: -1, max: 1, step: 0.01 },
+    { kind: 'range', key: 'saturation', label: 'Bão hoà màu', min: -1, max: 1, step: 0.01 },
+    { kind: 'range', key: 'temperature', label: 'Nhiệt độ màu (lạnh ↔ ấm)', min: -1, max: 1, step: 0.01 },
+    { kind: 'range', key: 'tint', label: 'Sắc độ (xanh lá ↔ hồng)', min: -1, max: 1, step: 0.01 },
+    { kind: 'range', key: 'hue', label: 'Xoay màu', min: -180, max: 180, step: 1, unit: '°' },
+    { kind: 'range', key: 'sepia', label: 'Nâu cổ điển (sepia)', min: 0, max: 1, step: 0.01 },
+    { kind: 'section', label: 'Hiệu ứng phim' },
+    { kind: 'range', key: 'fade', label: 'Nhạt màu (nâng vùng tối)', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'grain', label: 'Hạt phim', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'vignette', label: 'Viền tối', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'blur', label: 'Mờ mơ màng', min: 0, max: 20, step: 0.5 }
+  ],
   vignette: [
     { kind: 'range', key: 'amount', label: 'Độ tối viền', min: 0, max: 1, step: 0.01 },
     { kind: 'range', key: 'size', label: 'Vùng sáng ở giữa', min: 0, max: 0.95, step: 0.01 },

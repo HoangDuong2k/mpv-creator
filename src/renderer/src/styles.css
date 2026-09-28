@@ -1283,6 +1283,9 @@ textarea.chapters {
 .t-audio {
   --c: #3aa0ff;
 }
+.t-filter {
+  --c: #ffb74d;
+}
 
 .time-input {
   font-variant-numeric: tabular-nums;
@@ -1309,4 +1312,38 @@ textarea.chapters {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---------- Bộ lọc màu ---------- */
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.filter-thumb {
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #11141b;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+}
+.filter-thumb:hover {
+  border-color: #4b5367;
+}
+.filter-thumb.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.filter-thumb img,
+.filter-thumb-empty {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 5px;
+  object-fit: cover;
+  background: #1c202b;
 }
