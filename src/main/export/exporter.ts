@@ -1,8 +1,8 @@
 import { spawn } from 'child_process'
 import { existsSync } from 'fs'
-import { mkdir, open, rm, stat, writeFile } from 'fs/promises'
+import { mkdir, open, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { cpus } from 'os'
-import { basename, dirname, extname, join } from 'path'
+import { basename, dirname, extname, join, posix, win32 } from 'path'
 import { Worker } from 'worker_threads'
 import { SAMPLE_RATE } from '../../shared/featureFormat'
 import { buildTimeline } from '../../shared/timeline'
@@ -11,6 +11,7 @@ import { CancelledError, ffmpegPath, parseFfmpegTime, runFfmpeg, type FfmpegRun 
 import { streamMix } from '../audio/mix'
 import type { Workspace } from '../workspace'
 import { encoderArgs } from './encoders'
+import { chunkFramesFor, completedPartIndex, isPartsDirOf, partialName, partName, partsDirName, planChunks, renderKey, type Chunk } from './plan'
 import type { WorkerJob, WorkerMessage } from './worker'
 
 export type ExportStage = 'audio' | 'render' | 'mux' | 'done'
@@ -21,6 +22,11 @@ export interface ExportProgress {
   progress: number
   framesDone: number
   framesTotal: number
+  /** Số frame lấy lại từ lần xuất dở trước (không phải render lại) */
+  resumedFrames: number
+  /** Số đoạn đã render xong / tổng số đoạn */
+  chunksDone: number
+  chunksTotal: number
   /** Tốc độ render (frame/giây) */
   fps: number
   /** Ước tính thời gian còn lại (giây) */
@@ -39,6 +45,10 @@ export interface ExportOptions {
   /** Chỉ render một đoạn (giây) — dùng cho "xuất thử" */
   range?: { start: number; duration: number }
   workers?: number
+  /** Số frame mỗi đoạn — mặc định khoảng 30 giây (kiểm thử đặt nhỏ hơn) */
+  chunkFrames?: number
+  /** Phiên bản app — đưa vào khoá của bản xuất dở (bản mới có thể vẽ khác) */
+  appVersion?: string
   onProgress?: (p: ExportProgress) => void
   signal?: AbortSignal
 }
@@ -48,6 +58,9 @@ export interface ExportResult {
   seconds: number
   duration: number
   warnings: string[]
+  /** Số frame dùng lại từ lần xuất dở trước */
+  resumedFrames: number
+  totalFrames: number
 }
 
 /** Báo lỗi dễ hiểu khi không ghi được file video */
@@ -89,17 +102,117 @@ export function escapeConcatPath(p: string): string {
   return p.replace(/\\/g, '/').replace(/'/g, "'\\''")
 }
 
+/** Chuỗi trông như đường dẫn tuyệt đối (kiểu Windows hoặc POSIX) */
+function looksLikePath(v: string): boolean {
+  return v.length < 1024 && (posix.isAbsolute(v) || win32.isAbsolute(v))
+}
+
+/** Kích thước + thời điểm sửa của các file ảnh/video project dùng — thay file thì bản xuất dở không còn khớp */
+async function mediaStamps(project: Project): Promise<Record<string, string>> {
+  const paths = new Set<string>()
+  const visit = (v: unknown): void => {
+    if (typeof v === 'string') {
+      if (looksLikePath(v)) paths.add(v)
+    } else if (Array.isArray(v)) v.forEach(visit)
+    else if (v && typeof v === 'object') Object.values(v).forEach(visit)
+  }
+  for (const l of project.layers) visit(l.props)
+  for (const t of project.tracks) if (t.coverPath) paths.add(t.coverPath)
+  const out: Record<string, string> = {}
+  for (const p of [...paths].sort()) {
+    try {
+      const s = await stat(p)
+      out[p] = `${s.size}:${Math.round(s.mtimeMs)}`
+    } catch {
+      out[p] = '-'
+    }
+  }
+  return out
+}
+
 /**
- * Xuất video: (1) chia video thành nhiều đoạn render song song trong worker thread,
- * (2) nối các đoạn và ghép tiếng — âm thanh được trộn trực tiếp từ PCM trong cache
- * rồi đẩy thẳng vào FFmpeg (không cần file mix trung gian).
+ * File MP4 hoàn chỉnh: các hộp cấp ngoài cùng nối liền tới đúng cuối file và có hộp "moov"
+ * (FFmpeg ghi "moov" sau cùng — file bị cắt ngang khi mất điện sẽ thiếu).
+ */
+export async function isCompleteMp4(path: string): Promise<boolean> {
+  let fh: Awaited<ReturnType<typeof open>> | null = null
+  try {
+    fh = await open(path, 'r')
+    const size = (await fh.stat()).size
+    const head = Buffer.alloc(16)
+    let pos = 0
+    let moov = false
+    while (pos + 8 <= size) {
+      const { bytesRead } = await fh.read(head, 0, 16, pos)
+      if (bytesRead < 8) return false
+      let len = head.readUInt32BE(0)
+      if (len === 1) {
+        if (bytesRead < 16) return false
+        len = Number(head.readBigUInt64BE(8))
+      } else if (len === 0) len = size - pos // hộp kéo tới hết file
+      if (len < 8) return false
+      if (head.toString('latin1', 4, 8) === 'moov') moov = true
+      pos += len
+    }
+    return moov && pos === size
+  } catch {
+    return false
+  } finally {
+    await fh?.close()
+  }
+}
+
+/** Ghi hẳn xuống đĩa rồi mới đổi sang tên "đã xong" — mất điện ngay sau đó cũng không có đoạn hỏng mang tên đã xong */
+async function commitPart(from: string, to: string): Promise<void> {
+  const fh = await open(from, 'r+')
+  try {
+    await fh.sync()
+  } finally {
+    await fh.close()
+  }
+  // Windows có thể tạm khoá file vừa đóng (FFmpeg vừa thoát, antivirus quét) → thử lại vài lần
+  for (let i = 0; ; i++) {
+    try {
+      await rename(from, to)
+      return
+    } catch (err) {
+      if (i >= 5) throw err
+      await new Promise((r) => setTimeout(r, 200))
+    }
+  }
+}
+
+const RM_OPTS = { recursive: true, force: true, maxRetries: 5, retryDelay: 200 } as const
+
+/** Xoá thư mục tạm của các lần xuất trước ra cùng tên file (project đã đổi nên không dùng lại được) */
+async function removeStaleParts(dir: string, base: string, keep: string): Promise<void> {
+  const names = await readdir(dir).catch(() => [] as string[])
+  for (const n of names) if (n !== keep && isPartsDirOf(n, base)) await rm(join(dir, n), RM_OPTS).catch(() => undefined)
+}
+
+/** Giữ các đoạn đã xong, xoá phần dở dang (đoạn đang render lúc bị ngắt, danh sách nối) */
+async function removePartials(dir: string): Promise<void> {
+  const names = await readdir(dir).catch(() => [] as string[])
+  for (const n of names) if (completedPartIndex(n) === null) await rm(join(dir, n), RM_OPTS).catch(() => undefined)
+}
+
+/**
+ * Xuất video: (1) chia video thành các đoạn khoảng 30 giây, nhiều worker thread render song song,
+ * mỗi luồng xong đoạn này thì nhận đoạn kế tiếp; (2) nối các đoạn và ghép tiếng — âm thanh được trộn
+ * trực tiếp từ PCM trong cache rồi đẩy thẳng vào FFmpeg (không cần file mix trung gian).
+ *
+ * Xuất cả video: các đoạn đã xong được giữ lại khi bị ngắt (huỷ, lỗi, tắt app, mất điện). Lần xuất sau
+ * của cùng project (chưa sửa gì) ra cùng file chỉ render phần còn thiếu. Xuất thử thì luôn làm mới.
  */
 export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
   const { project, workspace, settings, signal } = opts
   const started = Date.now()
   const elapsed = (): number => (Date.now() - started) / 1000
+  let resumedFrames = 0
+  let chunksDone = 0
+  let chunksTotal = 0
   const report = (p: Partial<ExportProgress> & { stage: ExportStage; progress: number }): void =>
-    opts.onProgress?.({ framesDone: 0, framesTotal: 0, fps: 0, eta: 0, elapsed: elapsed(), ...p })
+    opts.onProgress?.({ framesDone: 0, framesTotal: 0, fps: 0, eta: 0, elapsed: elapsed(), resumedFrames, chunksDone, chunksTotal, ...p })
   const check = (): void => {
     if (signal?.aborted) throw new CancelledError()
   }
@@ -113,7 +226,7 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
     featurePaths[t.analysisKey!] = workspace.featuresPath(t.analysisKey!)
   }
 
-  // 1. Render song song
+  // 1. Chia đoạn
   const { fps } = project.settings
   const timeline = buildTimeline(project.tracks, project.settings)
   const rangeStart = Math.max(0, Math.min(opts.range?.start ?? 0, timeline.total))
@@ -129,89 +242,131 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
   // Kiểm tra ghi được file ngay từ đầu (vd. trên Windows file cũ đang mở trong trình xem video sẽ bị khoá),
   // tránh render xong 20 phút mới báo lỗi
   await ensureWritable(outputPath)
-  const partsDir = join(dirname(outputPath), `.${basename(outputPath, extname(outputPath))}.parts-${Date.now().toString(36)}`)
+
+  const chunkFrames = Math.max(1, Math.round(opts.chunkFrames ?? chunkFramesFor(totalFrames, fps, workerCount)))
+  const chunks = planChunks(firstFrame, totalFrames, chunkFrames)
+  chunksTotal = chunks.length
+  const resumable = !opts.range
+  const outDir = dirname(outputPath)
+  const base = basename(outputPath, extname(outputPath))
+  const key = resumable
+    ? renderKey({ project, settings, firstFrame, totalFrames, chunkFrames, appVersion: opts.appVersion, media: await mediaStamps(project) })
+    : Date.now().toString(36)
+  const partsDir = join(outDir, partsDirName(base, key))
+  await removeStaleParts(outDir, base, basename(partsDir))
   await mkdir(partsDir, { recursive: true })
   // Windows không tự ẩn thư mục bắt đầu bằng "." — đặt thuộc tính ẩn cho thư mục tạm
   if (process.platform === 'win32') spawn('attrib', ['+h', partsDir], { windowsHide: true, stdio: 'ignore' }).on('error', () => undefined)
 
-  const workers: Worker[] = []
+  // Đoạn đã xong từ lần xuất trước được dùng lại; phần dở dang (đang render lúc bị ngắt) thì xoá
+  const reused = new Set<number>()
+  for (const name of await readdir(partsDir)) {
+    const i = completedPartIndex(name)
+    if (resumable && i !== null && i < chunks.length && (await isCompleteMp4(join(partsDir, name)))) reused.add(i)
+    else await rm(join(partsDir, name), RM_OPTS).catch(() => undefined)
+  }
+  for (const c of chunks) if (reused.has(c.index)) resumedFrames += c.end - c.start
+  chunksDone = reused.size
+  report({ stage: 'render', progress: 0.95 * (resumedFrames / totalFrames), framesDone: resumedFrames, framesTotal: totalFrames })
+
+  const active = new Set<Worker>()
   const warnings: string[] = []
   let muxRun: FfmpegRun | null = null
+  let success = false
   const onAbort = (): void => {
-    for (const w of workers) w.postMessage({ type: 'cancel' })
+    for (const w of active) w.postMessage({ type: 'cancel' })
     muxRun?.kill()
   }
   signal?.addEventListener('abort', onAbort)
 
   try {
-    const segments: string[] = []
-    const done = new Array<number>(workerCount).fill(0)
+    // 2. Render các đoạn còn thiếu: mỗi luồng xong đoạn này thì nhận đoạn kế tiếp
+    const fresh = new Map<number, number>() // số frame đã render trong lần này, theo đoạn
     const renderStart = Date.now()
-    await Promise.all(
-      Array.from({ length: workerCount }, (_, i) => {
-        const a = firstFrame + Math.floor((totalFrames * i) / workerCount)
-        const b = firstFrame + Math.floor((totalFrames * (i + 1)) / workerCount)
-        const segPath = join(partsDir, `part${String(i).padStart(3, '0')}.mp4`)
-        segments.push(segPath)
+    const onFrames = (): void => {
+      let n = 0
+      for (const v of fresh.values()) n += v
+      const framesDone = resumedFrames + n
+      const secs = (Date.now() - renderStart) / 1000
+      const speed = secs > 0 ? n / secs : 0
+      report({
+        stage: 'render',
+        progress: 0.95 * (framesDone / totalFrames),
+        framesDone,
+        framesTotal: totalFrames,
+        fps: speed,
+        eta: speed > 0 ? (totalFrames - framesDone) / speed + 2 : 0
+      })
+    }
+    const renderChunk = (c: Chunk): Promise<void> =>
+      new Promise<void>((resolve, reject) => {
         const job: WorkerJob = {
-          id: i,
+          id: c.index,
           project,
           featurePaths,
           fontsDir: opts.fontsDir,
           ffmpegPath: ffmpegPath(),
-          frameStart: a,
-          frameEnd: b,
-          outPath: segPath,
+          frameStart: c.start,
+          frameEnd: c.end,
+          outPath: join(partsDir, partialName(c.index)),
           encoderPre: pre,
           encoderPost: post,
           threads
         }
-        return new Promise<void>((resolve, reject) => {
-          const w = new Worker(opts.workerPath, { workerData: job, execArgv: opts.workerExecArgv })
-          workers.push(w)
-          let settled = false
-          w.on('message', (m: WorkerMessage) => {
-            if (m.type === 'progress') {
-              done[m.id] = m.frames
-              const framesDone = done.reduce((s, v) => s + v, 0)
-              const secs = (Date.now() - renderStart) / 1000
-              const speed = secs > 0 ? framesDone / secs : 0
-              report({
-                stage: 'render',
-                progress: 0.95 * (framesDone / totalFrames),
-                framesDone,
-                framesTotal: totalFrames,
-                fps: speed,
-                eta: speed > 0 ? (totalFrames - framesDone) / speed + 2 : 0
-              })
-            } else if (m.type === 'done') {
-              settled = true
-              warnings.push(...m.warnings)
-              resolve()
-            } else {
-              settled = true
-              reject(new Error(m.message))
-            }
-          })
-          w.on('error', (e) => {
-            settled = true
-            reject(e)
-          })
-          w.on('exit', (code) => {
-            if (!settled) reject(signal?.aborted ? new CancelledError() : new Error(`Luồng render dừng bất thường (mã ${code})`))
-          })
+        const w = new Worker(opts.workerPath, { workerData: job, execArgv: opts.workerExecArgv })
+        active.add(w)
+        let settled = false
+        const finish = (err?: Error): void => {
+          if (settled) return
+          settled = true
+          active.delete(w)
+          // Worker còn giữ cổng tin nhắn nên không tự thoát — đóng luôn khi đã xong đoạn
+          void w.terminate().catch(() => 0)
+          if (err) reject(err)
+          else resolve()
+        }
+        w.on('message', (m: WorkerMessage) => {
+          if (m.type === 'progress') {
+            fresh.set(c.index, m.frames)
+            onFrames()
+          } else if (m.type === 'done') {
+            warnings.push(...m.warnings)
+            finish()
+          } else finish(new Error(m.message))
         })
+        w.on('error', (e) => finish(e))
+        w.on('exit', (code) => finish(signal?.aborted ? new CancelledError() : new Error(`Luồng render dừng bất thường (mã ${code})`)))
       })
-    ).catch((err) => {
-      for (const w of workers) w.postMessage({ type: 'cancel' })
-      throw signal?.aborted ? new CancelledError() : err
-    })
-    check()
 
-    // 2. Nối các đoạn + ghép tiếng (âm thanh trộn trực tiếp, đẩy qua stdin)
+    const pending = chunks.filter((c) => !reused.has(c.index))
+    let next = 0
+    let failure = null as Error | null
+    const lane = async (): Promise<void> => {
+      while (!failure && next < pending.length) {
+        check()
+        const c = pending[next++]
+        await renderChunk(c)
+        await commitPart(join(partsDir, partialName(c.index)), join(partsDir, partName(c.index)))
+        chunksDone++
+        onFrames()
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(workerCount, pending.length) }, () =>
+        lane().catch((err: Error) => {
+          // Một đoạn lỗi → dừng các luồng khác; các đoạn đã xong vẫn được giữ để xuất tiếp
+          failure ??= err
+          for (const w of active) w.postMessage({ type: 'cancel' })
+        })
+      )
+    )
+    check()
+    if (failure) throw failure
+
+    // 3. Nối các đoạn + ghép tiếng (âm thanh trộn trực tiếp, đẩy qua stdin)
     report({ stage: 'mux', progress: 0.95, framesDone: totalFrames, framesTotal: totalFrames })
     const listFile = join(partsDir, 'list.txt')
-    await writeFile(listFile, segments.map((s) => `file '${escapeConcatPath(s)}'`).join('\n'))
+    await writeFile(listFile, chunks.map((c) => `file '${escapeConcatPath(join(partsDir, partName(c.index)))}'`).join('\n'))
     await mkdir(dirname(outputPath), { recursive: true })
     muxRun = runFfmpeg(
       [
@@ -259,11 +414,13 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
     const size = (await stat(outputPath)).size
     if (size < 1000) throw new Error('File video xuất ra bị rỗng')
     report({ stage: 'done', progress: 1, framesDone: totalFrames, framesTotal: totalFrames })
-    return { outputPath, seconds: elapsed(), duration: rangeDur, warnings: [...new Set(warnings)] }
+    success = true
+    return { outputPath, seconds: elapsed(), duration: rangeDur, warnings: [...new Set(warnings)], resumedFrames, totalFrames }
   } finally {
     signal?.removeEventListener('abort', onAbort)
-    await Promise.all(workers.map((w) => w.terminate().catch(() => 0)))
-    // maxRetries: Windows có thể tạm khoá file vừa đóng (FFmpeg vừa thoát, antivirus quét)
-    await rm(partsDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }).catch(() => undefined)
+    await Promise.all([...active].map((w) => w.terminate().catch(() => 0)))
+    // Xong, hoặc chỉ là xuất thử: xoá thư mục tạm. Xuất cả video bị ngắt: giữ các đoạn đã xong để lần sau xuất tiếp
+    if (success || !resumable) await rm(partsDir, RM_OPTS).catch(() => undefined)
+    else await removePartials(partsDir)
   }
 }

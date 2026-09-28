@@ -14,6 +14,7 @@ const api: PvmApi = {
   listEncoders: () => invoke('export:encoders'),
   startExport: (project, range) => invoke('export:start', project, range),
   cancelExport: () => invoke('export:cancel'),
+  shutdown: () => invoke('system:shutdown'),
   readProject: (path) => invoke('project:read', path),
   writeProject: (path, project) => invoke('project:write', path, project),
   writeText: (path, text) => invoke('file:write-text', path, text),

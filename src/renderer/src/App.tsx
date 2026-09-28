@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { ChaptersDialog } from './components/ChaptersDialog'
-import { ExportDialog, useExportStore } from './components/ExportDialog'
+import { ExportDialog, ShutdownCountdown, useExportStore } from './components/ExportDialog'
 import { LayersPanel } from './components/LayersPanel'
 import { PlaylistPanel, importPaths } from './components/PlaylistPanel'
 import { PreviewPanel } from './components/PreviewPanel'
@@ -238,6 +238,7 @@ export function App(): ReactNode {
       {dialog === 'export' && <ExportDialog />}
       {dialog === 'settings' && <SettingsDialog />}
       {dialog === 'chapters' && <ChaptersDialog />}
+      <ShutdownCountdown />
       {dragging && (
         <div className="drop-overlay">
           <div>

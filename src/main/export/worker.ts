@@ -79,7 +79,8 @@ async function main(): Promise<void> {
       ...job.encoderPost,
       '-threads', String(job.threads),
       '-frames:v', String(count),
-      '-an', job.outPath
+      // Ghi ra tên tạm (".partial.mp4") — nói rõ định dạng thay vì để FFmpeg đoán theo đuôi file
+      '-an', '-f', 'mp4', job.outPath
     ],
     { stdio: ['pipe', 'ignore', 'pipe'] }
   )
