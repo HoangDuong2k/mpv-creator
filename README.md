@@ -1,0 +1,116 @@
+# Playlist Video Maker
+
+Ứng dụng desktop (Windows / Linux / macOS) dựng **video playlist nhạc cho YouTube**: ghép nhiều bài hát trên một nền, thêm cột sóng nhạc, hiệu ứng nháy theo beat, tên bài tự đổi, nút **Đăng ký / Like / Chuông**, rồi xuất MP4 kèm timestamp cho phần mô tả.
+
+## Tính năng
+
+| Nhóm | Có gì |
+|---|---|
+| **Playlist** | Kéo thả file/thư mục nhạc (MP3, WAV, FLAC, M4A, OGG…), đọc tên bài/ca sĩ/ảnh bìa từ tag, sắp xếp bằng kéo thả, sửa tên, cắt đầu/cuối bài |
+| **Timeline kiểu CapCut** | Thước thời gian, đầu phát kéo để tua, Ctrl + lăn chuột để zoom, "Vừa khung"; **hàng nhạc** có sóng âm (kéo clip đổi thứ tự, kéo mép để cắt đầu/cuối, crossfade hiện giữa các clip); **mỗi lớp một hàng**: kéo thanh để dời, kéo mép để chọn khoảng thời gian hiện, núm hiện dần/ẩn dần; các lần hiện nút Đăng ký kéo thả được, nhấp đúp để thêm, Delete để xoá; bắt dính vào đầu phát, mép clip, ranh giới bài (Shift để tắt) |
+| **Âm thanh** | Crossfade / khoảng lặng / nối liền giữa các bài, fade đầu–cuối video; preview phát theo từng đoạn nên đổi thứ tự, cắt bài là nghe được ngay |
+| **Nền** | Gradient, màu đơn, ảnh (làm mờ được), video lặp, ảnh bìa bài hát tự đổi theo bài; zoom đập theo bass, rung theo beat, Ken Burns |
+| **Cột sóng** | Cột, cột đối xứng, vòng tròn quanh ảnh bìa (xoay được), dải sóng mềm, đường waveform; chỉnh màu/gradient/cầu vồng, glow, độ nhạy, độ mượt, dải tần |
+| **Hiệu ứng** | Flicker (nháy sáng theo beat / bass / ngẫu nhiên), hạt bay (bụi, tuyết, bokeh, mưa, sao — giới hạn được vùng), viền tối vignette |
+| **Chữ** | Mẫu có biến tự đổi theo bài: `{title}` `{artist}` `{next}` `{index}/{count}` `{elapsed}`…; 7 font hỗ trợ tiếng Việt; viền, bóng, hiệu ứng khi đổi bài |
+| **Đăng ký / Like** | Hoạt cảnh có con trỏ bấm Đăng ký → Like → Chuông (tiếng Việt / English), hoặc ảnh PNG riêng; đổi chữ trên nút, màu nút/chữ/biểu tượng, đặt ở 9 góc hoặc kéo tự do; hiện lặp mỗi N phút, đầu mỗi bài hoặc tại các mốc tự nhập |
+| **Chỉnh trực tiếp** | Nhấp vào lớp trên khung preview để chọn, kéo để di chuyển, kéo ô vuông để đổi kích thước, tự bắt dính vào giữa khung (giữ Shift để tắt); mọi màu sắc, cỡ, độ mạnh chỉnh ở bảng bên phải |
+| **Khác** | Ảnh/logo (cắt tròn, xoay kiểu đĩa than), thanh tiến trình, undo/redo, lưu/mở project, tự lưu phiên làm việc |
+| **Xuất video** | MP4 H.264 + AAC, 720p → 4K, Shorts 9:16, 24–60 fps; render song song nhiều luồng; tự dò NVENC / Quick Sync / AMF / VAAPI; xuất thử 15 giây |
+| **YouTube** | Sinh timestamp chương (`0:00 Tên bài - Ca sĩ`) để dán vào mô tả |
+
+Hình trong preview và video xuất ra do **cùng một engine** vẽ, nên xuất ra đúng như những gì thấy.
+
+## Cài đặt để phát triển
+
+Yêu cầu: Node.js ≥ 20.19 (khuyên dùng 22), Git.
+
+```bash
+npm install          # tự tải Electron và FFmpeg cho hệ điều hành đang dùng
+npm run dev          # chạy app ở chế độ phát triển
+npm run dev:linux    # trên Linux nếu gặp lỗi "SUID sandbox helper"
+```
+
+Không cần cài FFmpeg riêng: app dùng bản đi kèm (`ffmpeg-static`). Muốn dùng bản FFmpeg khác thì đặt biến môi trường `PVM_FFMPEG=đường/dẫn/ffmpeg`.
+
+## Đóng gói bộ cài
+
+| Hệ điều hành | Lệnh (chạy trên chính hệ điều hành đó) | Kết quả trong `release/` |
+|---|---|---|
+| **Windows** | `npm ci` rồi `npm run dist:win` | `Playlist Video Maker-Setup-x.y.z.exe` (bộ cài) và bản Portable `.exe` |
+| Linux | `npm ci` rồi `npm run dist:linux` | `.AppImage`, `.deb` |
+
+Bản Windows phải build trên Windows (hoặc GitHub Actions) vì `npm ci` cần tải đúng `ffmpeg.exe` và thư viện vẽ `@napi-rs/canvas` cho Windows.
+
+**GitHub Actions** (`.github/workflows/build.yml`) chạy trên **máy Windows và Linux thật** mỗi khi push lên `main`, mở pull request, push tag `v*` hoặc bấm *Run workflow*:
+
+1. Kiểm tra kiểu, unit test, build.
+2. Chạy e2e: mở app, điều khiển bằng chuột thật và xuất thử video.
+3. Đóng gói bộ cài, rồi chạy e2e lần nữa trên chính bản đã đóng gói.
+
+Bộ cài và ảnh chụp các bước kiểm thử nằm trong mục *Artifacts* của lượt chạy.
+
+## Dùng trên Windows
+
+- **Yêu cầu:** Windows 10/11 64-bit. Chỉ cần chạy bộ cài; FFmpeg, font và mọi thư viện đã đóng gói sẵn, không phải cài thêm gì.
+- **Bộ cài:** giao diện tiếng Việt, cài cho người dùng hiện tại (không cần quyền Administrator), tạo lối tắt ở Desktop và Start Menu. Bản **Portable** chạy thẳng không cần cài.
+- **Cảnh báo SmartScreen:** lần đầu mở, Windows có thể báo *"Windows protected your PC"* vì app chưa được ký số. Bấm *More info → Run anyway*. Muốn hết cảnh báo cần chứng chỉ ký số code (OV/EV hoặc Azure Trusted Signing), cấu hình trong `electron-builder.yml`.
+- **Dữ liệu:**
+  - Project tự lưu ở `%APPDATA%\Playlist Video Maker`.
+  - Bộ nhớ đệm âm thanh ở `%LOCALAPPDATA%\PlaylistVideoMaker\Cache`, không nằm trong Roaming. Xem dung lượng, mở thư mục hoặc xoá ở *Cài đặt project → Bộ nhớ đệm âm thanh*. Gỡ app sẽ xoá luôn thư mục này (cập nhật phiên bản thì giữ lại).
+- **Card đồ hoạ:** app tự dò và cho chọn NVIDIA (NVENC), Intel (Quick Sync), AMD (AMF) khi xuất video; máy không có thì dùng CPU (x264).
+- **File đang mở ở chương trình khác:** nếu file MP4 định ghi đè đang mở trong trình xem video (Windows khoá file), app báo ngay trước khi render thay vì báo lỗi sau khi render xong.
+
+## Cách dùng nhanh
+
+1. Kéo thả file nhạc (hoặc cả thư mục) vào cửa sổ. App phân tích âm thanh và ghép bản mix trong nền.
+2. Dùng **timeline** ở dưới: kéo clip nhạc để đổi thứ tự, kéo mép để cắt; kéo thanh của từng lớp (flicker, cột sóng, chữ…) để chọn lúc nó xuất hiện; kéo các ô đỏ ở hàng "Đăng ký / Like" để đặt thời điểm hiện nút.
+3. Nhấp vào cột sóng, chữ, nút Đăng ký… ngay trên khung preview (hoặc chọn trong danh sách **Lớp hiệu ứng**) rồi kéo để di chuyển, kéo ô vuông ở góc/cạnh để đổi kích thước; màu sắc và các thông số khác chỉnh ở bảng bên phải. Khi đang dừng, lớp đang chọn luôn hiện (kể cả nút Đăng ký ngoài giờ xuất hiện) để dễ canh. Nút **Thêm lớp** để thêm hiệu ứng; thả một ảnh/video vào cửa sổ để đặt làm nền.
+4. **Space** (hoặc nhấp đúp lên preview) phát/dừng, **← →** tua 5 giây (Shift: 30 giây), **Home / End** về đầu/cuối, **Ctrl+Z / Ctrl+Y** hoàn tác/làm lại, **Ctrl+S** lưu, **Ctrl+E** xuất; trên timeline: **Ctrl + lăn chuột** để zoom, **Delete** xoá mục đang chọn.
+5. **Xuất video** → chọn nơi lưu → *Xuất thử 15 giây* để kiểm tra, rồi *Xuất video*.
+6. **Timestamp YouTube** (dưới playlist) → Copy → dán vào mô tả video.
+
+## Kiến trúc
+
+```
+src/
+  shared/     Kiểu dữ liệu project, timeline (vị trí từng bài), định dạng file phân tích, font
+  engine/     Engine vẽ một frame từ (project, thời điểm t) — dùng chung cho preview và export
+  main/       Electron main: phân tích âm thanh (FFT, beat), trộn âm thanh theo đoạn, export song song, IPC
+    audio/      analyze.ts (phổ 64 dải, waveform, beat — 60 frame/giây + PCM đã giải mã), mix.ts (đọc đoạn bất kỳ của bản mix)
+    export/     exporter.ts (chia đoạn, ghép), worker.ts (render bằng Skia + FFmpeg), encoders.ts
+  preload/    Cầu nối an toàn window.api
+  renderer/   Giao diện React: playlist, preview, timeline, lớp hiệu ứng, hộp thoại xuất
+scripts/      cli.ts (render không cần giao diện), e2e-smoke.ts, make-test-audio.sh
+tests/        Unit test (vitest)
+```
+
+- **Phân tích âm thanh**: mỗi bài được giải mã một lần bằng FFmpeg rồi tính phổ, dạng sóng, bass và beat ở 60 frame/giây, đồng thời lưu bản PCM đã giải mã vào cache. Mở lại project hay đổi thứ tự bài không phải phân tích lại. Cache chiếm khoảng 660 MB mỗi giờ nhạc; khi vượt 10 GB, app tự xoá các bài lâu không dùng.
+- **Âm thanh preview và export dùng chung một bộ trộn**: đọc thẳng đoạn cần nghe từ PCM trong cache (crossfade, fade đầu/cuối). Preview xin từng đoạn vài giây qua IPC và phát bằng Web Audio, nên sửa trên timeline là có tiếng ngay (đo được khoảng 44 ms với playlist 75 phút). Khi xuất, cùng bộ trộn đó đẩy thẳng PCM vào FFmpeg.
+- **Mọi hiệu ứng chỉ phụ thuộc thời điểm t.** Độ mượt và xung beat được tính bằng cách nhìn lại các frame trước, không giữ trạng thái. Nhờ vậy có thể tua tự do, và chia video thành nhiều đoạn render song song mà vẫn khớp từng frame.
+- **Xuất video**: dùng tối đa 8 luồng. Mỗi luồng tự vẽ các frame trong đoạn của mình bằng Skia (`@napi-rs/canvas`) rồi đưa cho FFmpeg mã hóa. Sau cùng, các đoạn được nối lại (`-c copy`) và ghép tiếng AAC. Màu được chuyển theo chuẩn BT.709.
+- Tốc độ đo được trên CPU 20 luồng, 1080p30, mã hóa x264, đủ 9 lớp hiệu ứng mặc định: khoảng **3× thời gian thực** (video 1 giờ ≈ 20 phút). Bộ mã hóa phần cứng sẽ nhanh hơn.
+
+## Kiểm thử
+
+Các lệnh dưới đây chạy được trên Windows, macOS và Linux; chỉ cần Node.js, không cần cài FFmpeg hay bash.
+
+```bash
+npm test                       # unit test: timeline, FFT, beat, lịch CTA, ghép âm thanh bằng FFmpeg thật, đường dẫn Windows
+npm run typecheck
+npm run build && npm run e2e   # mở app thật, nhập nhạc, phát, tua, kéo thả timeline, undo, xuất thử video
+npm run test-audio             # tạo 3 bài nhạc tổng hợp để thử (test-output/audio)
+npm run cli -- render --audio a.mp3 b.mp3 --out video.mp4 [--start 0 --duration 20]
+npm run cli -- frame --audio a.mp3 --time 12.5 --out frame.png
+```
+
+## Giấy phép bên thứ ba
+
+- Font trong `resources/fonts`: SIL Open Font License (Be Vietnam Pro, Oswald, Playfair Display, Dancing Script, Pacifico, Lobster, Bungee).
+- Biểu tượng: Material Icons (Apache License 2.0).
+- FFmpeg (`ffmpeg-static`) là bản build GPL (kèm libx264). Nếu phân phối thương mại mã nguồn đóng, cần thay bằng bản FFmpeg LGPL và dùng bộ mã hóa phần cứng hoặc OpenH264.
+- Nút "Đăng ký" được thiết kế riêng, không dùng logo YouTube. Bản quyền nhạc trong video thuộc trách nhiệm người dùng.
+
+## Chưa làm (lộ trình tiếp theo)
+
+Keyframe, tách clip (split), chọn nhiều clip và copy/paste trên timeline (giai đoạn 2), lời bài hát `.lrc`, chuẩn hóa âm lượng −14 LUFS, tách phông xanh cho CTA, GIF/WebM có kênh alpha, hiệu ứng glitch/VHS, xuất thumbnail, render hàng loạt, upload thẳng lên YouTube.

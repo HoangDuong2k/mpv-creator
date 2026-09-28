@@ -1,0 +1,801 @@
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject
+} from 'react'
+import type { TrackFeatures } from '../../../engine'
+import { ctaStartTimes } from '../../../engine/layers/cta'
+import { clamp } from '../../../engine/util'
+import { LAYER_LABELS } from '../../../shared/defaults'
+import { FEATURE_RATE, OFF_WAVE, WAVE_POINTS } from '../../../shared/featureFormat'
+import { formatTime, formatTimePrecise } from '../../../shared/time'
+import type { TimelineEntry } from '../../../shared/timeline'
+import type { CtaProps, Layer, LayerTiming } from '../../../shared/types'
+import { features, player } from '../engineHost'
+import { useTimeline } from '../hooks'
+import { useStore } from '../store'
+import {
+  AUDIO_ROW_H,
+  CTA_MAX_DURATION,
+  CTA_MIN_DURATION,
+  HEAD_W,
+  MAX_ZOOM,
+  MIN_TRACK,
+  MIN_ZOOM,
+  ROW_H,
+  RULER_H,
+  addAppearance,
+  dragRange,
+  fitZoom,
+  formatTick,
+  insertionIndex,
+  layerRange,
+  moveAppearance,
+  removeAppearance,
+  snapCandidates,
+  snapTime,
+  tickStep,
+  type RangePart
+} from '../timelineModel'
+import { Icon, IconButton } from './ui'
+
+const SNAP_PX = 8
+const HEIGHT_KEY = 'pvm.timelineHeight'
+
+type Session =
+  | { kind: 'seek' }
+  | { kind: 'layer'; part: RangePart; layerId: string; t0: number; timing0: LayerTiming; key: string }
+  | { kind: 'cta'; part: 'move' | 'dur'; layerId: string; index: number; t0: number; starts0: number[]; key: string }
+  | { kind: 'track-move'; from: number; x0: number; grab: number; moved: boolean; to: number }
+  | { kind: 'track-trim'; side: 'start' | 'end'; trackId: string; t0: number; entry: TimelineEntry; value: number | null }
+
+interface Visual {
+  snapT: number | null
+  tip: { t: number; text: string } | null
+  trackMove?: { from: number; to: number; ghostStart: number }
+  trim?: { trackId: string; side: 'start' | 'end'; edgeT: number }
+}
+
+function loadHeight(): number {
+  try {
+    const v = Number(localStorage.getItem(HEIGHT_KEY))
+    if (v >= 140) return v
+  } catch {
+    // bộ nhớ trình duyệt không dùng được
+  }
+  return 270
+}
+
+function seekTo(t: number): void {
+  const v = Math.max(0, Math.min(t, player.total || t))
+  player.seek(v)
+  useStore.getState().setTime(v)
+}
+
+/** Timeline kiểu CapCut: mỗi lớp một hàng, hàng nhạc dưới cùng, đầu phát kéo để tua. */
+export function Timeline(): ReactNode {
+  const layers = useStore((s) => s.project.layers)
+  const selectedLayerId = useStore((s) => s.selectedLayerId)
+  const selectedTrackId = useStore((s) => s.selectedTrackId)
+  const selectedCta = useStore((s) => s.selectedCta)
+  const featuresVersion = useStore((s) => s.featuresVersion)
+  const tl = useTimeline()
+  const total = tl.total
+  const displayTotal = total > 0 ? total : 60
+  const withHours = total >= 3600
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const playheadRef = useRef<HTMLDivElement>(null)
+  /** Vạch đầu phát riêng trong hàng nhạc (hàng này ghim ở đáy, nằm trên các hàng khác) */
+  const audioPlayheadRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLDivElement>(null)
+  const timeRef = useRef<HTMLSpanElement>(null)
+  const [zoom, setZoom] = useState(8)
+  const zoomRef = useRef(zoom)
+  zoomRef.current = zoom
+  const [autoFit, setAutoFit] = useState(true)
+  const [view, setView] = useState({ w: 900, left: 0 })
+  const [snapOn, setSnapOn] = useState(true)
+  const [visual, setVisual] = useState<Visual | null>(null)
+  const [height, setHeight] = useState(loadHeight)
+  const session = useRef<Session | null>(null)
+  const pendingScroll = useRef<number | null>(null)
+  const laneViewW = Math.max(100, view.w - HEAD_W)
+  const laneW = Math.max(laneViewW, displayTotal * zoom + 240)
+  const rows = useMemo(() => [...layers].reverse(), [layers])
+
+  // Đo bề ngang và theo dõi cuộn ngang
+  useEffect(() => {
+    const el = scrollRef.current!
+    const update = (): void => setView({ w: el.clientWidth, left: el.scrollLeft })
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    el.addEventListener('scroll', update, { passive: true })
+    update()
+    return () => {
+      ro.disconnect()
+      el.removeEventListener('scroll', update)
+    }
+  }, [])
+
+  // Chọn một lớp (ở danh sách, preview hay timeline) → cuộn cho hàng của nó hiện ra, không bị hàng nhạc ghim ở đáy che
+  useEffect(() => {
+    const el = scrollRef.current
+    const idx = selectedLayerId ? useStore.getState().project.layers.length - 1 - useStore.getState().project.layers.findIndex((l) => l.id === selectedLayerId) : -1
+    if (!el || idx < 0 || idx >= rows.length) return
+    const top = RULER_H + idx * ROW_H
+    const bottom = top + ROW_H
+    if (top < el.scrollTop + RULER_H) el.scrollTop = top - RULER_H
+    else if (bottom > el.scrollTop + el.clientHeight - AUDIO_ROW_H) el.scrollTop = bottom - el.clientHeight + AUDIO_ROW_H
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLayerId])
+
+  // Tự vừa khung cho tới khi người dùng tự zoom
+  useEffect(() => {
+    if (!autoFit) return
+    setZoom(fitZoom(displayTotal, laneViewW))
+    // Vừa khung = thấy toàn bộ video từ 0:00
+    const raf = requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollLeft = 0
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [autoFit, displayTotal, laneViewW])
+
+  useLayoutEffect(() => {
+    if (pendingScroll.current !== null && scrollRef.current) {
+      scrollRef.current.scrollLeft = pendingScroll.current
+      pendingScroll.current = null
+    }
+  }, [zoom])
+
+  /** Zoom giữ nguyên thời điểm dưới con trỏ (hoặc đầu phát) */
+  const zoomTo = useCallback((z: number, anchorClientX?: number) => {
+    const el = scrollRef.current
+    if (!el) return
+    const nz = clamp(z, MIN_ZOOM, MAX_ZOOM)
+    const r = el.getBoundingClientRect()
+    const vis = el.clientWidth - HEAD_W
+    const playX = player.time() * zoomRef.current - el.scrollLeft
+    const ax = anchorClientX !== undefined ? clamp(anchorClientX - r.left - HEAD_W, 0, vis) : playX >= 0 && playX <= vis ? playX : vis / 2
+    const tAnchor = (el.scrollLeft + ax) / zoomRef.current
+    pendingScroll.current = Math.max(0, tAnchor * nz - ax)
+    setAutoFit(false)
+    setZoom(nz)
+  }, [])
+
+  // Ctrl + lăn chuột để zoom (listener không passive để chặn zoom trang)
+  useEffect(() => {
+    const el = scrollRef.current!
+    const onWheel = (e: WheelEvent): void => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      e.preventDefault()
+      zoomTo(zoomRef.current * Math.exp(-e.deltaY * 0.0015), e.clientX)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [zoomTo])
+
+  // Đầu phát chạy mượt 60fps bằng cách gán style trực tiếp (không render lại React)
+  useEffect(() => {
+    let raf = 0
+    const tick = (): void => {
+      raf = requestAnimationFrame(tick)
+      const t = player.time()
+      const x = t * zoomRef.current
+      const el0 = scrollRef.current
+      if (playheadRef.current) {
+        playheadRef.current.style.transform = `translateX(${HEAD_W + x}px)`
+        // Ẩn khi đầu phát đã cuộn khuất sau cột tên hàng
+        playheadRef.current.style.visibility = el0 && x < el0.scrollLeft ? 'hidden' : 'visible'
+      }
+      if (audioPlayheadRef.current) {
+        audioPlayheadRef.current.style.transform = `translateX(${x}px)`
+        audioPlayheadRef.current.style.visibility = el0 && x < el0.scrollLeft ? 'hidden' : 'visible'
+      }
+      if (knobRef.current) knobRef.current.style.transform = `translateX(${x}px)`
+      if (timeRef.current) timeRef.current.textContent = formatTimePrecise(t, withHours)
+      const el = scrollRef.current
+      if (player.playing && el && !session.current) {
+        const vis = el.clientWidth - HEAD_W
+        if (x < el.scrollLeft || x > el.scrollLeft + vis - 24) el.scrollLeft = Math.max(0, x - vis * 0.1)
+      }
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [withHours])
+
+  const timeAt = (clientX: number): number => {
+    const el = scrollRef.current!
+    const r = el.getBoundingClientRect()
+    return Math.max(0, (clientX - r.left - HEAD_W + el.scrollLeft) / zoomRef.current)
+  }
+
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>): void => {
+    if (e.button !== 0) return
+    const hit = (e.target as HTMLElement).closest<HTMLElement>('[data-hit]')
+    if (!hit) return
+    rootRef.current?.focus({ preventScroll: true })
+    const t = timeAt(e.clientX)
+    const st = useStore.getState()
+    const d = hit.dataset
+    const key = `drag-tl-${Date.now()}`
+    switch (d.hit) {
+      case 'ruler':
+        seekTo(t)
+        session.current = { kind: 'seek' }
+        break
+      case 'lane':
+        seekTo(t)
+        if (d.row === 'audio') st.selectTrack(null)
+        else if (d.row) st.selectLayer(d.row)
+        session.current = { kind: 'seek' }
+        break
+      case 'layer': {
+        const layer = st.project.layers.find((l) => l.id === d.id)
+        if (!layer) return
+        st.selectLayer(layer.id)
+        session.current = { kind: 'layer', part: d.part as RangePart, layerId: layer.id, t0: t, timing0: { ...layer.timing }, key }
+        break
+      }
+      case 'cta': {
+        const layer = st.project.layers.find((l) => l.id === d.id)
+        if (!layer || layer.type !== 'cta') return
+        const index = Number(d.index)
+        st.selectCta({ layerId: layer.id, index })
+        session.current = { kind: 'cta', part: d.part === 'dur' ? 'dur' : 'move', layerId: layer.id, index, t0: t, starts0: ctaStartTimes(layer.props, tl), key }
+        break
+      }
+      case 'track': {
+        const index = Number(d.index)
+        const entry = tl.entries[index]
+        if (!entry) return
+        st.selectTrack(entry.track.id)
+        if (d.part === 'move') session.current = { kind: 'track-move', from: index, x0: e.clientX, grab: t - entry.start, moved: false, to: index }
+        else session.current = { kind: 'track-trim', side: d.part === 'start' ? 'start' : 'end', trackId: entry.track.id, t0: t, entry, value: null }
+        break
+      }
+      default:
+        return
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>): void => {
+    const s = session.current
+    if (!s) return
+    const t = timeAt(e.clientX)
+    const st = useStore.getState()
+    const thr = snapOn && !e.shiftKey ? SNAP_PX / zoomRef.current : 0
+    const layersNow = st.project.layers
+    switch (s.kind) {
+      case 'seek':
+        seekTo(t)
+        return
+      case 'layer': {
+        const cands = snapCandidates(layersNow, tl, player.time(), { layerId: s.layerId })
+        let value: number
+        let snapped: number | null = null
+        if (s.part === 'move') {
+          const r = layerRange(s.timing0, total)
+          let dlt = t - s.t0
+          const a = snapTime(r.start + dlt, cands, thr)
+          const b = snapTime(r.end + dlt, cands, thr)
+          if (a.snapped !== null && (b.snapped === null || Math.abs(a.t - (r.start + dlt)) <= Math.abs(b.t - (r.end + dlt)))) {
+            dlt = a.t - r.start
+            snapped = a.snapped
+          } else if (b.snapped !== null) {
+            dlt = b.t - r.end
+            snapped = b.snapped
+          }
+          value = dlt
+        } else {
+          const sn = snapTime(t, cands, thr)
+          value = sn.t
+          snapped = sn.snapped
+        }
+        const patch = dragRange(s.part, s.timing0, total, value)
+        st.setLayerTiming(s.layerId, patch, s.key)
+        const next = { ...s.timing0, ...patch }
+        const r = layerRange(next, total)
+        const tips: Record<RangePart, { t: number; text: string }> = {
+          move: { t: r.start, text: `${formatTimePrecise(r.start, withHours)} → ${next.end === null ? 'hết video' : formatTimePrecise(r.end, withHours)}` },
+          start: { t: r.start, text: `Bắt đầu ${formatTimePrecise(r.start, withHours)}` },
+          end: { t: r.end, text: next.end === null ? 'Đến hết video' : `Kết thúc ${formatTimePrecise(r.end, withHours)}` },
+          fadeIn: { t: r.start + next.fadeIn, text: `Hiện dần ${next.fadeIn.toFixed(1)}s` },
+          fadeOut: { t: r.end - next.fadeOut, text: `Ẩn dần ${next.fadeOut.toFixed(1)}s` }
+        }
+        setVisual({ snapT: snapped, tip: tips[s.part] })
+        return
+      }
+      case 'cta': {
+        if (s.part === 'move') {
+          const cands = snapCandidates(layersNow, tl, player.time(), { layerId: s.layerId, ctaIndex: s.index })
+          const sn = snapTime(s.starts0[s.index] + (t - s.t0), cands, thr)
+          const r = moveAppearance(s.starts0, s.index, sn.t, total)
+          st.setLayerProps(s.layerId, { schedule: 'times', times: r.times }, s.key)
+          st.selectCta({ layerId: s.layerId, index: r.index })
+          setVisual({ snapT: sn.snapped, tip: { t: sn.t, text: `Hiện lúc ${formatTimePrecise(Math.max(0, sn.t), withHours)}` } })
+        } else {
+          const dur = Math.round(clamp(t - s.starts0[s.index], CTA_MIN_DURATION, CTA_MAX_DURATION) * 10) / 10
+          st.setLayerProps(s.layerId, { duration: dur }, s.key)
+          setVisual({ snapT: null, tip: { t: s.starts0[s.index] + dur, text: `Hiện ${dur.toFixed(1)}s (mọi lần)` } })
+        }
+        return
+      }
+      case 'track-move': {
+        if (!s.moved && Math.abs(e.clientX - s.x0) < 4) return
+        s.moved = true
+        s.to = insertionIndex(tl.entries, s.from, t)
+        setVisual({ snapT: null, tip: { t, text: `Chuyển tới vị trí ${s.to + 1}` }, trackMove: { from: s.from, to: s.to, ghostStart: t - s.grab } })
+        return
+      }
+      case 'track-trim': {
+        const e0 = s.entry
+        const track = e0.track
+        const cands = snapCandidates(layersNow, tl, player.time())
+        if (s.side === 'start') {
+          const sn = snapTime(e0.start + (t - s.t0), cands, thr)
+          const v = clamp(track.trimStart + (sn.t - e0.start), 0, track.duration - track.trimEnd - MIN_TRACK)
+          s.value = Math.round(v * 100) / 100
+          const edgeT = e0.start + (s.value - track.trimStart)
+          setVisual({ snapT: sn.snapped, tip: { t: edgeT, text: `Cắt đầu ${formatTimePrecise(s.value)}` }, trim: { trackId: track.id, side: 'start', edgeT } })
+        } else {
+          const sn = snapTime(e0.end + (t - s.t0), cands, thr)
+          const v = clamp(track.trimEnd - (sn.t - e0.end), 0, track.duration - track.trimStart - MIN_TRACK)
+          s.value = Math.round(v * 100) / 100
+          const edgeT = e0.end - (s.value - track.trimEnd)
+          setVisual({ snapT: sn.snapped, tip: { t: edgeT, text: `Cắt cuối ${formatTimePrecise(s.value)}` }, trim: { trackId: track.id, side: 'end', edgeT } })
+        }
+        return
+      }
+    }
+  }
+
+  const onPointerUp = (): void => {
+    const s = session.current
+    session.current = null
+    const st = useStore.getState()
+    if (s?.kind === 'track-move' && s.moved && s.to !== s.from) st.moveTrack(s.from, s.to)
+    if (s?.kind === 'track-trim' && s.value !== null) {
+      const cur = s.side === 'start' ? s.entry.track.trimStart : s.entry.track.trimEnd
+      if (s.value !== cur) st.updateTrack(s.trackId, s.side === 'start' ? { trimStart: s.value } : { trimEnd: s.value })
+    }
+    setVisual(null)
+  }
+
+  const onDoubleClick = (e: MouseEvent<HTMLDivElement>): void => {
+    // Sau pointer capture, Chromium gửi dblclick về khung timeline → tìm phần tử thật dưới con trỏ
+    const under = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
+    const hit = under?.closest<HTMLElement>('[data-hit]')
+    if (!hit) return
+    const st = useStore.getState()
+    const d = hit.dataset
+    const t = timeAt(e.clientX)
+    if (d.hit === 'lane' && d.row) {
+      // Nhấp đúp vào hàng nút Đăng ký: thêm một lần hiện
+      const layer = st.project.layers.find((l) => l.id === d.row)
+      if (layer?.type === 'cta') {
+        const r = addAppearance(ctaStartTimes(layer.props, tl), t, total)
+        st.setLayerProps(layer.id, { schedule: 'times', times: r.times })
+        st.selectCta({ layerId: layer.id, index: r.index })
+      }
+    } else if (d.hit === 'layer') {
+      const layer = st.project.layers.find((l) => l.id === d.id)
+      if (layer) seekTo(layerRange(layer.timing, total).start)
+    } else if (d.hit === 'track') {
+      const entry = tl.entries[Number(d.index)]
+      if (entry) seekTo(entry.index === 0 ? 0 : entry.displayStart)
+    }
+  }
+
+  /** Delete / Backspace: xoá mục đang chọn trên timeline */
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return
+    const st = useStore.getState()
+    if (st.selectedCta) {
+      const layer = st.project.layers.find((l) => l.id === st.selectedCta!.layerId)
+      if (layer?.type === 'cta') {
+        const times = removeAppearance(ctaStartTimes(layer.props, tl), st.selectedCta.index, total)
+        st.setLayerProps(layer.id, { schedule: 'times', times })
+        st.selectCta(null)
+      }
+    } else if (st.selectedTrackId) st.removeTrack(st.selectedTrackId)
+    else if (st.selectedLayerId) st.removeLayer(st.selectedLayerId)
+    else return
+    e.preventDefault()
+  }
+
+  const startResize = (e: PointerEvent<HTMLDivElement>): void => {
+    const y0 = e.clientY
+    const h0 = height
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    const move = (ev: globalThis.PointerEvent): void => setHeight(Math.round(clamp(h0 - (ev.clientY - y0), 140, window.innerHeight * 0.7)))
+    const up = (): void => {
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      setHeight((h) => {
+        try {
+          localStorage.setItem(HEIGHT_KEY, String(h))
+        } catch {
+          // bỏ qua
+        }
+        return h
+      })
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+  }
+
+  const contentH = RULER_H + rows.length * ROW_H + AUDIO_ROW_H
+  const logZ = Math.log(zoom)
+
+  return (
+    <section className="timeline" style={{ height }} ref={rootRef} tabIndex={0} onKeyDown={onKeyDown} aria-label="Timeline">
+      <div className="tl-resize" onPointerDown={startResize} title="Kéo để đổi chiều cao timeline" />
+      <div className="tl-bar">
+        <span className="tl-time">
+          <span ref={timeRef}>0:00</span>
+          <span className="muted"> / {formatTime(total, withHours)}</span>
+        </span>
+        <span className="tl-hint muted">Kéo khối để dời · kéo mép để đổi thời gian · Ctrl + lăn chuột để zoom · Delete để xoá · nhấp đúp hàng Đăng ký để thêm lần hiện</span>
+        <span className="tl-tools">
+          <IconButton icon="magnet" title={snapOn ? 'Bắt dính: bật (giữ Shift để tạm tắt)' : 'Bắt dính: tắt'} onClick={() => setSnapOn(!snapOn)} active={snapOn} size={16} />
+          <span className="sep" />
+          <IconButton icon="zoomOut" title="Thu nhỏ" onClick={() => zoomTo(zoom / 1.5)} size={16} />
+          <input
+            className="tl-zoom"
+            type="range"
+            min={Math.log(MIN_ZOOM)}
+            max={Math.log(MAX_ZOOM)}
+            step={0.01}
+            value={logZ}
+            onChange={(e) => zoomTo(Math.exp(parseFloat(e.target.value)))}
+            aria-label="Mức zoom timeline"
+          />
+          <IconButton icon="zoomIn" title="Phóng to" onClick={() => zoomTo(zoom * 1.5)} size={16} />
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => {
+              setAutoFit(true)
+              if (scrollRef.current) scrollRef.current.scrollLeft = 0
+            }}
+            title="Vừa khung cả video"
+          >
+            Vừa khung
+          </button>
+        </span>
+      </div>
+      <div className="tl-scroll" ref={scrollRef}>
+        <div
+          className="tl-inner"
+          style={{ width: HEAD_W + laneW, height: contentH }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onDoubleClick={onDoubleClick}
+        >
+          <div className="tl-ruler-row" style={{ height: RULER_H }}>
+            <div className="tl-corner" style={{ width: HEAD_W }}>
+              {total > 0 ? `${tl.entries.length} bài` : 'Chưa có nhạc'}
+            </div>
+            <Ruler zoom={zoom} left={view.left} viewW={laneViewW} laneW={laneW} withHours={withHours} knobRef={knobRef} tip={visual?.tip ?? null} />
+          </div>
+          {rows.map((layer) => (
+            <LayerRow
+              key={layer.id}
+              layer={layer}
+              zoom={zoom}
+              total={total}
+              laneW={laneW}
+              selected={layer.id === selectedLayerId && !selectedTrackId}
+              ctaIndex={selectedCta?.layerId === layer.id ? selectedCta.index : null}
+              starts={layer.type === 'cta' ? ctaStartTimes(layer.props as CtaProps, tl) : null}
+            />
+          ))}
+          <AudioRow
+            entries={tl.entries}
+            zoom={zoom}
+            laneW={laneW}
+            left={view.left}
+            viewW={laneViewW}
+            selectedTrackId={selectedTrackId}
+            featuresVersion={featuresVersion}
+            visual={visual}
+            playheadRef={audioPlayheadRef}
+          />
+          <div className="tl-playhead" ref={playheadRef} />
+          {visual?.snapT !== null && visual?.snapT !== undefined && <div className="tl-snapline" style={{ left: HEAD_W + visual.snapT * zoom }} />}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+const Ruler = memo(function Ruler({
+  zoom,
+  left,
+  viewW,
+  laneW,
+  withHours,
+  knobRef,
+  tip
+}: {
+  zoom: number
+  left: number
+  viewW: number
+  laneW: number
+  withHours: boolean
+  knobRef: RefObject<HTMLDivElement | null>
+  tip: { t: number; text: string } | null
+}): ReactNode {
+  const { major, minor } = tickStep(zoom)
+  // Chỉ vẽ vạch trong vùng đang nhìn thấy và không vượt bề rộng timeline
+  // (vạch nằm ngoài sẽ giữ vùng cuộn rộng như cũ sau khi thu nhỏ)
+  const kMax = Math.floor(laneW / zoom / minor)
+  const k0 = Math.min(kMax, Math.max(0, Math.floor(left / zoom / minor) - 1))
+  const k1 = Math.min(kMax, Math.ceil((left + viewW) / zoom / minor) + 1)
+  const ticks: ReactNode[] = []
+  const perMajor = Math.round(major / minor)
+  for (let k = k0; k <= k1; k++) {
+    const t = k * minor
+    const isMajor = k % perMajor === 0
+    ticks.push(
+      <div key={k} className={`tick${isMajor ? ' major' : ''}`} style={{ left: t * zoom }}>
+        {isMajor && <span>{formatTick(t, major, withHours)}</span>}
+      </div>
+    )
+  }
+  return (
+    <div className="tl-ruler" data-hit="ruler" style={{ width: laneW }}>
+      {ticks}
+      <div className="tl-knob-head" ref={knobRef} />
+      {tip && (
+        <div className="tl-tip" style={{ left: Math.min(tip.t * zoom, laneW - 60) }}>
+          {tip.text}
+        </div>
+      )}
+    </div>
+  )
+})
+
+const LayerRow = memo(function LayerRow({
+  layer,
+  zoom,
+  total,
+  laneW,
+  selected,
+  ctaIndex,
+  starts
+}: {
+  layer: Layer
+  zoom: number
+  total: number
+  laneW: number
+  selected: boolean
+  ctaIndex: number | null
+  starts: number[] | null
+}): ReactNode {
+  const { selectLayer, toggleLayer } = useStore.getState()
+  return (
+    <div className={`tl-row${selected ? ' selected' : ''}${layer.enabled ? '' : ' off'}`} style={{ height: ROW_H }}>
+      <div className="tl-head" style={{ width: HEAD_W }} onClick={() => selectLayer(layer.id)} title={LAYER_LABELS[layer.type]}>
+        <span className={`tl-dot t-${layer.type}`} />
+        <span className="tl-name">{layer.name}</span>
+        <span onClick={(e) => e.stopPropagation()}>
+          <IconButton icon={layer.enabled ? 'eye' : 'eyeOff'} title={layer.enabled ? 'Ẩn lớp' : 'Hiện lớp'} onClick={() => toggleLayer(layer.id)} size={14} />
+        </span>
+      </div>
+      <div className="tl-lane" data-hit="lane" data-row={layer.id} style={{ width: laneW }}>
+        {layer.type === 'cta' && starts ? (
+          starts.map((s, i) => {
+            const auto = (layer.props as CtaProps).schedule !== 'times'
+            const dur = (layer.props as CtaProps).duration
+            return (
+              <div
+                key={`${i}-${s}`}
+                className={`tl-clip t-cta${auto ? ' auto' : ''}${ctaIndex === i ? ' selected' : ''}`}
+                style={{ left: s * zoom, width: Math.max(8, dur * zoom) }}
+                data-hit="cta"
+                data-id={layer.id}
+                data-index={i}
+                data-part="move"
+                title={`Lần hiện ${i + 1}: ${formatTimePrecise(s)}${auto ? ' — đang tự động theo lịch, kéo để chỉnh riêng từng lần' : ''}`}
+              >
+                <span className="tl-label">{i + 1}</span>
+                <div className="tl-edge r" data-hit="cta" data-id={layer.id} data-index={i} data-part="dur" />
+              </div>
+            )
+          })
+        ) : (
+          <LayerClip layer={layer} zoom={zoom} total={total} selected={selected} />
+        )}
+      </div>
+    </div>
+  )
+})
+
+function LayerClip({ layer, zoom, total, selected }: { layer: Layer; zoom: number; total: number; selected: boolean }): ReactNode {
+  const { start, end } = layerRange(layer.timing, total > 0 ? total : 60)
+  const w = Math.max(4, (end - start) * zoom)
+  const fi = Math.min(w, layer.timing.fadeIn * zoom)
+  const fo = Math.min(w, layer.timing.fadeOut * zoom)
+  const part = (p: RangePart): { 'data-hit': string; 'data-id': string; 'data-part': string } => ({ 'data-hit': 'layer', 'data-id': layer.id, 'data-part': p })
+  return (
+    <div className={`tl-clip t-${layer.type}${selected ? ' selected' : ''}`} style={{ left: start * zoom, width: w }} {...part('move')}>
+      {fi > 0 && <div className="tl-fade in" style={{ width: fi }} />}
+      {fo > 0 && <div className="tl-fade out" style={{ width: fo }} />}
+      <span className="tl-label">{layer.name}</span>
+      <div className="tl-edge l" {...part('start')} title="Kéo để đổi thời điểm bắt đầu" />
+      <div className="tl-edge r" {...part('end')} title="Kéo để đổi thời điểm kết thúc" />
+      {selected && w > 40 && (
+        <>
+          {/* Núm hiện/ẩn dần luôn cách mép ≥ 12px để không che tay nắm kéo mép */}
+          <div className="tl-fadeknob" style={{ left: Math.max(fi, 12) }} {...part('fadeIn')} title="Kéo để hiện dần" />
+          <div className="tl-fadeknob" style={{ left: Math.min(w - fo, w - 12) }} {...part('fadeOut')} title="Kéo để ẩn dần" />
+        </>
+      )}
+    </div>
+  )
+}
+
+const AudioRow = memo(function AudioRow({
+  entries,
+  zoom,
+  laneW,
+  left,
+  viewW,
+  selectedTrackId,
+  featuresVersion,
+  visual,
+  playheadRef
+}: {
+  entries: TimelineEntry[]
+  zoom: number
+  laneW: number
+  left: number
+  viewW: number
+  selectedTrackId: string | null
+  featuresVersion: number
+  visual: Visual | null
+  playheadRef: RefObject<HTMLDivElement | null>
+}): ReactNode {
+  const api = window.api
+  const move = visual?.trackMove
+  const trim = visual?.trim
+  // Vị trí vạch chèn khi đổi chỗ bài
+  let insertAt: number | null = null
+  let ghostLen = 0
+  if (move) {
+    const others = entries.filter((_, i) => i !== move.from)
+    insertAt = move.to === 0 ? 0 : others[move.to - 1].end
+    ghostLen = entries[move.from].length
+  }
+  return (
+    <div className="tl-row audio" style={{ height: AUDIO_ROW_H }}>
+      <div className="tl-head audio" style={{ width: HEAD_W }}>
+        <Icon name="music" size={16} />
+        <span className="tl-name">Nhạc</span>
+        <small className="muted">{entries.length} bài</small>
+      </div>
+      <div className="tl-lane" data-hit="lane" data-row="audio" style={{ width: laneW }}>
+        <Waveform entries={entries} zoom={zoom} left={left} width={viewW} height={AUDIO_ROW_H} version={featuresVersion} />
+        {entries.length === 0 && <div className="tl-empty">Kéo thả file nhạc vào cửa sổ để thêm vào đây</div>}
+        {entries.map((e, i) => {
+          let s = e.start
+          let en = e.end
+          if (trim?.trackId === e.track.id) {
+            if (trim.side === 'start') s = trim.edgeT
+            else en = trim.edgeT
+          }
+          const hitProps = (p: string): Record<string, string | number> => ({ 'data-hit': 'track', 'data-id': e.track.id, 'data-index': i, 'data-part': p })
+          return (
+            <div
+              key={e.track.id}
+              className={`tl-clip t-audio${selectedTrackId === e.track.id ? ' selected' : ''}${move?.from === i ? ' dragging' : ''}`}
+              style={{ left: s * zoom, width: Math.max(4, (en - s) * zoom) }}
+              {...hitProps('move')}
+              title={`${e.track.title}${e.track.artist ? ` — ${e.track.artist}` : ''} (${formatTime(e.length)}) · kéo để đổi thứ tự, kéo mép để cắt`}
+            >
+              <span className="tl-label">
+                {e.track.coverPath && <img src={api.fileUrl(e.track.coverPath)} alt="" />}
+                <b>{e.track.title || 'Không tên'}</b>
+                <small>{formatTime(e.length)}</small>
+              </span>
+              <div className="tl-edge l" {...hitProps('start')} title="Kéo để cắt đầu bài" />
+              <div className="tl-edge r" {...hitProps('end')} title="Kéo để cắt cuối bài" />
+            </div>
+          )
+        })}
+        {entries.map((e) =>
+          e.overlapIn > 0 ? (
+            <div key={`x-${e.track.id}`} className="tl-xfade" style={{ left: (e.start + e.overlapIn / 2) * zoom }} title={`Crossfade ${e.overlapIn.toFixed(1)}s`}>
+              ✕
+            </div>
+          ) : null
+        )}
+        <div className="tl-playhead in-row" ref={playheadRef} />
+        {move && (
+          <>
+            <div className="tl-ghost" style={{ left: move.ghostStart * zoom, width: Math.max(4, ghostLen * zoom) }} />
+            {insertAt !== null && <div className="tl-insert" style={{ left: insertAt * zoom }} />}
+          </>
+        )}
+      </div>
+    </div>
+  )
+})
+
+const envelopes = new WeakMap<TrackFeatures, Float32Array>()
+
+/** Biên độ đỉnh mỗi frame phân tích (60/giây), tính một lần cho mỗi bài */
+function envelopeOf(f: TrackFeatures): Float32Array {
+  let env = envelopes.get(f)
+  if (!env) {
+    env = new Float32Array(f.frames)
+    const d = f.data
+    const stride = f.header.stride
+    for (let i = 0; i < f.frames; i++) {
+      let peak = 0
+      const base = i * stride + OFF_WAVE
+      for (let p = 0; p < WAVE_POINTS; p += 8) {
+        const v = Math.abs(d[base + p] - 128) / 127
+        if (v > peak) peak = v
+      }
+      env[i] = peak
+    }
+    envelopes.set(f, env)
+  }
+  return env
+}
+
+/** Sóng âm của hàng nhạc: một canvas bám theo vùng đang nhìn thấy (không phụ thuộc độ dài video) */
+function Waveform({ entries, zoom, left, width, height, version }: { entries: TimelineEntry[]; zoom: number; left: number; width: number; height: number; version: number }): ReactNode {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const c = ref.current
+    if (!c) return
+    const dpr = window.devicePixelRatio || 1
+    c.width = Math.max(1, Math.round(width * dpr))
+    c.height = Math.round(height * dpr)
+    const ctx = c.getContext('2d')!
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, width, height)
+    const top = 20
+    const mid = (top + height - 3) / 2
+    const half = (height - 3 - top) / 2
+    ctx.fillStyle = 'rgba(126, 210, 255, 0.55)'
+    for (const e of entries) {
+      const x0 = e.start * zoom - left
+      const x1 = e.end * zoom - left
+      if (x1 < 0 || x0 > width || !e.track.analysisKey) continue
+      const f = features.get(e.track.analysisKey)
+      if (!f) continue
+      const env = envelopeOf(f)
+      const trim = e.track.trimStart || 0
+      for (let px = Math.max(0, Math.floor(x0)); px < Math.min(width, x1); px++) {
+        const ta = (left + px) / zoom - e.start + trim
+        const fa = Math.floor(ta * FEATURE_RATE)
+        const fb = Math.max(fa + 1, Math.ceil((ta + 1 / zoom) * FEATURE_RATE))
+        const step = Math.max(1, Math.floor((fb - fa) / 6))
+        let peak = 0
+        for (let k = fa; k < fb; k += step) if (k >= 0 && k < env.length && env[k] > peak) peak = env[k]
+        const h = Math.max(0.5, peak * half)
+        ctx.fillRect(px, mid - h, 1, h * 2)
+      }
+    }
+  }, [entries, zoom, left, width, height, version])
+  return <canvas ref={ref} className="tl-wave" style={{ width, height }} />
+}

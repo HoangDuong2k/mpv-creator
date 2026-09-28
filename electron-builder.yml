@@ -1,0 +1,46 @@
+appId: com.playlistvideomaker.app
+productName: Playlist Video Maker
+# Không có module native cần build lại (@napi-rs/canvas dùng bản N-API dựng sẵn)
+npmRebuild: false
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+  - '!node_modules/@napi-rs/canvas-linux-x64-musl/**'
+extraResources:
+  - from: resources/fonts
+    to: fonts
+asarUnpack:
+  - out/main/**
+  - node_modules/ffmpeg-static/**
+  - node_modules/@napi-rs/**
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  # Cài cho người dùng hiện tại, không cần quyền Administrator
+  perMachine: false
+  # Giao diện bộ cài tiếng Việt (LCID 1066)
+  language: '1066'
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  # Gỡ app thì xoá luôn bộ nhớ đệm âm thanh ở %LOCALAPPDATA%
+  include: build/installer.nsh
+  artifactName: ${productName}-Setup-${version}.${ext}
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}
+linux:
+  target: [AppImage, deb]
+  category: AudioVideo
+  maintainer: Playlist Video Maker
+mac:
+  target: [dmg]
+  category: public.app-category.video
