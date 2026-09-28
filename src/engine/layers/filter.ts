@@ -32,30 +32,19 @@ function grainTile(env: RenderEnv, index: number): OffscreenSurface {
 }
 
 /**
- * Lớp bộ lọc màu: chụp lại những gì đã vẽ (mọi lớp nằm dưới), chỉnh màu rồi trộn trở lại
- * theo cường độ. Làm việc trên điểm ảnh thật của canvas nên đúng cả khi preview thu nhỏ.
+ * Phần chỉnh màu của bộ lọc (mọi phép tính theo từng điểm ảnh + làm mờ): chép `source` sang `w`
+ * qua chuỗi CSS filter (sáng / tương phản / bão hoà / xoay màu / sepia / làm mờ), rồi phủ nhiệt độ
+ * màu, sắc độ (soft-light) và nâng vùng tối (nhạt màu). `w` có kích thước dw × dh, `source` cùng cỡ.
  */
-export function drawFilter(env: RenderEnv, p: FilterProps): void {
-  const k = clamp(p.intensity) * env.fade
-  if (k < 0.004 || isNeutralFilter(p)) return
-  const { ctx } = env
-  const canvas = ctx.canvas as unknown as CanvasImageSource & { width: number; height: number }
-  const dw = canvas.width
-  const dh = canvas.height
-  const unit = env.S * env.px // 1px ở khung 1080p → px thật của canvas
-
-  // 1. Chụp khung hình hiện tại (mọi lớp nằm dưới) sang canvas phụ, đồng thời chỉnh
-  //    sáng / tương phản / bão hoà / xoay màu / sepia / làm mờ trong cùng một lần vẽ
-  const work = surface(env, 'work', dw, dh)
-  const w = work.ctx
+function colorGrade(w: CanvasRenderingContext2D, source: CanvasImageSource, dw: number, dh: number, p: FilterProps, blurPx: number): void {
   w.setTransform(1, 0, 0, 1, 0, 0)
   w.globalAlpha = 1
   w.globalCompositeOperation = 'copy'
-  w.filter = cssFilterOf(p, p.blur * unit)
-  w.drawImage(canvas, 0, 0)
+  w.filter = cssFilterOf(p, blurPx)
+  w.drawImage(source, 0, 0)
   w.filter = 'none'
 
-  // 2. Nhiệt độ màu và sắc độ: phủ màu kiểu soft-light (giữ chi tiết sáng tối)
+  // Nhiệt độ màu và sắc độ: phủ màu kiểu soft-light (giữ chi tiết sáng tối)
   const tint = (color: string, amount: number): void => {
     if (Math.abs(amount) < 0.005) return
     w.globalCompositeOperation = 'soft-light'
@@ -74,31 +63,98 @@ export function drawFilter(env: RenderEnv, p: FilterProps): void {
     w.fillStyle = `rgb(${v},${v},${v})`
     w.fillRect(0, 0, dw, dh)
   }
+  w.globalCompositeOperation = 'source-over'
+  w.globalAlpha = 1
+}
 
-  // Viền tối
+/**
+ * Viền tối và hạt phim — luôn tính theo khung hình (hạt đổi 24 lần/giây theo t nên export song song
+ * vẫn khớp). `strength` nhân vào độ đậm (cường độ × hiện dần khi vẽ thẳng lên khung hình).
+ */
+function frameOverlays(env: RenderEnv, w: CanvasRenderingContext2D, p: FilterProps, dw: number, dh: number, strength: number): void {
   if (p.vignette > 0.005) {
     const r = Math.hypot(dw, dh) / 2
     const g = w.createRadialGradient(dw / 2, dh / 2, r * 0.45, dw / 2, dh / 2, r)
     g.addColorStop(0, 'rgba(0,0,0,0)')
-    g.addColorStop(1, `rgba(0,0,0,${clamp(p.vignette) * 0.85})`)
+    g.addColorStop(1, `rgba(0,0,0,${clamp(p.vignette) * 0.85 * strength})`)
     w.globalCompositeOperation = 'source-over'
     w.globalAlpha = 1
     w.fillStyle = g
     w.fillRect(0, 0, dw, dh)
   }
-
-  // Hạt phim: ô nhiễu đổi 24 lần/giây (theo thời điểm t nên export song song vẫn khớp)
   if (p.grain > 0.005) {
     const tile = grainTile(env, Math.floor(env.t * 24) % GRAIN_FRAMES)
-    const size = Math.max(64, Math.round(GRAIN_TILE * unit))
+    const size = Math.max(64, Math.round(GRAIN_TILE * env.S * env.px))
     w.globalCompositeOperation = 'overlay'
-    w.globalAlpha = clamp(p.grain) * 0.55
+    w.globalAlpha = clamp(p.grain) * 0.55 * strength
     for (let y = 0; y < dh; y += size) for (let x = 0; x < dw; x += size) w.drawImage(tile.canvas, x, y, size, size)
   }
   w.globalCompositeOperation = 'source-over'
   w.globalAlpha = 1
+}
 
-  // 3. Trộn vào khung hình theo cường độ (và hiện dần / ẩn dần của lớp)
+/** Dấu vân tay của phần bộ lọc được nướng vào ảnh (đổi → nướng lại). Viền tối, hạt phim không nằm trong ảnh nướng. */
+export function bakeSignature(p: FilterProps, dim: number): string {
+  return [p.intensity, p.brightness, p.contrast, p.saturation, p.hue, p.sepia, p.blur, p.temperature, p.tint, p.fade, dim].join(',')
+}
+
+/**
+ * "Nướng" bộ lọc vào một ảnh nền tĩnh (kích thước project W × H), làm một lần thay vì mỗi frame:
+ * dst = cường độ × lọc(ảnh gốc làm tối theo `dim`) + (1 − cường độ) × ảnh gốc làm tối.
+ * Ảnh gốc nằm dưới nên viền làm mờ để lộ ảnh gốc giống hệt cách lọc từng frame.
+ */
+export function bakeFilterInto(env: RenderEnv, dst: OffscreenSurface, src: CanvasImageSource, p: FilterProps, dim: number): void {
+  const { W, H } = env
+  const d = dst.ctx
+  d.save()
+  d.setTransform(1, 0, 0, 1, 0, 0)
+  d.globalAlpha = 1
+  d.filter = 'none'
+  d.globalCompositeOperation = 'copy'
+  d.drawImage(src, 0, 0)
+  if (dim > 0) {
+    d.globalCompositeOperation = 'source-over'
+    d.fillStyle = `rgba(0,0,0,${clamp(dim)})`
+    d.fillRect(0, 0, W, H)
+  }
+  const graded = surface(env, 'bake-work', W, H)
+  colorGrade(graded.ctx, dst.canvas, W, H, p, p.blur * env.S)
+  d.globalCompositeOperation = 'source-over'
+  d.globalAlpha = clamp(p.intensity)
+  d.drawImage(graded.canvas, 0, 0)
+  d.restore()
+}
+
+/**
+ * Lớp bộ lọc màu: chụp lại những gì đã vẽ (mọi lớp nằm dưới), chỉnh màu rồi trộn trở lại
+ * theo cường độ. Làm việc trên điểm ảnh thật của canvas nên đúng cả khi preview thu nhỏ.
+ * Khi bộ lọc đã được nướng sẵn vào ảnh nền (env.bake, xem Renderer) thì chỉ còn vẽ viền tối + hạt phim.
+ */
+export function drawFilter(env: RenderEnv, p: FilterProps): void {
+  const k = clamp(p.intensity) * env.fade
+  if (k < 0.004 || isNeutralFilter(p)) return
+  const { ctx } = env
+  const canvas = ctx.canvas as unknown as CanvasImageSource & { width: number; height: number }
+  const dw = canvas.width
+  const dh = canvas.height
+
+  const bake = env.bake
+  if (bake && bake.filterId === env.layerId && !bake.failed) {
+    if (p.vignette <= 0.005 && p.grain <= 0.005) return
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.filter = 'none'
+    frameOverlays(env, ctx, p, dw, dh, k)
+    ctx.restore()
+    return
+  }
+
+  // 1. Chụp khung hình hiện tại (mọi lớp nằm dưới) sang canvas phụ, chỉnh màu trên đó
+  const work = surface(env, 'work', dw, dh)
+  colorGrade(work.ctx, canvas, dw, dh, p, p.blur * env.S * env.px)
+  frameOverlays(env, work.ctx, p, dw, dh, 1)
+
+  // 2. Trộn vào khung hình theo cường độ (và hiện dần / ẩn dần của lớp)
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.globalCompositeOperation = 'source-over'

@@ -1,4 +1,4 @@
-import type { Project } from '../shared/types'
+import type { FilterProps, Project } from '../shared/types'
 import type { Timeline, TimelineEntry } from '../shared/timeline'
 import type { AudioSampler } from './audio'
 
@@ -53,6 +53,25 @@ export interface RenderEnv {
   editLayerId: string | null
   /** Khung bao của từng layer ở frame vừa vẽ (để chọn / kéo thả trên preview) */
   bounds: Map<string, Rect>
+  /**
+   * Bộ lọc màu đã "nướng" sẵn vào ảnh nền ở frame này (chỉ có khi đang vẽ các lớp nền nằm dưới
+   * bộ lọc và chính lớp bộ lọc đó), null nếu không.
+   */
+  bake: FilterBake | null
+}
+
+/**
+ * Bộ lọc màu chỉ tác động lên các lớp nền tĩnh (ảnh, ảnh bìa, màu, gradient): các phép chỉnh màu
+ * được làm một lần trên ảnh nền rồi dùng lại mỗi frame, lớp bộ lọc chỉ còn vẽ viền tối + hạt phim.
+ */
+export interface FilterBake {
+  /** Layer bộ lọc */
+  filterId: string
+  props: FilterProps
+  /** Độ hiện của lớp bộ lọc ở frame này (hiện dần / ẩn dần) */
+  fade: number
+  /** Lớp nền lỡ vẽ nội dung chưa lọc → lớp bộ lọc quay về cách lọc từng frame */
+  failed: boolean
 }
 
 /** Ghi lại khung bao (vị trí bố cục, không tính hiệu ứng nảy/rung) của layer đang vẽ */
