@@ -4,7 +4,7 @@ import { entryAt } from '../../../shared/timeline'
 import { formatTime } from '../../../shared/time'
 import { assets, features, player } from '../engineHost'
 import { useTimeline } from '../hooks'
-import { useStore } from '../store'
+import { PREVIEW_QUALITY_SCALE, useStore, type PreviewQuality } from '../store'
 import { Stage } from './Stage'
 import { Icon, IconButton } from './ui'
 
@@ -20,7 +20,9 @@ export function PreviewPanel(): ReactNode {
   const trackStatus = useStore((s) => s.trackStatus)
   const timeline = useTimeline()
   const { width: W, height: H } = project.settings
-  const scale = Math.min(1, PREVIEW_MAX / Math.max(W, H))
+  const quality = useStore((s) => s.previewQuality)
+  // Độ nét preview: máy yếu chọn Vừa / Thấp để phát mượt (video xuất ra luôn đủ nét)
+  const scale = Math.min(1, PREVIEW_MAX / Math.max(W, H)) * PREVIEW_QUALITY_SCALE[quality]
 
   const sampler = useMemo(() => new AudioSampler(timeline, (k) => features.get(k)), [timeline, featuresVersion])
   const selectedLayerId = useStore((s) => s.selectedLayerId)
@@ -134,6 +136,17 @@ export function PreviewPanel(): ReactNode {
           <span className="chip">
             {W}×{H} · {project.settings.fps}fps
           </span>
+          <select
+            className="chip chip-select"
+            value={quality}
+            onChange={(e) => useStore.getState().setPreviewQuality(e.target.value as PreviewQuality)}
+            title="Độ nét preview — giảm để phát mượt trên máy yếu; không ảnh hưởng video xuất ra"
+            aria-label="Độ nét preview"
+          >
+            <option value="high">Preview nét</option>
+            <option value="medium">Preview ½</option>
+            <option value="low">Preview ¼</option>
+          </select>
         </span>
       </div>
     </section>

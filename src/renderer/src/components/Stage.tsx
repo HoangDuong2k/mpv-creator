@@ -84,7 +84,8 @@ export function Stage({
     const r = e.currentTarget.getBoundingClientRect()
     return { x: (e.clientX - r.left) / d, y: (e.clientY - r.top) / d }
   }
-  const movableSelected = selected && isMovable(selected) ? selected : null
+  // Lớp đang khoá: vẫn chọn được (từ danh sách / timeline) nhưng không kéo, không đổi kích thước
+  const movableSelected = selected && isMovable(selected) && !selected.locked ? selected : null
   const handleAt = (p: { x: number; y: number }): Handle | null => {
     if (!movableSelected || !box) return null
     for (const h of handlesFor(movableSelected)) {
@@ -154,6 +155,7 @@ export function Stage({
     const wh = timeline.total >= 3600
     hint = `“${selected.name}” chỉ hiện từ ${formatTimePrecise(r.start, wh)} đến ${selected.timing.end === null ? 'hết video' : formatTimePrecise(r.end, wh)} — kéo đầu phát vào khoảng đó để chỉnh trên khung hình`
   } else if (!isMovable(selected)) hint = `“${LAYER_LABELS[selected.type]}” phủ toàn khung hình — chỉnh màu, độ mạnh… ở bảng bên phải`
+  else if (selected.locked) hint = `“${selected.name}” đang khoá — bấm biểu tượng ổ khoá ở timeline hoặc danh sách lớp để mở khoá rồi kéo`
   else hint = 'Kéo để di chuyển · kéo ô vuông để đổi kích thước · giữ Shift để không bắt dính · nhấp đúp để phát / dừng'
 
   return (
@@ -170,6 +172,7 @@ export function Stage({
           onDoubleClick={onTogglePlay}
           data-testid="stage-overlay"
         >
+          {selected?.locked && isMovable(selected) && box && <div className="sel-box locked" style={{ left: box.x * d, top: box.y * d, width: box.w * d, height: box.h * d }} />}
           {movableSelected && box && (
             <div className="sel-box" style={{ left: box.x * d, top: box.y * d, width: box.w * d, height: box.h * d }}>
               {handlesFor(movableSelected).map((h) => {

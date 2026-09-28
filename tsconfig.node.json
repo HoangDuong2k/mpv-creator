@@ -22,6 +22,7 @@
     "src/renderer/src/editing.ts",
     "src/renderer/src/fields.ts",
     "src/renderer/src/timelineModel.ts",
+    "src/renderer/src/store.ts",
     "scripts/**/*",
     "tests/**/*"
   ]

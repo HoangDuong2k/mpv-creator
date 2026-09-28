@@ -391,6 +391,12 @@ h3 {
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.12);
   pointer-events: none;
 }
+/* Lớp đang khoá: chỉ viền nét đứt, không có ô kéo */
+.sel-box.locked {
+  border-style: dashed;
+  box-shadow: none;
+  opacity: 0.75;
+}
 .handle {
   position: absolute;
   width: 11px;
@@ -493,12 +499,30 @@ h3 {
   background: #232837;
   color: var(--muted);
   font-size: 11px;
+  white-space: nowrap;
 }
 .chip.ok {
   color: var(--ok);
 }
 .chip.error {
   color: var(--err);
+}
+/* Ô chọn độ nét preview trông như một chip */
+.chip-select {
+  width: auto;
+  min-height: 0;
+  appearance: none;
+  border: none;
+  padding-right: 18px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  background: #232837
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%23a8b0c2'/%3E%3C/svg%3E")
+    no-repeat right 7px center;
+}
+.chip-select:hover {
+  color: var(--text, #e6e9f0);
 }
 
 /* ---------- Lớp & thuộc tính ---------- */
@@ -570,6 +594,13 @@ h3 {
 .layer-actions {
   display: flex;
   opacity: 0;
+}
+/* Khoảng thời gian của từng đoạn (sau khi tách thanh) */
+.layer-range {
+  flex: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 .layer:hover .layer-actions,
 .layer.selected .layer-actions {
@@ -1066,6 +1097,55 @@ textarea.chapters {
   border-radius: 2px;
   background: var(--c, #888);
 }
+/* Chấm màu đầu hàng là nút: bấm để đổi màu hàng */
+button.tl-dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+button.tl-dot:hover {
+  outline: 2px solid color-mix(in srgb, var(--c, #888) 55%, transparent);
+  outline-offset: 1px;
+}
+.tl-head-tools {
+  display: flex;
+  align-items: center;
+}
+.tl-palette {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: #1b2030;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.tl-palette .swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.tl-palette .swatch.on {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+.tl-palette .swatch.reset {
+  background: #2a3142;
+  color: #cfd6e4;
+  font-size: 12px;
+  line-height: 16px;
+}
+.tl-hint.tl-multi {
+  color: var(--accent);
+}
 .tl-lane {
   position: relative;
   flex: none;
@@ -1093,6 +1173,19 @@ textarea.chapters {
   border-color: #fff;
   box-shadow: 0 0 0 1px #fff, 0 0 14px color-mix(in srgb, var(--c, #888) 60%, transparent);
   z-index: 1;
+}
+/* Lớp đang khoá: sọc chéo, không kéo được */
+.tl-clip.locked {
+  border-style: dashed;
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255, 255, 255, 0.07) 6px 12px);
+  cursor: not-allowed;
+}
+.tl-clip.off {
+  opacity: 0.35;
+}
+.tl-label .icon {
+  flex: none;
+  opacity: 0.8;
 }
 .tl-label {
   position: sticky;

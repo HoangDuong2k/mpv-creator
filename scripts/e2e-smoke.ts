@@ -22,7 +22,7 @@ interface Probe {
       getState(): {
         project: {
           tracks: Array<{ title: string; trimStart: number; trimEnd: number }>
-          layers: Array<{ type: string; name: string; timing: { start: number; end: number | null }; props: Record<string, unknown> }>
+          layers: Array<{ id: string; type: string; name: string; row?: string; locked?: boolean; color?: string; timing: { start: number; end: number | null }; props: Record<string, unknown> }>
         }
       }
     }
@@ -315,6 +315,72 @@ async function main(): Promise<void> {
     await page.locator('.timeline').focus()
     await page.keyboard.press('Control+z')
     assert(await until(async () => (await state()).layers.find((l) => l.type === 'flicker')!.timing.start === 0), 'Ctrl+Z trả lại thanh flicker')
+
+    // Tách thanh flicker tại đầu phát (Ctrl+B) → hai đoạn nằm chung một hàng
+    const flickers = async (): Promise<Array<{ id: string; row?: string; locked?: boolean; color?: string; timing: { start: number; end: number | null } }>> =>
+      (await state()).layers.filter((l) => l.type === 'flicker')
+    const flickRow = page.locator('.tl-row', { has: page.locator('.tl-clip.t-flicker') })
+    const rulerBox = await boxOf(page.locator('.tl-ruler'))
+    const seekAt = async (frac: number): Promise<void> => {
+      const full = await boxOf(page.locator('.tl-clip.t-audio').last())
+      const first = await boxOf(page.locator('.tl-clip.t-audio').first())
+      await page.mouse.click(first.x + (full.x + full.width - first.x) * frac, rulerBox.y + rulerBox.height / 2)
+    }
+    await seekAt(0.4)
+    await page.keyboard.press('Control+b')
+    assert(await until(async () => (await flickers()).length === 2), 'Ctrl+B tách thanh flicker tại đầu phát')
+    const [fA, fB] = await flickers()
+    assert(
+      !!fA.row && fA.row === fB.row && fA.timing.end !== null && Math.abs(fA.timing.end - fB.timing.start) < 0.02 && fB.timing.end === null && (await flickRow.count()) === 1 && (await flickRow.locator('.tl-clip').count()) === 2,
+      `hai đoạn nằm chung một hàng (${fA.timing.start}–${fA.timing.end}s, ${fB.timing.start}s–hết video)`
+    )
+    // Ctrl + nhấp chọn thêm đoạn trước → kéo một thanh dời cả nhóm
+    const flickBoxes = async (): Promise<Array<{ x: number; y: number; width: number; height: number }>> =>
+      [await boxOf(flickRow.locator('.tl-clip').nth(0)), await boxOf(flickRow.locator('.tl-clip').nth(1))].sort((a, b) => a.x - b.x)
+    const selectedIds = async (): Promise<string[]> => (await page.evaluate('window.__pvm.store.getState().selectedLayerIds')) as string[]
+    let [leftBox] = await flickBoxes()
+    await page.keyboard.down('Control')
+    await page.mouse.click(leftBox.x + leftBox.width / 2, leftBox.y + leftBox.height / 2)
+    await page.keyboard.up('Control')
+    assert(await until(async () => (await selectedIds()).length === 2), 'Ctrl + nhấp chọn thêm đoạn thứ hai')
+    const starts0 = (await flickers()).map((l) => l.timing.start)
+    ;[leftBox] = await flickBoxes()
+    await dragBy({ ...leftBox, x: leftBox.x + leftBox.width / 2 - 20, width: 40 }, 80)
+    const starts1 = (await flickers()).map((l) => l.timing.start)
+    const dA = starts1[0] - starts0[0]
+    assert(dA > 1 && Math.abs(dA - (starts1[1] - starts0[1])) < 0.02, `kéo một thanh dời cả nhóm (+${dA.toFixed(2)}s mỗi đoạn)`)
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await flickers())[0].timing.start === starts0[0]), 'Ctrl+Z trả lại cả nhóm')
+    // Chép cả nhóm, dán ở đầu video
+    await page.keyboard.press('Control+c')
+    await seekAt(0.05)
+    await page.keyboard.press('Control+v')
+    assert(await until(async () => (await flickers()).length === 4), 'Ctrl+C / Ctrl+V chép và dán cả nhóm tại đầu phát')
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await flickers()).length === 2), 'Ctrl+Z bỏ lần dán')
+    // Khoá hàng flicker: không kéo, không xoá được
+    await flickRow.locator('.tl-head').getByRole('button', { name: /^Khoá lớp/ }).click()
+    assert(await until(async () => (await flickers()).every((l) => l.locked)), 'khoá hàng flicker')
+    const lockedStarts = (await flickers()).map((l) => l.timing.start)
+    ;[leftBox] = await flickBoxes()
+    await dragBy({ ...leftBox, x: leftBox.x + leftBox.width / 2 - 20, width: 40 }, 80)
+    await page.keyboard.press('Delete')
+    await page.waitForTimeout(200)
+    const fl = await flickers()
+    assert(fl.length === 2 && fl.every((l, i) => l.timing.start === lockedStarts[i]), 'lớp đang khoá không kéo, không xoá được')
+    await flickRow.locator('.tl-head').getByRole('button', { name: /^Đang khoá/ }).click()
+    assert(await until(async () => (await flickers()).every((l) => !l.locked)), 'mở khoá hàng flicker')
+    // Đổi màu hàng
+    await flickRow.locator('.tl-dot').click()
+    await page.locator('.tl-palette .swatch').nth(1).click()
+    assert(await until(async () => (await flickers()).every((l) => l.color === '#81c784')), 'đổi màu hàng flicker')
+    await page.screenshot({ path: join(OUT, '5b-timeline-split.png') })
+    // Preview nhẹ cho máy yếu
+    const canvasW = (): Promise<number> => page.locator('.stage-canvas').evaluate((c) => (c as HTMLCanvasElement).width)
+    await page.locator('select.chip-select').selectOption('low')
+    assert(await until(async () => (await canvasW()) === 480), 'preview nhẹ (¼): canvas 480px')
+    await page.locator('select.chip-select').selectOption('high')
+    assert(await until(async () => (await canvasW()) === 1920), 'preview nét trở lại 1920px')
 
     // Nút Đăng ký: kéo lần hiện tự động → thành mốc tự chỉnh
     await page.locator('.layer', { hasText: 'Đăng ký / Like' }).click()

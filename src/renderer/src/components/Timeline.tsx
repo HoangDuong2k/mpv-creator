@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -37,23 +38,33 @@ import {
   dragRange,
   fitZoom,
   formatTick,
+  groupDeltaRange,
   insertionIndex,
   layerRange,
   moveAppearance,
   removeAppearance,
+  rowBounds,
   snapCandidates,
   snapTime,
   tickStep,
-  type RangePart
+  timelineRows,
+  type RangeBounds,
+  type RangePart,
+  type TimelineRow
 } from '../timelineModel'
+import { deleteSelection, splitAtPlayhead } from '../timelineActions'
 import { Icon, IconButton } from './ui'
 
 const SNAP_PX = 8
 const HEIGHT_KEY = 'pvm.timelineHeight'
 
+/** Màu chọn cho hàng / thanh trên timeline */
+export const ROW_COLORS = ['#4fc3f7', '#81c784', '#ffb74d', '#e57373', '#ba68c8', '#f06292', '#fff176', '#90a4ae']
+
 type Session =
   | { kind: 'seek' }
-  | { kind: 'layer'; part: RangePart; layerId: string; t0: number; timing0: LayerTiming; key: string }
+  | { kind: 'layer'; part: RangePart; layerId: string; t0: number; timing0: LayerTiming; bounds: RangeBounds; key: string }
+  | { kind: 'group'; layerId: string; ids: string[]; t0: number; timings0: Record<string, LayerTiming>; range: RangeBounds; key: string; moved: boolean }
   | { kind: 'cta'; part: 'move' | 'dur'; layerId: string; index: number; t0: number; starts0: number[]; key: string }
   | { kind: 'track-move'; from: number; x0: number; grab: number; moved: boolean; to: number }
   | { kind: 'track-trim'; side: 'start' | 'end'; trackId: string; t0: number; entry: TimelineEntry; value: number | null }
@@ -85,6 +96,7 @@ function seekTo(t: number): void {
 export function Timeline(): ReactNode {
   const layers = useStore((s) => s.project.layers)
   const selectedLayerId = useStore((s) => s.selectedLayerId)
+  const selectedLayerIds = useStore((s) => s.selectedLayerIds)
   const selectedTrackId = useStore((s) => s.selectedTrackId)
   const selectedCta = useStore((s) => s.selectedCta)
   const featuresVersion = useStore((s) => s.featuresVersion)
@@ -112,7 +124,8 @@ export function Timeline(): ReactNode {
   const pendingScroll = useRef<number | null>(null)
   const laneViewW = Math.max(100, view.w - HEAD_W)
   const laneW = Math.max(laneViewW, displayTotal * zoom + 240)
-  const rows = useMemo(() => [...layers].reverse(), [layers])
+  const rows = useMemo(() => timelineRows(layers), [layers])
+  const selectedSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds])
 
   // Đo bề ngang và theo dõi cuộn ngang
   useEffect(() => {
@@ -131,7 +144,7 @@ export function Timeline(): ReactNode {
   // Chọn một lớp (ở danh sách, preview hay timeline) → cuộn cho hàng của nó hiện ra, không bị hàng nhạc ghim ở đáy che
   useEffect(() => {
     const el = scrollRef.current
-    const idx = selectedLayerId ? useStore.getState().project.layers.length - 1 - useStore.getState().project.layers.findIndex((l) => l.id === selectedLayerId) : -1
+    const idx = selectedLayerId ? rows.findIndex((r) => r.layers.some((l) => l.id === selectedLayerId)) : -1
     if (!el || idx < 0 || idx >= rows.length) return
     const top = RULER_H + idx * ROW_H
     const bottom = top + ROW_H
@@ -243,8 +256,31 @@ export function Timeline(): ReactNode {
       case 'layer': {
         const layer = st.project.layers.find((l) => l.id === d.id)
         if (!layer) return
+        // Ctrl / Shift + nhấp: thêm / bớt thanh khỏi nhóm đang chọn
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+          st.toggleLayerSelection(layer.id)
+          return
+        }
+        const inGroup = d.part === 'move' && st.selectedLayerIds.length > 1 && st.selectedLayerIds.includes(layer.id)
+        if (layer.locked) {
+          if (!inGroup) st.selectLayer(layer.id)
+          setVisual({ snapT: null, tip: { t, text: 'Lớp đang khoá — bấm biểu tượng ổ khoá ở đầu hàng để mở' } })
+          return
+        }
+        if (inGroup) {
+          // Kéo cả nhóm: bỏ qua lớp khoá và nút Đăng ký (có lịch hiện riêng)
+          const ids = st.selectedLayerIds.filter((id) => {
+            const l = st.project.layers.find((x) => x.id === id)
+            return l && !l.locked && l.type !== 'cta'
+          })
+          const timings0 = Object.fromEntries(ids.map((id) => [id, { ...st.project.layers.find((l) => l.id === id)!.timing }]))
+          const range = groupDeltaRange(st.project.layers, ids, total)
+          session.current = { kind: 'group', layerId: layer.id, ids, t0: t, timings0, range, key, moved: false }
+          break
+        }
         st.selectLayer(layer.id)
-        session.current = { kind: 'layer', part: d.part as RangePart, layerId: layer.id, t0: t, timing0: { ...layer.timing }, key }
+        const bounds = rowBounds(st.project.layers, layer.id, total)
+        session.current = { kind: 'layer', part: d.part as RangePart, layerId: layer.id, t0: t, timing0: { ...layer.timing }, bounds, key }
         break
       }
       case 'cta': {
@@ -304,7 +340,7 @@ export function Timeline(): ReactNode {
           value = sn.t
           snapped = sn.snapped
         }
-        const patch = dragRange(s.part, s.timing0, total, value)
+        const patch = dragRange(s.part, s.timing0, total, value, s.bounds)
         st.setLayerTiming(s.layerId, patch, s.key)
         const next = { ...s.timing0, ...patch }
         const r = layerRange(next, total)
@@ -316,6 +352,30 @@ export function Timeline(): ReactNode {
           fadeOut: { t: r.end - next.fadeOut, text: `Ẩn dần ${next.fadeOut.toFixed(1)}s` }
         }
         setVisual({ snapT: snapped, tip: tips[s.part] })
+        return
+      }
+      case 'group': {
+        // Dời cả nhóm theo thanh đang nắm: bắt dính mép của nó, cùng một độ dời cho mọi thanh
+        const r = layerRange(s.timings0[s.layerId], total)
+        const cands = snapCandidates(layersNow, tl, player.time(), { layerIds: new Set(s.ids) })
+        let dlt = t - s.t0
+        if (!s.moved && Math.abs(dlt * zoomRef.current) < 3) return
+        s.moved = true
+        const a = snapTime(r.start + dlt, cands, thr)
+        const b = s.timings0[s.layerId].end === null ? { t: r.end + dlt, snapped: null } : snapTime(r.end + dlt, cands, thr)
+        let snapped: number | null = null
+        if (a.snapped !== null && (b.snapped === null || Math.abs(a.t - (r.start + dlt)) <= Math.abs(b.t - (r.end + dlt)))) {
+          dlt = a.t - r.start
+          snapped = a.snapped
+        } else if (b.snapped !== null) {
+          dlt = b.t - r.end
+          snapped = b.snapped
+        }
+        const d = clamp(dlt, s.range.min, s.range.max)
+        if (d !== dlt) snapped = null
+        const patches = Object.fromEntries(s.ids.map((id) => [id, dragRange('move', s.timings0[id], total, d)]))
+        st.setLayersTiming(patches, s.key)
+        setVisual({ snapT: snapped, tip: { t: r.start + d, text: `Dời ${s.ids.length} lớp ${d >= 0 ? '+' : '−'}${formatTimePrecise(Math.abs(d), withHours)}` } })
         return
       }
       case 'cta': {
@@ -366,6 +426,8 @@ export function Timeline(): ReactNode {
     const s = session.current
     session.current = null
     const st = useStore.getState()
+    // Nhấp (không kéo) vào một thanh trong nhóm: chỉ chọn thanh đó
+    if (s?.kind === 'group' && !s.moved) st.selectLayer(s.layerId)
     if (s?.kind === 'track-move' && s.moved && s.to !== s.from) st.moveTrack(s.from, s.to)
     if (s?.kind === 'track-trim' && s.value !== null) {
       const cur = s.side === 'start' ? s.entry.track.trimStart : s.entry.track.trimEnd
@@ -399,10 +461,19 @@ export function Timeline(): ReactNode {
     }
   }
 
-  /** Delete / Backspace: xoá mục đang chọn trên timeline */
+  /** Delete / Backspace: xoá mục đang chọn · Ctrl+A: chọn mọi thanh · Esc: bỏ chọn nhóm */
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if (e.key !== 'Delete' && e.key !== 'Backspace') return
     const st = useStore.getState()
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault()
+      st.selectLayers(st.project.layers.filter((l) => l.type !== 'cta').map((l) => l.id))
+      return
+    }
+    if (e.key === 'Escape' && st.selectedLayerIds.length > 1) {
+      st.selectLayer(st.selectedLayerId)
+      return
+    }
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return
     if (st.selectedCta) {
       const layer = st.project.layers.find((l) => l.id === st.selectedCta!.layerId)
       if (layer?.type === 'cta') {
@@ -411,8 +482,7 @@ export function Timeline(): ReactNode {
         st.selectCta(null)
       }
     } else if (st.selectedTrackId) st.removeTrack(st.selectedTrackId)
-    else if (st.selectedLayerId) st.removeLayer(st.selectedLayerId)
-    else return
+    else if (!deleteSelection()) return
     e.preventDefault()
   }
 
@@ -449,8 +519,18 @@ export function Timeline(): ReactNode {
           <span ref={timeRef}>0:00</span>
           <span className="muted"> / {formatTime(total, withHours)}</span>
         </span>
-        <span className="tl-hint muted">Kéo khối để dời · kéo mép để đổi thời gian · Ctrl + lăn chuột để zoom · Delete để xoá · nhấp đúp hàng Đăng ký để thêm lần hiện</span>
+        {selectedLayerIds.length > 1 ? (
+          <span className="tl-hint tl-multi">
+            Đang chọn {selectedLayerIds.length} thanh · kéo một thanh để dời cả nhóm · Ctrl+C chép · Delete xoá · Esc bỏ chọn
+          </span>
+        ) : (
+          <span className="tl-hint muted">
+            Kéo khối để dời · kéo mép để đổi thời gian · Ctrl+B tách tại đầu phát · Ctrl/Shift + nhấp để chọn nhiều · Ctrl+C / Ctrl+V chép, dán · Ctrl + lăn chuột để zoom · Delete để xoá
+          </span>
+        )}
         <span className="tl-tools">
+          <IconButton icon="split" title="Tách thanh đang chọn tại đầu phát (Ctrl+B)" onClick={splitAtPlayhead} size={16} />
+          <span className="sep" />
           <IconButton icon="magnet" title={snapOn ? 'Bắt dính: bật (giữ Shift để tạm tắt)' : 'Bắt dính: tắt'} onClick={() => setSnapOn(!snapOn)} active={snapOn} size={16} />
           <span className="sep" />
           <IconButton icon="zoomOut" title="Thu nhỏ" onClick={() => zoomTo(zoom / 1.5)} size={16} />
@@ -494,18 +574,22 @@ export function Timeline(): ReactNode {
             </div>
             <Ruler zoom={zoom} left={view.left} viewW={laneViewW} laneW={laneW} withHours={withHours} knobRef={knobRef} tip={visual?.tip ?? null} />
           </div>
-          {rows.map((layer) => (
-            <LayerRow
-              key={layer.id}
-              layer={layer}
-              zoom={zoom}
-              total={total}
-              laneW={laneW}
-              selected={layer.id === selectedLayerId && !selectedTrackId}
-              ctaIndex={selectedCta?.layerId === layer.id ? selectedCta.index : null}
-              starts={layer.type === 'cta' ? ctaStartTimes(layer.props as CtaProps, tl) : null}
-            />
-          ))}
+          {rows.map((row) => {
+            const head = row.layers[0]
+            return (
+              <LayerRow
+                key={row.key}
+                row={row}
+                zoom={zoom}
+                total={total}
+                laneW={laneW}
+                selIds={selectedTrackId ? '' : row.layers.filter((l) => selectedSet.has(l.id)).map((l) => l.id).join(',')}
+                primaryId={!selectedTrackId && row.layers.some((l) => l.id === selectedLayerId) ? selectedLayerId : null}
+                ctaIndex={selectedCta?.layerId === head.id ? selectedCta.index : null}
+                starts={head.type === 'cta' ? ctaStartTimes(head.props as CtaProps, tl) : null}
+              />
+            )
+          })}
           <AudioRow
             entries={tl.entries}
             zoom={zoom}
@@ -572,33 +656,76 @@ const Ruler = memo(function Ruler({
   )
 })
 
+/** Màu riêng của lớp (nếu có) → biến CSS --c của thanh / chấm màu */
+function colorStyle(color: string | undefined): CSSProperties | undefined {
+  return color ? ({ '--c': color } as CSSProperties) : undefined
+}
+
 const LayerRow = memo(function LayerRow({
-  layer,
+  row,
   zoom,
   total,
   laneW,
-  selected,
+  selIds,
+  primaryId,
   ctaIndex,
   starts
 }: {
-  layer: Layer
+  row: TimelineRow
   zoom: number
   total: number
   laneW: number
-  selected: boolean
+  /** Id các lớp đang chọn trong hàng, nối bằng dấu phẩy (chuỗi để memo so sánh được) */
+  selIds: string
+  primaryId: string | null
   ctaIndex: number | null
   starts: number[] | null
 }): ReactNode {
-  const { selectLayer, toggleLayer } = useStore.getState()
+  const { selectLayer, toggleLayerSelection, setLayersEnabled, setLayersLocked } = useStore.getState()
+  const [palette, setPalette] = useState<{ x: number; y: number } | null>(null)
+  const closePalette = useCallback(() => setPalette(null), [])
+  const layer = row.layers[0]
+  const ids = row.layers.map((l) => l.id)
+  const selected = selIds ? new Set(selIds.split(',')) : null
+  const enabled = row.layers.some((l) => l.enabled)
+  const locked = row.layers.every((l) => l.locked)
+  const parts = row.layers.length
   return (
-    <div className={`tl-row${selected ? ' selected' : ''}${layer.enabled ? '' : ' off'}`} style={{ height: ROW_H }}>
-      <div className="tl-head" style={{ width: HEAD_W }} onClick={() => selectLayer(layer.id)} title={LAYER_LABELS[layer.type]}>
-        <span className={`tl-dot t-${layer.type}`} />
-        <span className="tl-name">{layer.name}</span>
-        <span onClick={(e) => e.stopPropagation()}>
-          <IconButton icon={layer.enabled ? 'eye' : 'eyeOff'} title={layer.enabled ? 'Ẩn lớp' : 'Hiện lớp'} onClick={() => toggleLayer(layer.id)} size={14} />
+    <div className={`tl-row${selected ? ' selected' : ''}${enabled ? '' : ' off'}`} style={{ height: ROW_H }}>
+      <div
+        className="tl-head"
+        style={{ width: HEAD_W }}
+        onClick={(e) => (e.ctrlKey || e.metaKey || e.shiftKey ? toggleLayerSelection(layer.id) : selectLayer(layer.id))}
+        title={parts > 1 ? `${LAYER_LABELS[layer.type]} · ${parts} đoạn` : LAYER_LABELS[layer.type]}
+      >
+        <button
+          type="button"
+          className={`tl-dot t-${layer.type}`}
+          style={colorStyle(layer.color)}
+          title="Đổi màu hàng"
+          aria-label="Đổi màu hàng"
+          onClick={(e) => {
+            e.stopPropagation()
+            const r = e.currentTarget.getBoundingClientRect()
+            setPalette(palette ? null : { x: r.left, y: r.bottom + 4 })
+          }}
+        />
+        <span className="tl-name">
+          {layer.name}
+          {parts > 1 && <small className="muted"> ×{parts}</small>}
+        </span>
+        <span className="tl-head-tools" onClick={(e) => e.stopPropagation()}>
+          <IconButton
+            icon={locked ? 'lock' : 'lockOpen'}
+            title={locked ? 'Đang khoá — bấm để mở khoá' : 'Khoá lớp (không kéo, tách, xoá nhầm)'}
+            onClick={() => setLayersLocked(ids, !locked)}
+            active={locked}
+            size={14}
+          />
+          <IconButton icon={enabled ? 'eye' : 'eyeOff'} title={enabled ? 'Ẩn lớp' : 'Hiện lớp'} onClick={() => setLayersEnabled(ids, !enabled)} size={14} />
         </span>
       </div>
+      {palette && <RowPalette at={palette} ids={ids} current={layer.color} onClose={closePalette} />}
       <div className="tl-lane" data-hit="lane" data-row={layer.id} style={{ width: laneW }}>
         {layer.type === 'cta' && starts ? (
           starts.map((s, i) => {
@@ -608,7 +735,7 @@ const LayerRow = memo(function LayerRow({
               <div
                 key={`${i}-${s}`}
                 className={`tl-clip t-cta${auto ? ' auto' : ''}${ctaIndex === i ? ' selected' : ''}`}
-                style={{ left: s * zoom, width: Math.max(8, dur * zoom) }}
+                style={{ left: s * zoom, width: Math.max(8, dur * zoom), ...colorStyle(layer.color) }}
                 data-hit="cta"
                 data-id={layer.id}
                 data-index={i}
@@ -621,27 +748,67 @@ const LayerRow = memo(function LayerRow({
             )
           })
         ) : (
-          <LayerClip layer={layer} zoom={zoom} total={total} selected={selected} />
+          row.layers.map((l) => <LayerClip key={l.id} layer={l} zoom={zoom} total={total} selected={!!selected?.has(l.id)} primary={l.id === primaryId} />)
         )}
       </div>
     </div>
   )
 })
 
-function LayerClip({ layer, zoom, total, selected }: { layer: Layer; zoom: number; total: number; selected: boolean }): ReactNode {
+/** Bảng chọn màu cho hàng (vị trí cố định theo màn hình để không bị khung cuộn của timeline cắt mất) */
+function RowPalette({ at, ids, current, onClose }: { at: { x: number; y: number }; ids: string[]; current: string | undefined; onClose: () => void }): ReactNode {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onDown = (e: globalThis.PointerEvent): void => {
+      if (!ref.current?.contains(e.target as Node)) onClose()
+    }
+    // Đăng ký sau nhịp hiện tại để cú nhấp mở bảng không đóng nó ngay
+    const id = setTimeout(() => window.addEventListener('pointerdown', onDown), 0)
+    return () => {
+      clearTimeout(id)
+      window.removeEventListener('pointerdown', onDown)
+    }
+  }, [onClose])
+  const pick = (c: string | undefined): void => {
+    useStore.getState().setLayersColor(ids, c)
+    onClose()
+  }
+  const y = Math.min(at.y, window.innerHeight - 60)
+  return (
+    <div className="tl-palette" ref={ref} style={{ left: at.x, top: y }} role="menu" aria-label="Màu hàng">
+      {ROW_COLORS.map((c) => (
+        <button type="button" key={c} className={`swatch${current === c ? ' on' : ''}`} style={{ background: c }} title={c} aria-label={c} onClick={() => pick(c)} />
+      ))}
+      <button type="button" className={`swatch reset${current ? '' : ' on'}`} title="Màu mặc định theo loại lớp" onClick={() => pick(undefined)}>
+        ↺
+      </button>
+    </div>
+  )
+}
+
+function LayerClip({ layer, zoom, total, selected, primary }: { layer: Layer; zoom: number; total: number; selected: boolean; primary: boolean }): ReactNode {
   const { start, end } = layerRange(layer.timing, total > 0 ? total : 60)
   const w = Math.max(4, (end - start) * zoom)
   const fi = Math.min(w, layer.timing.fadeIn * zoom)
   const fo = Math.min(w, layer.timing.fadeOut * zoom)
   const part = (p: RangePart): { 'data-hit': string; 'data-id': string; 'data-part': string } => ({ 'data-hit': 'layer', 'data-id': layer.id, 'data-part': p })
+  const locked = !!layer.locked
   return (
-    <div className={`tl-clip t-${layer.type}${selected ? ' selected' : ''}`} style={{ left: start * zoom, width: w }} {...part('move')}>
+    <div
+      className={`tl-clip t-${layer.type}${selected ? ' selected' : ''}${locked ? ' locked' : ''}${layer.enabled ? '' : ' off'}`}
+      style={{ left: start * zoom, width: w, ...colorStyle(layer.color) }}
+      {...part('move')}
+      title={locked ? `${layer.name} — đang khoá` : undefined}
+    >
       {fi > 0 && <div className="tl-fade in" style={{ width: fi }} />}
       {fo > 0 && <div className="tl-fade out" style={{ width: fo }} />}
-      <span className="tl-label">{layer.name}</span>
-      <div className="tl-edge l" {...part('start')} title="Kéo để đổi thời điểm bắt đầu" />
-      <div className="tl-edge r" {...part('end')} title="Kéo để đổi thời điểm kết thúc" />
-      {selected && w > 40 && (
+      <span className="tl-label">
+        {locked && <Icon name="lock" size={11} />}
+        {layer.name}
+      </span>
+      {!locked && <div className="tl-edge l" {...part('start')} title="Kéo để đổi thời điểm bắt đầu" />}
+      {!locked && <div className="tl-edge r" {...part('end')} title="Kéo để đổi thời điểm kết thúc" />}
+      {primary && !locked && w > 40 && (
         <>
           {/* Núm hiện/ẩn dần luôn cách mép ≥ 12px để không che tay nắm kéo mép */}
           <div className="tl-fadeknob" style={{ left: Math.max(fi, 12) }} {...part('fadeIn')} title="Kéo để hiện dần" />

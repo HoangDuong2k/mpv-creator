@@ -153,11 +153,12 @@ export function applyDrag(layer: Layer, s: DragSession, px: number, py: number, 
 /**
  * Layer trên cùng chứa điểm (x, y). Layer phủ gần kín khung (hạt bay toàn màn hình…) không bắt nhấp chuột —
  * nếu không, nhấp vào chỗ trống sẽ luôn chọn nhầm nó; chọn các layer đó qua danh sách lớp hoặc timeline.
+ * Layer đang khoá cũng bỏ qua (nhấp xuyên qua nó tới layer bên dưới).
  */
 export function hitTest(layers: Layer[], bounds: Map<string, Rect>, x: number, y: number, W: number, H: number): Layer | null {
   for (let i = layers.length - 1; i >= 0; i--) {
     const l = layers[i]
-    if (!l.enabled || !isMovable(l)) continue
+    if (!l.enabled || l.locked || !isMovable(l)) continue
     const b = bounds.get(l.id)
     if (!b || x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) continue
     if (b.w * b.h > W * H * 0.9) continue

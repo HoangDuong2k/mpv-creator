@@ -1,7 +1,27 @@
 import { produce } from 'immer'
 import { create } from 'zustand'
 import { createDefaultProject, createLayer, normalizeProject } from '../../shared/defaults'
+import { buildTimeline } from '../../shared/timeline'
 import type { Layer, LayerPropsMap, LayerTiming, LayerType, Project, ProjectSettings, Track } from '../../shared/types'
+import { pasteTimings, splitTiming } from './timelineModel'
+
+/** Độ nét preview: giảm để phát mượt trên máy yếu (không ảnh hưởng video xuất) */
+export type PreviewQuality = 'high' | 'medium' | 'low'
+export const PREVIEW_QUALITY_SCALE: Record<PreviewQuality, number> = { high: 1, medium: 0.5, low: 0.25 }
+const PREVIEW_QUALITY_KEY = 'pvm.previewQuality'
+
+function loadPreviewQuality(): PreviewQuality {
+  try {
+    const v = localStorage.getItem(PREVIEW_QUALITY_KEY)
+    if (v === 'high' || v === 'medium' || v === 'low') return v
+  } catch {
+    // bộ nhớ trình duyệt không dùng được (hoặc chạy trong kiểm thử)
+  }
+  return 'high'
+}
+
+/** Các lớp đã chép (Ctrl+C) — chỉ trong phiên làm việc */
+let clipboard: Layer[] = []
 
 export interface TrackStatus {
   state: 'pending' | 'analyzing' | 'ready' | 'error'
@@ -37,7 +57,10 @@ interface State {
   past: Project[]
   future: Project[]
   lastCoalesce: { key: string; at: number } | null
+  /** Lớp chính đang chọn (bảng thuộc tính, khung chọn trên preview) */
   selectedLayerId: string | null
+  /** Mọi lớp đang chọn (chọn thêm bằng Ctrl/Shift + nhấp); luôn chứa selectedLayerId nếu có */
+  selectedLayerIds: string[]
   /** Clip nhạc đang chọn trên timeline */
   selectedTrackId: string | null
   selectedCta: CtaSelection | null
@@ -47,6 +70,7 @@ interface State {
   playing: boolean
   dialog: DialogName
   toasts: Toast[]
+  previewQuality: PreviewQuality
 
   update(fn: (p: Project) => void, opts?: UpdateOptions): void
   undo(): void
@@ -72,9 +96,27 @@ interface State {
   renameLayer(id: string, name: string): void
   setLayerProps<T extends LayerType>(id: string, patch: Partial<LayerPropsMap[T]>, coalesceKey?: string): void
   setLayerTiming(id: string, patch: Partial<LayerTiming>, coalesceKey?: string): void
+  /** Đổi thời gian nhiều lớp trong một bước hoàn tác (kéo cả nhóm) */
+  setLayersTiming(patches: Record<string, Partial<LayerTiming>>, coalesceKey?: string): void
   selectLayer(id: string | null): void
+  /** Ctrl/Shift + nhấp: thêm / bớt lớp khỏi nhóm đang chọn */
+  toggleLayerSelection(id: string): void
+  selectLayers(ids: string[]): void
   selectTrack(id: string | null): void
   selectCta(sel: CtaSelection | null): void
+
+  /** Xoá các lớp (bỏ qua lớp đang khoá); trả về số lớp đã xoá */
+  removeLayers(ids: string[]): number
+  /** Tách các lớp tại thời điểm `t` thành hai đoạn chung hàng; trả về số lớp đã tách */
+  splitLayers(ids: string[], t: number): number
+  /** Chép các lớp (Ctrl+C); trả về số lớp đã chép */
+  copyLayers(ids: string[]): number
+  /** Dán các lớp đã chép tại thời điểm `at` (Ctrl+V); trả về số lớp đã dán */
+  pasteLayers(at: number): number
+  setLayersLocked(ids: string[], locked: boolean): void
+  setLayersColor(ids: string[], color: string | undefined): void
+  setLayersEnabled(ids: string[], enabled: boolean): void
+  setPreviewQuality(q: PreviewQuality): void
 
   bumpFeatures(): void
   setTime(t: number): void
@@ -102,6 +144,7 @@ export const useStore = create<State>((set, get) => ({
   future: [],
   lastCoalesce: null,
   selectedLayerId: defaultSelection(initialProject),
+  selectedLayerIds: [defaultSelection(initialProject)].filter((x): x is string => !!x),
   selectedTrackId: null,
   selectedCta: null,
   trackStatus: {},
@@ -110,6 +153,7 @@ export const useStore = create<State>((set, get) => ({
   playing: false,
   dialog: null,
   toasts: [],
+  previewQuality: loadPreviewQuality(),
 
   update(fn, opts = {}) {
     const { project, past, lastCoalesce } = get()
@@ -149,6 +193,7 @@ export const useStore = create<State>((set, get) => ({
 
   loadProject(project, filePath, dirty = false) {
     const p = normalizeProject(project)
+    const sel = defaultSelection(p)
     set({
       project: p,
       filePath,
@@ -156,7 +201,8 @@ export const useStore = create<State>((set, get) => ({
       past: [],
       future: [],
       lastCoalesce: null,
-      selectedLayerId: defaultSelection(p),
+      selectedLayerId: sel,
+      selectedLayerIds: sel ? [sel] : [],
       selectedTrackId: null,
       selectedCta: null,
       currentTime: 0,
@@ -218,7 +264,7 @@ export const useStore = create<State>((set, get) => ({
       else if (type === 'filter') p.layers.splice(aboveBackground(p.layers), 0, layer)
       else p.layers.push(layer)
     })
-    set({ selectedLayerId: layer.id })
+    get().selectLayer(layer.id)
   },
 
   moveLayerTo(id, index) {
@@ -234,18 +280,23 @@ export const useStore = create<State>((set, get) => ({
     get().update((p) => {
       p.layers = p.layers.filter((l) => l.id !== id)
     })
-    if (get().selectedLayerId === id) set({ selectedLayerId: null, selectedCta: null })
+    const { selectedLayerId, selectedLayerIds } = get()
+    set({
+      selectedLayerIds: selectedLayerIds.filter((x) => x !== id),
+      ...(selectedLayerId === id ? { selectedLayerId: null, selectedCta: null } : {})
+    })
   },
 
   duplicateLayer(id) {
     const src = get().project.layers.find((l) => l.id === id)
     if (!src) return
-    const copy = { ...structuredClone(src), id: createLayer(src.type).id, name: `${src.name} (bản sao)` } as Layer
+    // Bản sao nằm hàng riêng trên timeline, không khoá
+    const copy = { ...structuredClone(src), id: createLayer(src.type).id, name: `${src.name} (bản sao)`, row: undefined, locked: undefined } as Layer
     get().update((p) => {
       const i = p.layers.findIndex((l) => l.id === id)
       p.layers.splice(i + 1, 0, copy)
     })
-    set({ selectedLayerId: copy.id })
+    get().selectLayer(copy.id)
   },
 
   moveLayer(id, dir) {
@@ -294,16 +345,142 @@ export const useStore = create<State>((set, get) => ({
     )
   },
 
+  setLayersTiming(patches, coalesceKey) {
+    get().update(
+      (p) => {
+        for (const l of p.layers) if (patches[l.id]) Object.assign(l.timing, patches[l.id])
+      },
+      { coalesce: coalesceKey }
+    )
+  },
+
   selectLayer(id) {
-    set({ selectedLayerId: id, selectedTrackId: null, selectedCta: null })
+    set({ selectedLayerId: id, selectedLayerIds: id ? [id] : [], selectedTrackId: null, selectedCta: null })
+  },
+
+  toggleLayerSelection(id) {
+    const { selectedLayerIds, selectedLayerId } = get()
+    const has = selectedLayerIds.includes(id)
+    const ids = has ? selectedLayerIds.filter((x) => x !== id) : [...selectedLayerIds, id]
+    // Lớp chính: lớp vừa thêm; bỏ lớp chính thì lấy lớp chọn gần nhất còn lại
+    const primary = has ? (selectedLayerId === id ? (ids[ids.length - 1] ?? null) : selectedLayerId) : id
+    set({ selectedLayerIds: ids, selectedLayerId: primary, selectedTrackId: null, selectedCta: null })
+  },
+
+  selectLayers(ids) {
+    set({ selectedLayerIds: ids, selectedLayerId: ids[ids.length - 1] ?? null, selectedTrackId: null, selectedCta: null })
   },
 
   selectTrack(id) {
-    set({ selectedTrackId: id, selectedLayerId: id ? null : get().selectedLayerId, selectedCta: null })
+    const keep = id ? null : get().selectedLayerId
+    set({ selectedTrackId: id, selectedLayerId: keep, selectedLayerIds: keep ? [keep] : [], selectedCta: null })
   },
 
   selectCta(sel) {
-    set({ selectedCta: sel, selectedLayerId: sel ? sel.layerId : get().selectedLayerId, selectedTrackId: null })
+    const keep = sel ? sel.layerId : get().selectedLayerId
+    set({ selectedCta: sel, selectedLayerId: keep, selectedLayerIds: keep ? [keep] : [], selectedTrackId: null })
+  },
+
+  removeLayers(ids) {
+    const drop = new Set(get().project.layers.filter((l) => ids.includes(l.id) && !l.locked).map((l) => l.id))
+    if (drop.size === 0) return 0
+    get().update((p) => {
+      p.layers = p.layers.filter((l) => !drop.has(l.id))
+    })
+    const { selectedLayerId, selectedLayerIds } = get()
+    const rest = selectedLayerIds.filter((x) => !drop.has(x))
+    set({
+      selectedLayerIds: rest,
+      selectedLayerId: selectedLayerId && drop.has(selectedLayerId) ? (rest[rest.length - 1] ?? null) : selectedLayerId,
+      selectedCta: null
+    })
+    return drop.size
+  },
+
+  splitLayers(ids, t) {
+    const { project } = get()
+    const total = timelineTotal(project)
+    const jobs: Array<{ id: string; row: string; left: LayerTiming; right: Layer }> = []
+    for (const l of project.layers) {
+      if (!ids.includes(l.id) || l.locked || l.type === 'cta') continue
+      const parts = splitTiming(l.timing, total, t)
+      if (!parts) continue
+      const row = l.row ?? l.id
+      // Đoạn sau: cùng thuộc tính, nằm ngay trên đoạn trước trong danh sách lớp → chung một hàng timeline
+      jobs.push({ id: l.id, row, left: parts[0], right: { ...structuredClone(l), id: createLayer(l.type).id, timing: parts[1], row } as Layer })
+    }
+    if (jobs.length === 0) return 0
+    get().update((p) => {
+      for (const j of jobs) {
+        const i = p.layers.findIndex((l) => l.id === j.id)
+        p.layers[i].row = j.row
+        p.layers[i].timing = j.left
+        p.layers.splice(i + 1, 0, j.right)
+      }
+    })
+    get().selectLayers(jobs.map((j) => j.right.id))
+    return jobs.length
+  },
+
+  copyLayers(ids) {
+    // Giữ thứ tự chồng lớp (dưới → trên)
+    clipboard = get()
+      .project.layers.filter((l) => ids.includes(l.id))
+      .map((l) => structuredClone(l))
+    return clipboard.length
+  },
+
+  pasteLayers(at) {
+    if (clipboard.length === 0) return 0
+    const total = timelineTotal(get().project)
+    const timings = pasteTimings(
+      clipboard.map((l) => l.timing),
+      at,
+      total
+    )
+    const pasted = clipboard.map((src, i) => ({
+      src: src.id,
+      layer: { ...structuredClone(src), id: createLayer(src.type).id, timing: timings[i], row: undefined, locked: undefined } as Layer
+    }))
+    get().update((p) => {
+      for (const { src, layer } of pasted) {
+        // Ngay trên lớp gốc nếu còn (giữ phạm vi của bộ lọc…), nếu không thì theo quy tắc thêm lớp
+        const i = p.layers.findIndex((l) => l.id === src)
+        if (i >= 0) p.layers.splice(i + 1, 0, layer)
+        else if (layer.type === 'background') p.layers.unshift(layer)
+        else if (layer.type === 'filter') p.layers.splice(aboveBackground(p.layers), 0, layer)
+        else p.layers.push(layer)
+      }
+    })
+    get().selectLayers(pasted.map((x) => x.layer.id))
+    return pasted.length
+  },
+
+  setLayersLocked(ids, locked) {
+    get().update((p) => {
+      for (const l of p.layers) if (ids.includes(l.id)) l.locked = locked || undefined
+    })
+  },
+
+  setLayersColor(ids, color) {
+    get().update((p) => {
+      for (const l of p.layers) if (ids.includes(l.id)) l.color = color
+    })
+  },
+
+  setLayersEnabled(ids, enabled) {
+    get().update((p) => {
+      for (const l of p.layers) if (ids.includes(l.id)) l.enabled = enabled
+    })
+  },
+
+  setPreviewQuality(q) {
+    set({ previewQuality: q })
+    try {
+      localStorage.setItem(PREVIEW_QUALITY_KEY, q)
+    } catch {
+      // bỏ qua
+    }
   },
 
   bumpFeatures() {
@@ -332,6 +509,11 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
   }
 }))
+
+/** Độ dài video hiện tại (0 khi chưa có bài) — để tách / dán đúng giới hạn */
+function timelineTotal(p: Project): number {
+  return buildTimeline(p.tracks, p.settings).total
+}
 
 /** Vị trí ngay trên lớp nền cuối cùng (bộ lọc đặt ở đây chỉ tác động lên ảnh nền) */
 export function aboveBackground(layers: Layer[]): number {

@@ -11,6 +11,7 @@ import { assets, loadFonts, player } from './engineHost'
 import { safeFileName } from '../../shared/files'
 import { errorText, useAnalysis, useAudioSpec, useAutosave } from './hooks'
 import { useStore } from './store'
+import { copySelection, pasteAtPlayhead, splitAtPlayhead } from './timelineActions'
 
 const api = window.api
 let booted = false
@@ -179,6 +180,15 @@ export function App(): ReactNode {
         st.openDialog('export')
       } else if (typing) {
         return
+      } else if (mod && e.key.toLowerCase() === 'b' && !st.dialog) {
+        e.preventDefault()
+        splitAtPlayhead()
+      } else if (mod && e.key.toLowerCase() === 'c' && !st.dialog && !window.getSelection()?.toString()) {
+        e.preventDefault()
+        copySelection()
+      } else if (mod && e.key.toLowerCase() === 'v' && !st.dialog) {
+        e.preventDefault()
+        pasteAtPlayhead()
       } else if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
         e.preventDefault()
         st.redo()

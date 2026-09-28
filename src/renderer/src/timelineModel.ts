@@ -66,36 +66,45 @@ function endValue(end: number, total: number): number | null {
 
 export type RangePart = 'move' | 'start' | 'end' | 'fadeIn' | 'fadeOut'
 
+/** Khoảng được phép của một thanh: [min, max] (mặc định cả video; hẹp hơn khi chung hàng với đoạn khác) */
+export interface RangeBounds {
+  min: number
+  max: number
+}
+
 /**
  * Kéo layer trên timeline. `delta`/`at` đã được bắt dính.
  * - move: dời cả khoảng (không ra ngoài [0, cuối video]); layer "đến hết video" thì chỉ dời
  *   điểm bắt đầu và vẫn kéo dài đến hết video (kể cả layer đang chạy suốt video)
  * - start / end: kéo mép (giữ độ dài tối thiểu)
  * - fadeIn / fadeOut: kéo núm hiện dần / ẩn dần
+ * `bounds`: không cho thanh chồng lên các đoạn khác nằm chung hàng
  */
-export function dragRange(part: RangePart, t0: LayerTiming, total: number, value: number): Partial<LayerTiming> {
+export function dragRange(part: RangePart, t0: LayerTiming, total: number, value: number, bounds?: RangeBounds): Partial<LayerTiming> {
   const { start, end } = layerRange(t0, total)
   const limit = total > 0 ? total : Infinity
+  const lo = Math.max(0, bounds?.min ?? 0)
+  const hi = Math.min(limit, bounds?.max ?? limit)
   const dur = end - start
   switch (part) {
     case 'move': {
       // value = độ dời (giây)
       if (t0.end === null) {
         // Giữ nguyên "đến hết video": kéo sang phải → bắt đầu muộn hơn, sang trái → sớm hơn
-        const ns = Math.max(0, Math.min(start + value, (Number.isFinite(limit) ? limit : start + value + MIN_LAYER) - MIN_LAYER))
+        const ns = Math.max(lo, Math.min(start + value, (Number.isFinite(limit) ? limit : start + value + MIN_LAYER) - MIN_LAYER))
         return { start: round(ns), ...fitFades(t0.fadeIn, t0.fadeOut, end - ns) }
       }
       let d = value
-      d = Math.max(d, -start)
-      if (Number.isFinite(limit)) d = Math.min(d, limit - end)
+      d = Math.max(d, lo - start)
+      if (Number.isFinite(hi)) d = Math.min(d, hi - end)
       return { start: round(start + d), end: endValue(end + d, total) }
     }
     case 'start': {
-      const ns = Math.min(Math.max(0, value), end - MIN_LAYER)
+      const ns = Math.min(Math.max(lo, value), end - MIN_LAYER)
       return { start: round(ns), ...fitFades(t0.fadeIn, t0.fadeOut, end - ns) }
     }
     case 'end': {
-      const ne = Math.max(start + MIN_LAYER, Math.min(value, limit))
+      const ne = Math.max(start + MIN_LAYER, Math.min(value, hi))
       return { end: endValue(ne, total), ...fitFades(t0.fadeIn, t0.fadeOut, ne - start) }
     }
     case 'fadeIn':
@@ -153,12 +162,18 @@ export function insertionIndex(entries: Array<{ start: number; end: number }>, f
 }
 
 /** Tất cả mốc để bắt dính: đầu/cuối video, đầu phát, mép các layer, ranh giới bài, các lần hiện CTA */
-export function snapCandidates(layers: Layer[], tl: Timeline, playhead: number, exclude?: { layerId?: string; ctaIndex?: number }): number[] {
+export function snapCandidates(
+  layers: Layer[],
+  tl: Timeline,
+  playhead: number,
+  exclude?: { layerId?: string; ctaIndex?: number; layerIds?: ReadonlySet<string> }
+): number[] {
   const out = [0, playhead]
   if (tl.total > 0) out.push(tl.total)
   for (const e of tl.entries) out.push(e.start, e.end, e.displayStart)
   for (const l of layers) {
     if (l.id === exclude?.layerId && exclude.ctaIndex === undefined) continue
+    if (exclude?.layerIds?.has(l.id)) continue
     if (l.type === 'cta') {
       ctaStartTimes(l.props, tl).forEach((s, i) => {
         if (!(l.id === exclude?.layerId && i === exclude.ctaIndex)) out.push(s)
@@ -169,6 +184,103 @@ export function snapCandidates(layers: Layer[], tl: Timeline, playhead: number, 
     }
   }
   return out
+}
+
+/** Một hàng trên timeline: một lớp, hoặc nhiều lớp liền nhau cùng `row` (các đoạn sau khi tách thanh) */
+export interface TimelineRow {
+  /** Khoá React: id lớp đầu hàng */
+  key: string
+  /** Theo thứ tự hiển thị (lớp nằm trên trước) */
+  layers: Layer[]
+}
+
+/** Gom lớp thành các hàng timeline; lớp trên cùng ở hàng đầu (giống danh sách lớp) */
+export function timelineRows(layers: Layer[]): TimelineRow[] {
+  const rows: TimelineRow[] = []
+  let lastGroup: string | null = null
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const l = layers[i]
+    const group = l.row && l.type !== 'cta' ? l.row : null
+    if (group && group === lastGroup) rows[rows.length - 1].layers.push(l)
+    else rows.push({ key: l.id, layers: [l] })
+    lastGroup = group
+  }
+  return rows
+}
+
+/** Hàng chứa lớp `id` */
+export function rowOf(rows: TimelineRow[], id: string): TimelineRow | undefined {
+  return rows.find((r) => r.layers.some((l) => l.id === id))
+}
+
+/**
+ * Tách khoảng thời gian tại `at` thành [phần trước, phần sau] — mỗi phần dài ít nhất MIN_LAYER.
+ * Phần trước giữ hiện dần, phần sau giữ ẩn dần (và giữ "đến hết video" nếu có).
+ */
+export function splitTiming(t0: LayerTiming, total: number, at: number): [LayerTiming, LayerTiming] | null {
+  const { start, end } = layerRange(t0, total)
+  const t = round(at)
+  if (t - start < MIN_LAYER - 1e-6 || end - t < MIN_LAYER - 1e-6) return null
+  return [
+    { start: t0.start, end: t, fadeIn: round(Math.min(t0.fadeIn, t - start), 0.1), fadeOut: 0 },
+    { start: t, end: t0.end, fadeIn: 0, fadeOut: round(Math.min(t0.fadeOut, end - t), 0.1) }
+  ]
+}
+
+/**
+ * Khoảng được phép của lớp `id` khi kéo: không chồng lên các đoạn khác nằm chung hàng
+ * (bỏ qua các lớp trong `moving` — chúng được kéo cùng lúc).
+ */
+export function rowBounds(layers: Layer[], id: string, total: number, moving: ReadonlySet<string> = new Set()): RangeBounds {
+  const limit = total > 0 ? total : Infinity
+  const row = rowOf(timelineRows(layers), id)
+  const me = row?.layers.find((l) => l.id === id)
+  if (!row || !me || row.layers.length < 2) return { min: 0, max: limit }
+  const r = layerRange(me.timing, total)
+  let min = 0
+  let max = limit
+  for (const o of row.layers) {
+    if (o.id === id || moving.has(o.id)) continue
+    const or = layerRange(o.timing, total)
+    if (or.end <= r.start + 1e-6) min = Math.max(min, or.end)
+    else if (or.start >= r.end - 1e-6) max = Math.min(max, or.start)
+  }
+  return { min, max }
+}
+
+/** Độ dời hợp lệ chung khi kéo cùng lúc nhiều lớp: không lớp nào ra ngoài video hay chồng lên đoạn khác cùng hàng */
+export function groupDeltaRange(layers: Layer[], ids: string[], total: number): RangeBounds {
+  const moving = new Set(ids)
+  const limit = total > 0 ? total : Infinity
+  let min = -Infinity
+  let max = Infinity
+  for (const id of ids) {
+    const l = layers.find((x) => x.id === id)
+    if (!l) continue
+    const r = layerRange(l.timing, total)
+    const b = rowBounds(layers, id, total, moving)
+    min = Math.max(min, b.min - r.start)
+    // Lớp "đến hết video" chỉ dời điểm bắt đầu, phải còn ít nhất MIN_LAYER trước cuối video
+    max = Math.min(max, l.timing.end === null ? limit - MIN_LAYER - r.start : b.max - r.end)
+  }
+  return { min: Math.min(0, min), max: Math.max(0, max) }
+}
+
+/**
+ * Thời gian của các lớp dán tại `at`: giữ khoảng cách tương đối giữa chúng (lớp bắt đầu sớm nhất
+ * đặt tại `at`), giữ độ dài; lớp "đến hết video" vẫn đến hết video; không vượt quá cuối video.
+ */
+export function pasteTimings(timings: LayerTiming[], at: number, total: number): LayerTiming[] {
+  if (timings.length === 0) return []
+  const base = Math.min(...timings.map((t) => t.start))
+  const limit = total > 0 ? total : Infinity
+  return timings.map((t0) => {
+    const r = layerRange(t0, total)
+    const start = round(Math.max(0, Math.min(at + (t0.start - base), Number.isFinite(limit) ? limit - MIN_LAYER : Infinity)))
+    const end = t0.end === null ? null : endValue(Math.min(start + (r.end - r.start), limit), total)
+    const len = (end === null ? (Number.isFinite(limit) ? limit : start + (r.end - r.start)) : end) - start
+    return { start, end, ...fitFades(t0.fadeIn, t0.fadeOut, len) }
+  })
 }
 
 /** Mức zoom vừa khít cả video trong bề ngang `width` px */

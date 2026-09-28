@@ -242,7 +242,20 @@ export interface LayerTiming {
 }
 
 export type Layer<T extends LayerType = LayerType> = T extends LayerType
-  ? { id: string; type: T; name: string; enabled: boolean; timing: LayerTiming; props: LayerPropsMap[T] }
+  ? {
+      id: string
+      type: T
+      name: string
+      enabled: boolean
+      timing: LayerTiming
+      props: LayerPropsMap[T]
+      /** Khoá: không kéo, tách hay xoá nhầm trên timeline / preview */
+      locked?: boolean
+      /** Màu riêng của hàng / thanh trên timeline (mặc định theo loại lớp) */
+      color?: string
+      /** Các lớp liền nhau có cùng khoá hàng nằm chung một hàng timeline (các đoạn sau khi tách thanh) */
+      row?: string
+    }
   : never
 
 export type EncoderId = 'libx264' | 'h264_nvenc' | 'h264_qsv' | 'h264_amf' | 'h264_vaapi'
