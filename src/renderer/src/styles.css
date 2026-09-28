@@ -851,6 +851,17 @@ input[type='range'] {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+.resume-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.shutdown-count {
+  margin: 4px 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 textarea.chapters {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size: 13px;

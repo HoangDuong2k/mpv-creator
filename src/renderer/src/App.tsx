@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { ChaptersDialog } from './components/ChaptersDialog'
-import { ExportDialog, useExportStore } from './components/ExportDialog'
+import { ExportDialog, ShutdownCountdown, useExportStore } from './components/ExportDialog'
 import { LayersPanel } from './components/LayersPanel'
 import { PlaylistPanel, importPaths } from './components/PlaylistPanel'
 import { PreviewPanel } from './components/PreviewPanel'
@@ -269,6 +269,8 @@ export function App(): ReactNode {
         {dialog === 'settings' && <SettingsDialog />}
         {dialog === 'chapters' && <ChaptersDialog />}
       </Fragment>
+      {/* Ngoài Fragment: đổi ngôn ngữ không làm đếm ngược tắt máy bắt đầu lại */}
+      <ShutdownCountdown />
       {dragging && (
         <div className="drop-overlay">
           <div>

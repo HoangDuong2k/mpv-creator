@@ -115,7 +115,8 @@ async function main(): Promise<void> {
       workers: opts.workers?.[0] ? Number(opts.workers[0]) : undefined,
       range,
       onProgress: (p) => {
-        const line = `  [${p.stage}] ${(p.progress * 100).toFixed(0)}% ${p.framesDone}/${p.framesTotal} frame, ${p.fps.toFixed(0)} fps, còn ~${p.eta.toFixed(0)}s`
+        const resumed = p.resumedFrames > 0 ? ` (tiếp tục, đã có ${p.resumedFrames} frame)` : ''
+        const line = `  [${p.stage}] ${(p.progress * 100).toFixed(0)}% ${p.framesDone}/${p.framesTotal} frame, đoạn ${p.chunksDone}/${p.chunksTotal}, ${p.fps.toFixed(0)} fps, còn ~${p.eta.toFixed(0)}s${resumed}`
         if (line !== lastLine) {
           lastLine = line
           process.stdout.write(`\r${line}      `)
@@ -123,6 +124,7 @@ async function main(): Promise<void> {
       }
     })
     console.log(`\n  ✓ Xuất xong ${result.outputPath} (${result.duration.toFixed(1)}s video) trong ${result.seconds.toFixed(1)}s — nhanh ${(result.duration / result.seconds).toFixed(2)}× thời gian thực`)
+    if (result.resumedFrames > 0) console.log(`  ↻ Dùng lại ${result.resumedFrames}/${result.totalFrames} frame từ lần xuất dở trước`)
     if (result.warnings.length) console.warn('  Cảnh báo:', result.warnings)
     return
   }

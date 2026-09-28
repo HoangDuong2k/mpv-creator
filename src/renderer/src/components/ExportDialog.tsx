@@ -16,12 +16,101 @@ interface ExportState {
   progress: ExportProgressEvent | null
   result: ExportResultInfo | null
   error: string | null
+  /** Lần xuất gần nhất là cả video (không phải xuất thử) */
+  full: boolean
+  /** Tắt máy khi xuất xong (nhớ giữa các lần mở app) */
+  shutdownAfter: boolean
+  /** Số giây còn lại trước khi tắt máy; 0 = đang tắt; null = không đếm ngược */
+  shutdownLeft: number | null
+}
+
+const SHUTDOWN_KEY = 'pvm.shutdownAfterExport'
+
+function loadShutdownAfter(): boolean {
+  try {
+    return localStorage.getItem(SHUTDOWN_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 /** Trạng thái xuất video giữ ngoài dialog để đóng/mở lại vẫn thấy tiến độ */
-export const useExportStore = create<ExportState>(() => ({ running: false, progress: null, result: null, error: null }))
+export const useExportStore = create<ExportState>(() => ({
+  running: false,
+  progress: null,
+  result: null,
+  error: null,
+  full: false,
+  shutdownAfter: loadShutdownAfter(),
+  shutdownLeft: null
+}))
 
 api.on('export:progress', (p) => useExportStore.setState({ progress: p }))
+
+function setShutdownAfter(on: boolean): void {
+  useExportStore.setState({ shutdownAfter: on })
+  try {
+    localStorage.setItem(SHUTDOWN_KEY, on ? '1' : '0')
+  } catch {
+    // không lưu được (chế độ riêng tư…) — vẫn dùng được cho lần này
+  }
+}
+
+const SHUTDOWN_SECONDS = 60
+let shutdownTimer: ReturnType<typeof setInterval> | null = null
+
+/** Đếm ngược rồi tắt máy. Tính theo đồng hồ thật: cửa sổ bị thu nhỏ (hẹn giờ chạy thưa) vẫn tắt đúng lúc. */
+export function startShutdownCountdown(seconds = SHUTDOWN_SECONDS): void {
+  cancelShutdownCountdown()
+  const deadline = Date.now() + seconds * 1000
+  useExportStore.setState({ shutdownLeft: seconds })
+  shutdownTimer = setInterval(() => {
+    const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+    useExportStore.setState({ shutdownLeft: left })
+    if (left > 0) return
+    if (shutdownTimer) clearInterval(shutdownTimer)
+    shutdownTimer = null
+    void shutdownNow()
+  }, 250)
+}
+
+export function cancelShutdownCountdown(): void {
+  if (shutdownTimer) clearInterval(shutdownTimer)
+  shutdownTimer = null
+  useExportStore.setState({ shutdownLeft: null })
+}
+
+async function shutdownNow(): Promise<void> {
+  const st = useStore.getState()
+  try {
+    // Lưu phiên làm việc để mở app lần sau vẫn còn nguyên project
+    if (st.project.tracks.length) await api.autosave(st.project)
+    await api.shutdown()
+  } catch (err) {
+    useExportStore.setState({ shutdownLeft: null })
+    st.toast('error', errorText(err))
+  }
+}
+
+/** Hộp đếm ngược trước khi tắt máy — luôn gắn trong App để vẫn hiện khi hộp thoại xuất đã đóng */
+export function ShutdownCountdown(): ReactNode {
+  const left = useExportStore((s) => s.shutdownLeft)
+  if (left === null) return null
+  return (
+    <Modal
+      title="Tắt máy"
+      onClose={cancelShutdownCountdown}
+      footer={
+        <button type="button" className="btn primary" onClick={cancelShutdownCountdown} disabled={left <= 0}>
+          Huỷ tắt máy
+        </button>
+      }
+    >
+      <p className="shutdown-count">{left > 0 ? `Máy sẽ tắt sau ${left} giây` : 'Đang tắt máy…'}</p>
+      <p className="muted">Video đã xuất xong. Phiên làm việc được tự lưu, mở app lần sau vẫn còn nguyên project.</p>
+    </Modal>
+  )
+}
 
 const STAGES: Record<ExportProgressEvent['stage'], string> = {
   audio: 'Đang ghép âm thanh',
@@ -34,13 +123,22 @@ function withSuffix(path: string, suffix: string): string {
   return path.replace(/(\.mp4)?$/i, `${suffix}.mp4`)
 }
 
+function percentOf(part: number, total: number): number {
+  return Math.floor((100 * part) / Math.max(1, total))
+}
+
+/** Số frame nằm trong các đoạn đã xong (được giữ lại khi bị ngắt) — ước theo số đoạn */
+function keptFrames(p: ExportProgressEvent): number {
+  return Math.min(p.framesTotal, Math.round((p.framesTotal * p.chunksDone) / Math.max(1, p.chunksTotal)))
+}
+
 export function ExportDialog(): ReactNode {
   const project = useStore((s) => s.project)
   const trackStatus = useStore((s) => s.trackStatus)
   const update = useStore((s) => s.update)
   const openDialog = useStore((s) => s.openDialog)
   const timeline = useTimeline()
-  const { running, progress, result, error } = useExportStore()
+  const { running, progress, result, error, full, shutdownAfter } = useExportStore()
   const [encoders, setEncoders] = useState<EncoderOption[] | null>(null)
   const ex = project.export
 
@@ -66,11 +164,13 @@ export function ExportDialog(): ReactNode {
     let out = ex.outputPath || (await chooseOutput())
     if (!out) return
     if (range) out = withSuffix(out, ' (xem thử)')
-    useExportStore.setState({ running: true, result: null, error: null, progress: null })
+    useExportStore.setState({ running: true, result: null, error: null, progress: null, full: !range })
     try {
       const r = await api.startExport({ ...useStore.getState().project, export: { ...ex, outputPath: out } }, range)
       useExportStore.setState({ result: r })
       useStore.getState().toast('success', `Đã xuất xong: ${fileName(r.outputPath)}`)
+      // Đọc lựa chọn lúc xuất xong: người dùng có thể tích "Tắt máy" khi video đang xuất
+      if (!range && useExportStore.getState().shutdownAfter) startShutdownCountdown()
     } catch (err) {
       useExportStore.setState({ error: errorText(err) })
     } finally {
@@ -155,6 +255,10 @@ export function ExportDialog(): ReactNode {
           </div>
         </Row>
       </div>
+      <label className="toggle" title="Hợp khi để máy xuất video dài qua đêm. Trước khi tắt có 60 giây để huỷ.">
+        <input type="checkbox" checked={shutdownAfter} onChange={(e) => setShutdownAfter(e.target.checked)} />
+        <span>Tắt máy khi xuất xong (không áp dụng cho xuất thử)</span>
+      </label>
       {encoders && ex.encoder !== 'libx264' && !encoders.find((e) => e.id === ex.encoder)?.available && (
         <p className="warn">Bộ mã hoá đã chọn không dùng được trên máy này, hãy chọn “CPU – x264”.</p>
       )}
@@ -174,18 +278,34 @@ export function ExportDialog(): ReactNode {
               <span>
                 {progress.framesDone.toLocaleString('vi-VN')} / {progress.framesTotal.toLocaleString('vi-VN')} khung hình
               </span>
+              {progress.chunksTotal > 1 && (
+                <span>
+                  Đoạn {progress.chunksDone}/{progress.chunksTotal}
+                </span>
+              )}
               <span>{progress.fps.toFixed(0)} khung/giây</span>
               <span>Còn khoảng {formatTime(progress.eta, progress.eta >= 3600)}</span>
             </div>
           )}
+          {progress && progress.resumedFrames > 0 && (
+            <p className="resume-note">Tiếp tục bản xuất dở: đã có {percentOf(progress.resumedFrames, progress.framesTotal)}%, chỉ render phần còn lại.</p>
+          )}
         </div>
       )}
       {error && <p className="error-box">{error}</p>}
+      {error && full && (progress?.chunksDone ?? 0) > 0 && (
+        <p className="resume-note">
+          Các đoạn đã render ({percentOf(keptFrames(progress!), progress!.framesTotal)}%) được giữ lại. Nếu không sửa project và vẫn lưu vào file này, lần
+          xuất sau sẽ tiếp tục từ chỗ đã dừng.
+        </p>
+      )}
       {result && (
         <div className="success-box">
           <p>
             ✓ Đã xuất <strong>{fileName(result.outputPath)}</strong> ({formatTime(result.duration)} video) trong {formatTime(result.seconds)} —
-            nhanh {(result.duration / Math.max(0.1, result.seconds)).toFixed(1)}× thời gian thực.
+            {result.resumedFrames > 0
+              ? ` tiếp tục từ bản xuất dở (đã có ${percentOf(result.resumedFrames, result.totalFrames)}%).`
+              : ` nhanh ${(result.duration / Math.max(0.1, result.seconds)).toFixed(1)}× thời gian thực.`}
           </p>
           <div className="row-actions">
             <button type="button" className="btn small" onClick={() => api.showItem(result.outputPath)}>

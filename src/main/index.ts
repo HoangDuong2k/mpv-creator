@@ -1,10 +1,12 @@
+import { spawn } from 'child_process'
 import { existsSync, statSync } from 'fs'
 import { mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
-import { dirname, join } from 'path'
-import { BrowserWindow, Menu, app, clipboard, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { basename, dirname, join } from 'path'
+import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, powerSaveBlocker, shell, type IpcMainInvokeEvent } from 'electron'
 import type { AppInfo, AudioSpec, EncoderOption, EventMap, FileKind, SaveKind } from '../shared/api'
 import { normalizeProject } from '../shared/defaults'
 import { withExtension } from '../shared/files'
+import { formatTime } from '../shared/time'
 import type { Project } from '../shared/types'
 import { MixSource, toS16 } from './audio/mix'
 import { CancelledError } from './ffmpeg'
@@ -13,6 +15,7 @@ import { exportVideo } from './export/exporter'
 import { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, isAudioFile, readTrackInfo } from './media'
 import { asarUnpacked, defaultCacheDir } from './paths'
 import { registerFileProtocol, registerSchemePrivileges } from './protocol'
+import { shutdownCommand, type ShellCommand } from './shutdown'
 import { Workspace } from './workspace'
 
 registerSchemePrivileges()
@@ -27,9 +30,42 @@ const workspace = new Workspace(cacheDir)
 const fontsDir = app.isPackaged ? join(process.resourcesPath, 'fonts') : join(app.getAppPath(), 'resources', 'fonts')
 const autosavePath = join(app.getPath('userData'), 'autosave.pvm.json')
 let mainWindow: BrowserWindow | null = null
+/** Thoát để tắt máy: không hỏi "Project chưa lưu" (phiên làm việc đã được tự lưu) */
+let quittingForShutdown = false
+
+/** Chữ main process hiện ra khi xuất video xong (thông báo của hệ điều hành) */
+const EXPORT_TEXT = {
+  doneTitle: 'Đã xuất xong video',
+  doneBody: (file: string, seconds: number): string => `${file} — xong sau ${formatTime(seconds, seconds >= 3600)}`,
+  failTitle: 'Xuất video không thành công',
+  shutdownFailed: (detail: string): string => `Không tắt được máy: ${detail}`
+}
 
 function send<K extends keyof EventMap>(channel: K, data: EventMap[K]): void {
   mainWindow?.webContents.send(channel, data)
+}
+
+// Giữ tham chiếu tới thông báo đang hiện, nếu không có thể bị thu hồi bộ nhớ và mất sự kiện bấm
+let lastNotice: Notification | null = null
+
+/** Thông báo của hệ điều hành khi người dùng đang làm việc khác (cửa sổ app không được chọn) */
+function notifyUnfocused(title: string, body: string): void {
+  const win = mainWindow
+  if (!win || win.isFocused()) return
+  // Nháy biểu tượng trên thanh tác vụ tới khi người dùng quay lại app
+  win.flashFrame(true)
+  win.once('focus', () => win.flashFrame(false))
+  if (!Notification.isSupported()) return
+  lastNotice?.close()
+  const n = new Notification({ title, body })
+  n.on('click', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  })
+  n.show()
+  lastNotice = n
 }
 
 /** File nhạc truyền qua dòng lệnh ("Mở bằng…" hoặc kéo thả lên icon app) */
@@ -147,28 +183,70 @@ function registerIpc(): void {
     if (exportAbort) throw new Error('Đang có một tiến trình xuất video')
     const ctrl = new AbortController()
     exportAbort = ctrl
+    // Video dài xuất mất hàng chục phút, người dùng thường để máy tự chạy: không cho máy ngủ giữa chừng
+    const blocker = powerSaveBlocker.start('prevent-app-suspension')
+    let failed = false
     try {
       mainWindow?.setProgressBar(0)
-      return await exportVideo({
+      const result = await exportVideo({
         project,
         workspace,
         settings: project.export,
         fontsDir,
         workerPath: workerPath(),
         range,
+        appVersion: app.getVersion(),
         signal: ctrl.signal,
         onProgress: (p) => {
           mainWindow?.setProgressBar(p.progress)
           send('export:progress', p)
         }
       })
+      // Xuất thử 15 giây thì người dùng đang ngồi xem — chỉ báo khi xuất cả video
+      if (!range) notifyUnfocused(EXPORT_TEXT.doneTitle, EXPORT_TEXT.doneBody(basename(result.outputPath), result.seconds))
+      return result
     } catch (err) {
       if (err instanceof CancelledError) throw new Error('Đã huỷ xuất video')
+      failed = true
+      if (!range) notifyUnfocused(EXPORT_TEXT.failTitle, (err as Error).message)
       throw err
     } finally {
       exportAbort = null
-      mainWindow?.setProgressBar(-1)
+      if (powerSaveBlocker.isStarted(blocker)) powerSaveBlocker.stop(blocker)
+      if (failed) {
+        // Thanh tiến trình trên taskbar chuyển đỏ một lúc (Windows) để người dùng thấy có lỗi
+        mainWindow?.setProgressBar(1, { mode: 'error' })
+        setTimeout(() => {
+          if (!exportAbort) mainWindow?.setProgressBar(-1)
+        }, 15000)
+      } else mainWindow?.setProgressBar(-1)
     }
+  })
+
+  handle('system:shutdown', async () => {
+    const c = shutdownCommand(process.platform)
+    // Kiểm thử tự động: chỉ ghi lại lệnh, không tắt máy thật
+    if (process.env.PVM_DRY_SHUTDOWN) {
+      ;(globalThis as { __pvmShutdown?: ShellCommand }).__pvmShutdown = c
+      return
+    }
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(c.cmd, c.args, { detached: true, stdio: 'ignore', windowsHide: true })
+      // Lệnh chưa trả về sau vài giây: coi như máy đang tắt
+      const timer = setTimeout(resolve, 5000)
+      child.on('error', (e) => {
+        clearTimeout(timer)
+        reject(new Error(EXPORT_TEXT.shutdownFailed(e.message)))
+      })
+      child.on('exit', (code) => {
+        clearTimeout(timer)
+        if (code === 0) resolve()
+        else reject(new Error(EXPORT_TEXT.shutdownFailed(`mã ${code}`)))
+      })
+      child.unref()
+    })
+    quittingForShutdown = true
+    app.quit()
   })
 
   handle('export:cancel', () => {
@@ -243,6 +321,10 @@ function createWindow(): void {
 
   // Hỏi lại khi đóng cửa sổ mà project chưa lưu (renderer chặn beforeunload)
   mainWindow.webContents.on('will-prevent-unload', (event) => {
+    if (quittingForShutdown) {
+      event.preventDefault()
+      return
+    }
     const choice = dialog.showMessageBoxSync(mainWindow!, {
       type: 'question',
       buttons: ['Thoát không lưu', 'Ở lại'],

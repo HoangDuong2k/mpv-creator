@@ -24,6 +24,10 @@ export interface ExportProgressEvent {
   progress: number
   framesDone: number
   framesTotal: number
+  /** Số frame lấy lại từ lần xuất dở trước (không phải render lại) */
+  resumedFrames: number
+  chunksDone: number
+  chunksTotal: number
   fps: number
   eta: number
   elapsed: number
@@ -34,6 +38,9 @@ export interface ExportResultInfo {
   seconds: number
   duration: number
   warnings: string[]
+  /** Số frame dùng lại từ lần xuất dở trước */
+  resumedFrames: number
+  totalFrames: number
 }
 
 /** Phần dữ liệu project quyết định âm thanh (gửi kèm mỗi lần xin đoạn âm thanh) */
@@ -62,6 +69,8 @@ export interface PvmApi {
   listEncoders(): Promise<EncoderOption[]>
   startExport(project: Project, range?: { start: number; duration: number }): Promise<ExportResultInfo>
   cancelExport(): Promise<void>
+  /** Tắt máy (sau khi xuất xong, người dùng đã chọn và không huỷ) */
+  shutdown(): Promise<void>
   readProject(path: string): Promise<Project>
   writeProject(path: string, project: Project): Promise<void>
   writeText(path: string, text: string): Promise<void>
