@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { formatTimePrecise, parseTime } from '../../../shared/time'
+import { tr } from '../../../shared/i18n'
 
 // Biểu tượng Material Icons (Apache License 2.0)
 const ICONS = {
@@ -86,7 +87,7 @@ export function Modal({ title, onClose, children, footer, wide }: { title: strin
       <div className={`modal${wide ? ' wide' : ''}`} role="dialog" aria-label={title}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <IconButton icon="close" title="Đóng" onClick={onClose} />
+          <IconButton icon="close" title={tr('Đóng')} onClick={onClose} />
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}

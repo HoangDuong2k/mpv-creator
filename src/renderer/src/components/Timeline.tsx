@@ -54,6 +54,7 @@ import {
 } from '../timelineModel'
 import { deleteSelection, splitAtPlayhead } from '../timelineActions'
 import { Icon, IconButton } from './ui'
+import { tr } from '../../../shared/i18n'
 
 const SNAP_PX = 8
 const HEIGHT_KEY = 'pvm.timelineHeight'
@@ -264,7 +265,7 @@ export function Timeline(): ReactNode {
         const inGroup = d.part === 'move' && st.selectedLayerIds.length > 1 && st.selectedLayerIds.includes(layer.id)
         if (layer.locked) {
           if (!inGroup) st.selectLayer(layer.id)
-          setVisual({ snapT: null, tip: { t, text: 'Lớp đang khoá — bấm biểu tượng ổ khoá ở đầu hàng để mở' } })
+          setVisual({ snapT: null, tip: { t, text: tr('Lớp đang khoá — bấm biểu tượng ổ khoá ở đầu hàng để mở') } })
           return
         }
         if (inGroup) {
@@ -345,11 +346,11 @@ export function Timeline(): ReactNode {
         const next = { ...s.timing0, ...patch }
         const r = layerRange(next, total)
         const tips: Record<RangePart, { t: number; text: string }> = {
-          move: { t: r.start, text: `${formatTimePrecise(r.start, withHours)} → ${next.end === null ? 'hết video' : formatTimePrecise(r.end, withHours)}` },
-          start: { t: r.start, text: `Bắt đầu ${formatTimePrecise(r.start, withHours)}` },
-          end: { t: r.end, text: next.end === null ? 'Đến hết video' : `Kết thúc ${formatTimePrecise(r.end, withHours)}` },
-          fadeIn: { t: r.start + next.fadeIn, text: `Hiện dần ${next.fadeIn.toFixed(1)}s` },
-          fadeOut: { t: r.end - next.fadeOut, text: `Ẩn dần ${next.fadeOut.toFixed(1)}s` }
+          move: { t: r.start, text: `${formatTimePrecise(r.start, withHours)} → ${next.end === null ? tr('hết video') : formatTimePrecise(r.end, withHours)}` },
+          start: { t: r.start, text: tr('Bắt đầu {time}', { time: formatTimePrecise(r.start, withHours) }) },
+          end: { t: r.end, text: next.end === null ? tr('Đến hết video') : tr('Kết thúc {time}', { time: formatTimePrecise(r.end, withHours) }) },
+          fadeIn: { t: r.start + next.fadeIn, text: tr('Hiện dần {s}s', { s: next.fadeIn.toFixed(1) }) },
+          fadeOut: { t: r.end - next.fadeOut, text: tr('Ẩn dần {s}s', { s: next.fadeOut.toFixed(1) }) }
         }
         setVisual({ snapT: snapped, tip: tips[s.part] })
         return
@@ -375,7 +376,7 @@ export function Timeline(): ReactNode {
         if (d !== dlt) snapped = null
         const patches = Object.fromEntries(s.ids.map((id) => [id, dragRange('move', s.timings0[id], total, d)]))
         st.setLayersTiming(patches, s.key)
-        setVisual({ snapT: snapped, tip: { t: r.start + d, text: `Dời ${s.ids.length} lớp ${d >= 0 ? '+' : '−'}${formatTimePrecise(Math.abs(d), withHours)}` } })
+        setVisual({ snapT: snapped, tip: { t: r.start + d, text: tr('Dời {n} lớp {delta}', { n: s.ids.length, delta: `${d >= 0 ? '+' : '−'}${formatTimePrecise(Math.abs(d), withHours)}` }) } })
         return
       }
       case 'cta': {
@@ -385,11 +386,11 @@ export function Timeline(): ReactNode {
           const r = moveAppearance(s.starts0, s.index, sn.t, total)
           st.setLayerProps(s.layerId, { schedule: 'times', times: r.times }, s.key)
           st.selectCta({ layerId: s.layerId, index: r.index })
-          setVisual({ snapT: sn.snapped, tip: { t: sn.t, text: `Hiện lúc ${formatTimePrecise(Math.max(0, sn.t), withHours)}` } })
+          setVisual({ snapT: sn.snapped, tip: { t: sn.t, text: tr('Hiện lúc {time}', { time: formatTimePrecise(Math.max(0, sn.t), withHours) }) } })
         } else {
           const dur = Math.round(clamp(t - s.starts0[s.index], CTA_MIN_DURATION, CTA_MAX_DURATION) * 10) / 10
           st.setLayerProps(s.layerId, { duration: dur }, s.key)
-          setVisual({ snapT: null, tip: { t: s.starts0[s.index] + dur, text: `Hiện ${dur.toFixed(1)}s (mọi lần)` } })
+          setVisual({ snapT: null, tip: { t: s.starts0[s.index] + dur, text: tr('Hiện {s}s (mọi lần)', { s: dur.toFixed(1) }) } })
         }
         return
       }
@@ -397,7 +398,7 @@ export function Timeline(): ReactNode {
         if (!s.moved && Math.abs(e.clientX - s.x0) < 4) return
         s.moved = true
         s.to = insertionIndex(tl.entries, s.from, t)
-        setVisual({ snapT: null, tip: { t, text: `Chuyển tới vị trí ${s.to + 1}` }, trackMove: { from: s.from, to: s.to, ghostStart: t - s.grab } })
+        setVisual({ snapT: null, tip: { t, text: tr('Chuyển tới vị trí {n}', { n: s.to + 1 }) }, trackMove: { from: s.from, to: s.to, ghostStart: t - s.grab } })
         return
       }
       case 'track-trim': {
@@ -409,13 +410,13 @@ export function Timeline(): ReactNode {
           const v = clamp(track.trimStart + (sn.t - e0.start), 0, track.duration - track.trimEnd - MIN_TRACK)
           s.value = Math.round(v * 100) / 100
           const edgeT = e0.start + (s.value - track.trimStart)
-          setVisual({ snapT: sn.snapped, tip: { t: edgeT, text: `Cắt đầu ${formatTimePrecise(s.value)}` }, trim: { trackId: track.id, side: 'start', edgeT } })
+          setVisual({ snapT: sn.snapped, tip: { t: edgeT, text: tr('Cắt đầu {time}', { time: formatTimePrecise(s.value) }) }, trim: { trackId: track.id, side: 'start', edgeT } })
         } else {
           const sn = snapTime(e0.end + (t - s.t0), cands, thr)
           const v = clamp(track.trimEnd - (sn.t - e0.end), 0, track.duration - track.trimStart - MIN_TRACK)
           s.value = Math.round(v * 100) / 100
           const edgeT = e0.end - (s.value - track.trimEnd)
-          setVisual({ snapT: sn.snapped, tip: { t: edgeT, text: `Cắt cuối ${formatTimePrecise(s.value)}` }, trim: { trackId: track.id, side: 'end', edgeT } })
+          setVisual({ snapT: sn.snapped, tip: { t: edgeT, text: tr('Cắt cuối {time}', { time: formatTimePrecise(s.value) }) }, trim: { trackId: track.id, side: 'end', edgeT } })
         }
         return
       }
@@ -513,7 +514,7 @@ export function Timeline(): ReactNode {
 
   return (
     <section className="timeline" style={{ height }} ref={rootRef} tabIndex={0} onKeyDown={onKeyDown} aria-label="Timeline">
-      <div className="tl-resize" onPointerDown={startResize} title="Kéo để đổi chiều cao timeline" />
+      <div className="tl-resize" onPointerDown={startResize} title={tr('Kéo để đổi chiều cao timeline')} />
       <div className="tl-bar">
         <span className="tl-time">
           <span ref={timeRef}>0:00</span>
@@ -521,19 +522,19 @@ export function Timeline(): ReactNode {
         </span>
         {selectedLayerIds.length > 1 ? (
           <span className="tl-hint tl-multi">
-            Đang chọn {selectedLayerIds.length} thanh · kéo một thanh để dời cả nhóm · Ctrl+C chép · Delete xoá · Esc bỏ chọn
+            {tr('Đang chọn {n} thanh · kéo một thanh để dời cả nhóm · Ctrl+C chép · Delete xoá · Esc bỏ chọn', { n: selectedLayerIds.length })}
           </span>
         ) : (
           <span className="tl-hint muted">
-            Kéo khối để dời · kéo mép để đổi thời gian · Ctrl+B tách tại đầu phát · Ctrl/Shift + nhấp để chọn nhiều · Ctrl+C / Ctrl+V chép, dán · Ctrl + lăn chuột để zoom · Delete để xoá
+            {tr('Kéo khối để dời · kéo mép để đổi thời gian · Ctrl+B tách tại đầu phát · Ctrl/Shift + nhấp để chọn nhiều · Ctrl+C / Ctrl+V chép, dán · Ctrl + lăn chuột để zoom · Delete để xoá')}
           </span>
         )}
         <span className="tl-tools">
-          <IconButton icon="split" title="Tách thanh đang chọn tại đầu phát (Ctrl+B)" onClick={splitAtPlayhead} size={16} />
+          <IconButton icon="split" title={tr('Tách thanh đang chọn tại đầu phát (Ctrl+B)')} onClick={splitAtPlayhead} size={16} />
           <span className="sep" />
-          <IconButton icon="magnet" title={snapOn ? 'Bắt dính: bật (giữ Shift để tạm tắt)' : 'Bắt dính: tắt'} onClick={() => setSnapOn(!snapOn)} active={snapOn} size={16} />
+          <IconButton icon="magnet" title={snapOn ? tr('Bắt dính: bật (giữ Shift để tạm tắt)') : tr('Bắt dính: tắt')} onClick={() => setSnapOn(!snapOn)} active={snapOn} size={16} />
           <span className="sep" />
-          <IconButton icon="zoomOut" title="Thu nhỏ" onClick={() => zoomTo(zoom / 1.5)} size={16} />
+          <IconButton icon="zoomOut" title={tr('Thu nhỏ')} onClick={() => zoomTo(zoom / 1.5)} size={16} />
           <input
             className="tl-zoom"
             type="range"
@@ -542,9 +543,9 @@ export function Timeline(): ReactNode {
             step={0.01}
             value={logZ}
             onChange={(e) => zoomTo(Math.exp(parseFloat(e.target.value)))}
-            aria-label="Mức zoom timeline"
+            aria-label={tr('Mức zoom timeline')}
           />
-          <IconButton icon="zoomIn" title="Phóng to" onClick={() => zoomTo(zoom * 1.5)} size={16} />
+          <IconButton icon="zoomIn" title={tr('Phóng to')} onClick={() => zoomTo(zoom * 1.5)} size={16} />
           <button
             type="button"
             className="btn small"
@@ -552,9 +553,9 @@ export function Timeline(): ReactNode {
               setAutoFit(true)
               if (scrollRef.current) scrollRef.current.scrollLeft = 0
             }}
-            title="Vừa khung cả video"
+            title={tr('Vừa khung cả video')}
           >
-            Vừa khung
+            {tr('Vừa khung')}
           </button>
         </span>
       </div>
@@ -570,7 +571,7 @@ export function Timeline(): ReactNode {
         >
           <div className="tl-ruler-row" style={{ height: RULER_H }}>
             <div className="tl-corner" style={{ width: HEAD_W }}>
-              {total > 0 ? `${tl.entries.length} bài` : 'Chưa có nhạc'}
+              {total > 0 ? tr('{n} bài', { n: tl.entries.length }) : tr('Chưa có nhạc')}
             </div>
             <Ruler zoom={zoom} left={view.left} viewW={laneViewW} laneW={laneW} withHours={withHours} knobRef={knobRef} tip={visual?.tip ?? null} />
           </div>
@@ -696,14 +697,14 @@ const LayerRow = memo(function LayerRow({
         className="tl-head"
         style={{ width: HEAD_W }}
         onClick={(e) => (e.ctrlKey || e.metaKey || e.shiftKey ? toggleLayerSelection(layer.id) : selectLayer(layer.id))}
-        title={parts > 1 ? `${LAYER_LABELS[layer.type]} · ${parts} đoạn` : LAYER_LABELS[layer.type]}
+        title={parts > 1 ? `${tr(LAYER_LABELS[layer.type])} · ${tr('{n} đoạn', { n: parts })}` : tr(LAYER_LABELS[layer.type])}
       >
         <button
           type="button"
           className={`tl-dot t-${layer.type}`}
           style={colorStyle(layer.color)}
-          title="Đổi màu hàng"
-          aria-label="Đổi màu hàng"
+          title={tr('Đổi màu hàng')}
+          aria-label={tr('Đổi màu hàng')}
           onClick={(e) => {
             e.stopPropagation()
             const r = e.currentTarget.getBoundingClientRect()
@@ -711,18 +712,18 @@ const LayerRow = memo(function LayerRow({
           }}
         />
         <span className="tl-name">
-          {layer.name}
+          {tr(layer.name)}
           {parts > 1 && <small className="muted"> ×{parts}</small>}
         </span>
         <span className="tl-head-tools" onClick={(e) => e.stopPropagation()}>
           <IconButton
             icon={locked ? 'lock' : 'lockOpen'}
-            title={locked ? 'Đang khoá — bấm để mở khoá' : 'Khoá lớp (không kéo, tách, xoá nhầm)'}
+            title={locked ? tr('Đang khoá — bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
             onClick={() => setLayersLocked(ids, !locked)}
             active={locked}
             size={14}
           />
-          <IconButton icon={enabled ? 'eye' : 'eyeOff'} title={enabled ? 'Ẩn lớp' : 'Hiện lớp'} onClick={() => setLayersEnabled(ids, !enabled)} size={14} />
+          <IconButton icon={enabled ? 'eye' : 'eyeOff'} title={enabled ? tr('Ẩn lớp') : tr('Hiện lớp')} onClick={() => setLayersEnabled(ids, !enabled)} size={14} />
         </span>
       </div>
       {palette && <RowPalette at={palette} ids={ids} current={layer.color} onClose={closePalette} />}
@@ -740,7 +741,7 @@ const LayerRow = memo(function LayerRow({
                 data-id={layer.id}
                 data-index={i}
                 data-part="move"
-                title={`Lần hiện ${i + 1}: ${formatTimePrecise(s)}${auto ? ' — đang tự động theo lịch, kéo để chỉnh riêng từng lần' : ''}`}
+                title={tr('Lần hiện {n}: {time}', { n: i + 1, time: formatTimePrecise(s) }) + (auto ? tr(' — đang tự động theo lịch, kéo để chỉnh riêng từng lần') : '')}
               >
                 <span className="tl-label">{i + 1}</span>
                 <div className="tl-edge r" data-hit="cta" data-id={layer.id} data-index={i} data-part="dur" />
@@ -775,11 +776,11 @@ function RowPalette({ at, ids, current, onClose }: { at: { x: number; y: number 
   }
   const y = Math.min(at.y, window.innerHeight - 60)
   return (
-    <div className="tl-palette" ref={ref} style={{ left: at.x, top: y }} role="menu" aria-label="Màu hàng">
+    <div className="tl-palette" ref={ref} style={{ left: at.x, top: y }} role="menu" aria-label={tr('Màu hàng')}>
       {ROW_COLORS.map((c) => (
         <button type="button" key={c} className={`swatch${current === c ? ' on' : ''}`} style={{ background: c }} title={c} aria-label={c} onClick={() => pick(c)} />
       ))}
-      <button type="button" className={`swatch reset${current ? '' : ' on'}`} title="Màu mặc định theo loại lớp" onClick={() => pick(undefined)}>
+      <button type="button" className={`swatch reset${current ? '' : ' on'}`} title={tr('Màu mặc định theo loại lớp')} onClick={() => pick(undefined)}>
         ↺
       </button>
     </div>
@@ -798,21 +799,21 @@ function LayerClip({ layer, zoom, total, selected, primary }: { layer: Layer; zo
       className={`tl-clip t-${layer.type}${selected ? ' selected' : ''}${locked ? ' locked' : ''}${layer.enabled ? '' : ' off'}`}
       style={{ left: start * zoom, width: w, ...colorStyle(layer.color) }}
       {...part('move')}
-      title={locked ? `${layer.name} — đang khoá` : undefined}
+      title={locked ? tr('{name} — đang khoá', { name: tr(layer.name) }) : undefined}
     >
       {fi > 0 && <div className="tl-fade in" style={{ width: fi }} />}
       {fo > 0 && <div className="tl-fade out" style={{ width: fo }} />}
       <span className="tl-label">
         {locked && <Icon name="lock" size={11} />}
-        {layer.name}
+        {tr(layer.name)}
       </span>
-      {!locked && <div className="tl-edge l" {...part('start')} title="Kéo để đổi thời điểm bắt đầu" />}
-      {!locked && <div className="tl-edge r" {...part('end')} title="Kéo để đổi thời điểm kết thúc" />}
+      {!locked && <div className="tl-edge l" {...part('start')} title={tr('Kéo để đổi thời điểm bắt đầu')} />}
+      {!locked && <div className="tl-edge r" {...part('end')} title={tr('Kéo để đổi thời điểm kết thúc')} />}
       {primary && !locked && w > 40 && (
         <>
           {/* Núm hiện/ẩn dần luôn cách mép ≥ 12px để không che tay nắm kéo mép */}
-          <div className="tl-fadeknob" style={{ left: Math.max(fi, 12) }} {...part('fadeIn')} title="Kéo để hiện dần" />
-          <div className="tl-fadeknob" style={{ left: Math.min(w - fo, w - 12) }} {...part('fadeOut')} title="Kéo để ẩn dần" />
+          <div className="tl-fadeknob" style={{ left: Math.max(fi, 12) }} {...part('fadeIn')} title={tr('Kéo để hiện dần')} />
+          <div className="tl-fadeknob" style={{ left: Math.min(w - fo, w - 12) }} {...part('fadeOut')} title={tr('Kéo để ẩn dần')} />
         </>
       )}
     </div>
@@ -855,12 +856,12 @@ const AudioRow = memo(function AudioRow({
     <div className="tl-row audio" style={{ height: AUDIO_ROW_H }}>
       <div className="tl-head audio" style={{ width: HEAD_W }}>
         <Icon name="music" size={16} />
-        <span className="tl-name">Nhạc</span>
-        <small className="muted">{entries.length} bài</small>
+        <span className="tl-name">{tr('Nhạc')}</span>
+        <small className="muted">{tr('{n} bài', { n: entries.length })}</small>
       </div>
       <div className="tl-lane" data-hit="lane" data-row="audio" style={{ width: laneW }}>
         <Waveform entries={entries} zoom={zoom} left={left} width={viewW} height={AUDIO_ROW_H} version={featuresVersion} />
-        {entries.length === 0 && <div className="tl-empty">Kéo thả file nhạc vào cửa sổ để thêm vào đây</div>}
+        {entries.length === 0 && <div className="tl-empty">{tr('Kéo thả file nhạc vào cửa sổ để thêm vào đây')}</div>}
         {entries.map((e, i) => {
           let s = e.start
           let en = e.end
@@ -875,15 +876,15 @@ const AudioRow = memo(function AudioRow({
               className={`tl-clip t-audio${selectedTrackId === e.track.id ? ' selected' : ''}${move?.from === i ? ' dragging' : ''}`}
               style={{ left: s * zoom, width: Math.max(4, (en - s) * zoom) }}
               {...hitProps('move')}
-              title={`${e.track.title}${e.track.artist ? ` — ${e.track.artist}` : ''} (${formatTime(e.length)}) · kéo để đổi thứ tự, kéo mép để cắt`}
+              title={`${e.track.title}${e.track.artist ? ` — ${e.track.artist}` : ''} (${formatTime(e.length)}) · ${tr('kéo để đổi thứ tự, kéo mép để cắt')}`}
             >
               <span className="tl-label">
                 {e.track.coverPath && <img src={api.fileUrl(e.track.coverPath)} alt="" />}
-                <b>{e.track.title || 'Không tên'}</b>
+                <b>{e.track.title || tr('Không tên')}</b>
                 <small>{formatTime(e.length)}</small>
               </span>
-              <div className="tl-edge l" {...hitProps('start')} title="Kéo để cắt đầu bài" />
-              <div className="tl-edge r" {...hitProps('end')} title="Kéo để cắt cuối bài" />
+              <div className="tl-edge l" {...hitProps('start')} title={tr('Kéo để cắt đầu bài')} />
+              <div className="tl-edge r" {...hitProps('end')} title={tr('Kéo để cắt cuối bài')} />
             </div>
           )
         })}

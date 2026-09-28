@@ -485,6 +485,19 @@ async function main(): Promise<void> {
     for (let i = 0; i + 2 < px.stdout.length; i += 3) worstPx = Math.max(worstPx, Math.abs(px.stdout[i] - px.stdout[i + 1]), Math.abs(px.stdout[i + 1] - px.stdout[i + 2]))
     assert(px.stdout.length === 64 * 36 * 3 && worstPx <= 12, `video xuất ra cũng đen trắng (lệch màu tối đa ${worstPx})`)
     assert(Math.abs(dur - 15) < 0.2, `thời lượng video ~15s (${dur})`)
+    // Giao diện tiếng Anh: bấm EN → chữ đổi ngay (kể cả tên lớp mặc định); bấm VI → trở lại
+    await page.keyboard.press('Escape') // đóng hộp thoại xuất video
+    const exportBtn = page.locator('.topbar .btn.primary')
+    await page.locator('.lang-switch button', { hasText: 'EN' }).click()
+    assert(await until(async () => (await exportBtn.textContent())?.includes('Export video') ?? false), 'bấm EN: giao diện chuyển sang tiếng Anh')
+    assert(
+      (await page.locator('.layer', { hasText: 'Visualizer' }).count()) > 0 && ((await page.locator('.tl-hint').textContent()) ?? '').includes('split at playhead'),
+      'tên lớp và gợi ý trên timeline cũng bằng tiếng Anh'
+    )
+    await page.screenshot({ path: join(OUT, '8-english.png') })
+    await page.locator('.lang-switch button', { hasText: 'VI' }).click()
+    assert(await until(async () => (await exportBtn.textContent())?.includes('Xuất video') ?? false), 'bấm VI: trở lại tiếng Việt')
+
     // Lỡ thả một đường link vào cửa sổ: không chỗ nào nhận nên bị chặn, app không chuyển trang
     const dropBlocked = await page.evaluate(`(() => {
       const dt = new DataTransfer()

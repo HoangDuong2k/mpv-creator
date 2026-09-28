@@ -5,18 +5,29 @@ import { player } from '../engineHost'
 import { errorText } from '../hooks'
 import { useStore } from '../store'
 import { Modal, NumberInput, Row } from './ui'
+import { LANGS, tr, type Lang } from '../../../shared/i18n'
 
 export function SettingsDialog(): ReactNode {
   const project = useStore((s) => s.project)
   const { update, setSettings, openDialog } = useStore.getState()
   const s = project.settings
+  const lang = useStore((st) => st.lang)
   const presetId = RESOLUTION_PRESETS.find((p) => p.width === s.width && p.height === s.height)?.id ?? 'custom'
 
   return (
-    <Modal title="Cài đặt project" onClose={() => openDialog(null)}>
-      <Row label="Tên project">
+    <Modal title={tr('Cài đặt project')} onClose={() => openDialog(null)}>
+      <Row label={tr('Ngôn ngữ giao diện / Language')}>
+        <select value={lang} onChange={(e) => useStore.getState().setLanguage(e.target.value as Lang)}>
+          {LANGS.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+      </Row>
+      <Row label={tr('Tên project')}>
         <input
-          value={project.name}
+          value={tr(project.name)}
           onChange={(e) =>
             update(
               (p) => {
@@ -28,7 +39,7 @@ export function SettingsDialog(): ReactNode {
         />
       </Row>
       <div className="two">
-        <Row label="Khung hình">
+        <Row label={tr('Khung hình')}>
           <select
             value={presetId}
             onChange={(e) => {
@@ -38,44 +49,44 @@ export function SettingsDialog(): ReactNode {
           >
             {RESOLUTION_PRESETS.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.label}
+                {tr(p.label)}
               </option>
             ))}
             {presetId === 'custom' && (
               <option value="custom">
-                Tuỳ chỉnh {s.width}×{s.height}
+                {tr('Tuỳ chỉnh {w}×{h}', { w: s.width, h: s.height })}
               </option>
             )}
           </select>
         </Row>
-        <Row label="Số khung hình / giây">
+        <Row label={tr('Số khung hình / giây')}>
           <select value={s.fps} onChange={(e) => setSettings({ fps: Number(e.target.value) })}>
             {[24, 25, 30, 50, 60].map((f) => (
               <option key={f} value={f}>
-                {f} fps{f === 30 ? ' (khuyên dùng)' : ''}
+                {f} fps{f === 30 ? tr(' (khuyên dùng)') : ''}
               </option>
             ))}
           </select>
         </Row>
       </div>
       <div className="two">
-        <Row label="Rộng (px)">
+        <Row label={tr('Rộng (px)')}>
           <NumberInput value={s.width} min={320} max={7680} step={2} onChange={(v) => setSettings({ width: Math.round(v / 2) * 2 })} />
         </Row>
-        <Row label="Cao (px)">
+        <Row label={tr('Cao (px)')}>
           <NumberInput value={s.height} min={320} max={7680} step={2} onChange={(v) => setSettings({ height: Math.round(v / 2) * 2 })} />
         </Row>
       </div>
-      <div className="section-title">Chuyển bài</div>
+      <div className="section-title">{tr('Chuyển bài')}</div>
       <div className="two">
-        <Row label="Kiểu chuyển">
+        <Row label={tr('Kiểu chuyển')}>
           <select value={s.transition.type} onChange={(e) => setSettings({ transition: { ...s.transition, type: e.target.value as TransitionType } })}>
-            <option value="crossfade">Crossfade (hoà tiếng)</option>
-            <option value="gap">Khoảng lặng</option>
-            <option value="none">Nối liền</option>
+            <option value="crossfade">{tr('Crossfade (hoà tiếng)')}</option>
+            <option value="gap">{tr('Khoảng lặng')}</option>
+            <option value="none">{tr('Nối liền')}</option>
           </select>
         </Row>
-        <Row label={s.transition.type === 'gap' ? 'Khoảng lặng (giây)' : 'Thời gian crossfade (giây)'}>
+        <Row label={s.transition.type === 'gap' ? tr('Khoảng lặng (giây)') : tr('Thời gian crossfade (giây)')}>
           <NumberInput
             value={s.transition.duration}
             min={0}
@@ -86,10 +97,10 @@ export function SettingsDialog(): ReactNode {
         </Row>
       </div>
       <div className="two">
-        <Row label="Fade in đầu video (giây)">
+        <Row label={tr('Fade in đầu video (giây)')}>
           <NumberInput value={s.fadeIn} min={0} max={20} step={0.5} onChange={(v) => setSettings({ fadeIn: v })} />
         </Row>
-        <Row label="Fade out cuối video (giây)">
+        <Row label={tr('Fade out cuối video (giây)')}>
           <NumberInput value={s.fadeOut} min={0} max={30} step={0.5} onChange={(v) => setSettings({ fadeOut: v })} />
         </Row>
       </div>
@@ -115,7 +126,7 @@ function CacheSection(): ReactNode {
   }
   useEffect(load, [])
   const clear = async (): Promise<void> => {
-    if (!window.confirm('Xoá bộ nhớ đệm âm thanh? Các bài trong project sẽ được phân tích lại (mất vài giây đến vài phút).')) return
+    if (!window.confirm(tr('Xoá bộ nhớ đệm âm thanh? Các bài trong project sẽ được phân tích lại (mất vài giây đến vài phút).'))) return
     setBusy(true)
     const { toast, update } = useStore.getState()
     try {
@@ -129,9 +140,9 @@ function CacheSection(): ReactNode {
         },
         { silent: true }
       )
-      toast('success', 'Đã xoá bộ nhớ đệm âm thanh')
+      toast('success', tr('Đã xoá bộ nhớ đệm âm thanh'))
     } catch (err) {
-      toast('error', `Không xoá được bộ nhớ đệm: ${errorText(err)}`)
+      toast('error', tr('Không xoá được bộ nhớ đệm: {err}', { err: errorText(err) }))
     } finally {
       setBusy(false)
       load()
@@ -139,9 +150,9 @@ function CacheSection(): ReactNode {
   }
   return (
     <>
-      <div className="section-title">Bộ nhớ đệm âm thanh</div>
+      <div className="section-title">{tr('Bộ nhớ đệm âm thanh')}</div>
       <p className="muted small">
-        Âm thanh đã giải mã để phát preview và xuất video nhanh (khoảng 660 MB mỗi giờ nhạc). Khi vượt 10 GB, app tự xoá các bài lâu không dùng.
+        {tr('Âm thanh đã giải mã để phát preview và xuất video nhanh (khoảng 660 MB mỗi giờ nhạc). Khi vượt 10 GB, app tự xoá các bài lâu không dùng.')}
       </p>
       <div className="static-value cache-info" title={info?.dir}>
         {info ? (
@@ -155,10 +166,10 @@ function CacheSection(): ReactNode {
       </div>
       <div className="row-actions">
         <button type="button" className="btn small" onClick={() => api.openCacheDir()}>
-          Mở thư mục
+          {tr('Mở thư mục')}
         </button>
         <button type="button" className="btn small danger" disabled={busy} onClick={clear}>
-          {busy ? 'Đang xoá…' : 'Xoá bộ nhớ đệm'}
+          {busy ? tr('Đang xoá…') : tr('Xoá bộ nhớ đệm')}
         </button>
       </div>
     </>

@@ -1,5 +1,6 @@
 import { presetById } from './filterPresets'
 import type { Layer, LayerPropsMap, LayerTiming, LayerType, Project } from './types'
+import { getLang } from './i18n'
 
 export const FULL_TIMING: LayerTiming = { start: 0, end: null, fadeIn: 0, fadeOut: 0 }
 
@@ -170,7 +171,8 @@ export function createLayer<T extends LayerType>(type: T, overrides: Partial<Lay
     name: name ?? LAYER_LABELS[type],
     enabled: true,
     timing: { ...FULL_TIMING },
-    props: { ...structuredClone(LAYER_DEFAULTS[type]), ...overrides }
+    // Nút Đăng ký mới: chữ trên nút theo ngôn ngữ giao diện (ĐĂNG KÝ / SUBSCRIBE)
+    props: { ...structuredClone(LAYER_DEFAULTS[type]), ...(type === 'cta' ? { lang: getLang() } : {}), ...overrides }
   } as Layer<T>
 }
 

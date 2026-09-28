@@ -6,6 +6,7 @@ import type { Layer } from '../../../shared/types'
 import { assets, features, player } from '../engineHost'
 import { useTimeline } from '../hooks'
 import { aboveBackground, useStore } from '../store'
+import { tr } from '../../../shared/i18n'
 
 /** Engine riêng để vẽ ảnh xem trước các mẫu lọc (không đụng cache của preview chính) */
 const thumbRenderer = new Renderer(assets)
@@ -63,7 +64,7 @@ export function FilterPanel({ layer }: { layer: Layer }): ReactNode {
 
   return (
     <>
-      <div className="filter-grid" role="listbox" aria-label="Mẫu bộ lọc">
+      <div className="filter-grid" role="listbox" aria-label={tr('Mẫu bộ lọc')}>
         {FILTER_PRESETS.map((p) => (
           <button
             type="button"
@@ -72,26 +73,26 @@ export function FilterPanel({ layer }: { layer: Layer }): ReactNode {
             aria-selected={props.preset === p.id}
             className={`filter-thumb${props.preset === p.id ? ' selected' : ''}`}
             onClick={() => setLayerProps(layer.id, { ...p.values, preset: p.id })}
-            title={`Áp dụng mẫu "${p.name}"`}
+            title={tr('Áp dụng mẫu "{name}"', { name: tr(p.name) })}
           >
             {thumbs[p.id] ? <img src={thumbs[p.id]} alt="" /> : <span className="filter-thumb-empty" />}
             <span>{p.name}</span>
           </button>
         ))}
       </div>
-      {props.preset === 'custom' && <p className="muted small">Đang dùng bộ lọc tự chỉnh.</p>}
-      <div className="section-title">Phạm vi tác động</div>
-      <p className="muted small">Bộ lọc áp dụng cho các lớp nằm dưới nó trong danh sách lớp.</p>
+      {props.preset === 'custom' && <p className="muted small">{tr('Đang dùng bộ lọc tự chỉnh.')}</p>}
+      <div className="section-title">{tr('Phạm vi tác động')}</div>
+      <p className="muted small">{tr('Bộ lọc áp dụng cho các lớp nằm dưới nó trong danh sách lớp.')}</p>
       <div className="row-actions">
         <button
           type="button"
           className={`btn small${scope === 'background' ? ' primary' : ''}`}
           onClick={() => moveLayerTo(layer.id, bgIndex > index ? bgIndex - 1 : bgIndex)}
         >
-          Chỉ lọc ảnh nền
+          {tr('Chỉ lọc ảnh nền')}
         </button>
         <button type="button" className={`btn small${scope === 'all' ? ' primary' : ''}`} onClick={() => moveLayerTo(layer.id, project.layers.length - 1)}>
-          Lọc cả khung hình
+          {tr('Lọc cả khung hình')}
         </button>
       </div>
     </>

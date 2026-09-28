@@ -7,6 +7,7 @@ import { useTimeline } from '../hooks'
 import { PREVIEW_QUALITY_SCALE, useStore, type PreviewQuality } from '../store'
 import { Stage } from './Stage'
 import { Icon, IconButton } from './ui'
+import { tr } from '../../../shared/i18n'
 
 /** Kích thước tối đa của canvas preview (cạnh dài) — dự án 4K được xem trước ở 1080p */
 const PREVIEW_MAX = 1920
@@ -105,11 +106,11 @@ export function PreviewPanel(): ReactNode {
     <section className="preview">
       <Stage canvasRef={canvasRef} renderer={renderer} W={W} H={H} onTogglePlay={togglePlay} />
       <div className="transport">
-        <IconButton icon="prev" title="Bài trước" onClick={() => jump(-1)} disabled={!cur} />
-        <button type="button" className="play-btn" onClick={togglePlay} title={playing ? 'Tạm dừng (Space)' : 'Phát (Space)'} aria-label={playing ? 'Tạm dừng' : 'Phát'}>
+        <IconButton icon="prev" title={tr('Bài trước')} onClick={() => jump(-1)} disabled={!cur} />
+        <button type="button" className="play-btn" onClick={togglePlay} title={playing ? tr('Tạm dừng (Space)') : tr('Phát (Space)')} aria-label={playing ? tr('Tạm dừng') : tr('Phát')}>
           <Icon name={playing ? 'pause' : 'play'} size={22} />
         </button>
-        <IconButton icon="next" title="Bài sau" onClick={() => jump(1)} disabled={!cur || cur.index >= timeline.entries.length - 1} />
+        <IconButton icon="next" title={tr('Bài sau')} onClick={() => jump(1)} disabled={!cur || cur.index >= timeline.entries.length - 1} />
         <span className="time">
           {formatTime(currentTime, withHours)} / {formatTime(timeline.total, withHours)}
         </span>
@@ -117,7 +118,7 @@ export function PreviewPanel(): ReactNode {
         <span className="spacer" />
         <span className="volume">
           <Icon name="volume" size={16} />
-          <input type="range" min={0} max={1} step={0.01} defaultValue={1} onChange={(e) => player.setVolume(parseFloat(e.target.value))} aria-label="Âm lượng" />
+          <input type="range" min={0} max={1} step={0.01} defaultValue={1} onChange={(e) => player.setVolume(parseFloat(e.target.value))} aria-label={tr('Âm lượng')} />
         </span>
       </div>
       <div className="status-line">
@@ -127,12 +128,12 @@ export function PreviewPanel(): ReactNode {
             {cur.track.artist ? ` — ${cur.track.artist}` : ''}
           </span>
         ) : (
-          <span className="muted">Thêm nhạc để bắt đầu</span>
+          <span className="muted">{tr('Thêm nhạc để bắt đầu')}</span>
         )}
         <span className="status-chips">
-          {analyzing > 0 && <span className="chip">Đang phân tích {analyzing} bài…</span>}
-          {failed > 0 && <span className="chip error">{failed} bài lỗi đọc file</span>}
-          {audioReady && <span className="chip ok">Âm thanh sẵn sàng</span>}
+          {analyzing > 0 && <span className="chip">{tr('Đang phân tích {n} bài…', { n: analyzing })}</span>}
+          {failed > 0 && <span className="chip error">{tr('{n} bài lỗi đọc file', { n: failed })}</span>}
+          {audioReady && <span className="chip ok">{tr('Âm thanh sẵn sàng')}</span>}
           <span className="chip">
             {W}×{H} · {project.settings.fps}fps
           </span>
@@ -140,10 +141,10 @@ export function PreviewPanel(): ReactNode {
             className="chip chip-select"
             value={quality}
             onChange={(e) => useStore.getState().setPreviewQuality(e.target.value as PreviewQuality)}
-            title="Độ nét preview — giảm để phát mượt trên máy yếu; không ảnh hưởng video xuất ra"
-            aria-label="Độ nét preview"
+            title={tr('Độ nét preview — giảm để phát mượt trên máy yếu; không ảnh hưởng video xuất ra')}
+            aria-label={tr('Độ nét preview')}
           >
-            <option value="high">Preview nét</option>
+            <option value="high">{tr('Preview nét')}</option>
             <option value="medium">Preview ½</option>
             <option value="low">Preview ¼</option>
           </select>

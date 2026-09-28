@@ -1440,3 +1440,28 @@ button.tl-dot:hover {
   object-fit: cover;
   background: #1c202b;
 }
+
+/* Nút đổi ngôn ngữ VI / EN trên thanh trên cùng */
+.lang-switch {
+  display: flex;
+  margin-right: 10px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #151923;
+}
+.lang-switch button {
+  min-width: 30px;
+  padding: 3px 6px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.lang-switch button.on {
+  background: #2a3142;
+  color: #fff;
+}

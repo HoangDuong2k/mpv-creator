@@ -6,6 +6,7 @@ import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { MIN_TRACK } from '../timelineModel'
 import { Row, TimeInput } from './ui'
+import { tr } from '../../../shared/i18n'
 
 const api = window.api
 
@@ -24,47 +25,51 @@ export function TrackInspector({ track }: { track: Track }): ReactNode {
   return (
     <div className="inspector">
       <div className="inspector-head">
-        <span className="layer-name static">Bài hát {entry ? entry.index + 1 : ''}</span>
-        <span className="badge t-audio-badge">Clip nhạc</span>
+        <span className="layer-name static">{tr('Bài hát {n}', { n: entry ? entry.index + 1 : '' })}</span>
+        <span className="badge t-audio-badge">{tr('Clip nhạc')}</span>
       </div>
       {track.coverPath && <img className="track-cover-lg" src={api.fileUrl(track.coverPath)} alt="" />}
-      <Row label="Tên bài">
+      <Row label={tr('Tên bài')}>
         <input value={track.title} onChange={(e) => updateTrack(track.id, { title: e.target.value }, { coalesce: `title-${track.id}` })} />
       </Row>
-      <Row label="Ca sĩ">
+      <Row label={tr('Ca sĩ')}>
         <input value={track.artist} onChange={(e) => updateTrack(track.id, { artist: e.target.value }, { coalesce: `artist-${track.id}` })} />
       </Row>
-      <div className="section-title">Cắt bài</div>
+      <div className="section-title">{tr('Cắt bài')}</div>
       <div className="two">
-        <Row label="Cắt đầu">
+        <Row label={tr('Cắt đầu')}>
           <TimeInput value={track.trimStart} onChange={(v) => updateTrack(track.id, { trimStart: Math.min(Math.max(0, v), maxTrim(track.trimEnd)) })} />
         </Row>
-        <Row label="Cắt cuối">
+        <Row label={tr('Cắt cuối')}>
           <TimeInput value={track.trimEnd} onChange={(v) => updateTrack(track.id, { trimEnd: Math.min(Math.max(0, v), maxTrim(track.trimStart)) })} />
         </Row>
       </div>
       {entry && (
         <p className="muted small">
-          Gốc {formatTime(track.duration)} · phát {formatTime(entry.length)} · trong video từ {formatTimePrecise(entry.start, withHours)} đến{' '}
-          {formatTimePrecise(entry.end, withHours)}
+          {tr('Gốc {orig} · phát {len} · trong video từ {from} đến {to}', {
+            orig: formatTime(track.duration),
+            len: formatTime(entry.length),
+            from: formatTimePrecise(entry.start, withHours),
+            to: formatTimePrecise(entry.end, withHours)
+          })}
         </p>
       )}
       <div className="row-actions">
         {entry && (
           <button type="button" className="btn small" onClick={() => seek(entry.index === 0 ? 0 : entry.displayStart)}>
-            Tới đầu bài
+            {tr('Tới đầu bài')}
           </button>
         )}
         {(track.trimStart > 0 || track.trimEnd > 0) && (
           <button type="button" className="btn small" onClick={() => updateTrack(track.id, { trimStart: 0, trimEnd: 0 })}>
-            Bỏ cắt
+            {tr('Bỏ cắt')}
           </button>
         )}
         <button type="button" className="btn small danger" onClick={() => removeTrack(track.id)}>
-          Xoá khỏi playlist
+          {tr('Xoá khỏi playlist')}
         </button>
       </div>
-      <p className="muted small">Trên timeline: kéo clip để đổi thứ tự, kéo mép clip để cắt đầu/cuối, chọn clip rồi bấm Delete để xoá.</p>
+      <p className="muted small">{tr('Trên timeline: kéo clip để đổi thứ tự, kéo mép clip để cắt đầu/cuối, chọn clip rồi bấm Delete để xoá.')}</p>
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { player } from '../engineHost'
 import { errorText, useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { Icon, IconButton, NumberInput } from './ui'
+import { tr } from '../../../shared/i18n'
 
 const api = window.api
 
@@ -13,10 +14,10 @@ export async function importPaths(paths: string[]): Promise<void> {
   const { addTracks, toast } = useStore.getState()
   try {
     const tracks = await api.importMedia(paths)
-    if (tracks.length === 0) toast('error', 'Không tìm thấy file nhạc hợp lệ (mp3, wav, flac, m4a, ogg…)')
+    if (tracks.length === 0) toast('error', tr('Không tìm thấy file nhạc hợp lệ (mp3, wav, flac, m4a, ogg…)'))
     else addTracks(tracks)
   } catch (err) {
-    toast('error', `Không thêm được nhạc: ${errorText(err)}`)
+    toast('error', tr('Không thêm được nhạc: {err}', { err: errorText(err) }))
   }
 }
 
@@ -39,13 +40,13 @@ export function PlaylistPanel(): ReactNode {
       <div className="panel-head">
         <h3>Playlist</h3>
         <button type="button" className="btn small primary" onClick={async () => importPaths(await api.openFiles('audio', true))}>
-          <Icon name="add" size={16} /> Thêm nhạc
+          <Icon name="add" size={16} /> {tr('Thêm nhạc')}
         </button>
       </div>
       {tracks.length === 0 ? (
         <div className="empty-drop">
           <Icon name="music" size={40} />
-          <p>Kéo thả file nhạc hoặc thư mục vào đây</p>
+          <p>{tr('Kéo thả file nhạc hoặc thư mục vào đây')}</p>
           <p className="muted">MP3, WAV, FLAC, M4A, OGG…</p>
         </div>
       ) : (
@@ -86,18 +87,18 @@ export function PlaylistPanel(): ReactNode {
                   {t.coverPath ? <img className="cover" src={api.fileUrl(t.coverPath)} alt="" /> : <span className="cover placeholder"><Icon name="music" size={18} /></span>}
                   <div className="track-info">
                     <div className="track-title" title={t.path}>
-                      {t.title || 'Không tên'}
+                      {t.title || tr('Không tên')}
                     </div>
                     <div className="track-sub">
                       {t.artist && <span>{t.artist} · </span>}
-                      <span title="Bắt đầu trong video">{formatTime(i === 0 ? 0 : e.displayStart, withHours)}</span>
+                      <span title={tr('Bắt đầu trong video')}>{formatTime(i === 0 ? 0 : e.displayStart, withHours)}</span>
                       <span className="muted"> · {formatTime(e.length)}</span>
                     </div>
                     <TrackStatusBar st={st} />
                   </div>
                   <div className="track-actions">
-                    <IconButton icon="tune" title="Chỉnh sửa" onClick={() => setExpanded(expanded === t.id ? null : t.id)} active={expanded === t.id} size={15} />
-                    <IconButton icon="delete" title="Xoá khỏi playlist" onClick={() => removeTrack(t.id)} size={15} />
+                    <IconButton icon="tune" title={tr('Chỉnh sửa')} onClick={() => setExpanded(expanded === t.id ? null : t.id)} active={expanded === t.id} size={15} />
+                    <IconButton icon="delete" title={tr('Xoá khỏi playlist')} onClick={() => removeTrack(t.id)} size={15} />
                   </div>
                 </div>
                 {expanded === t.id && <TrackEditor track={t} />}
@@ -108,10 +109,10 @@ export function PlaylistPanel(): ReactNode {
       )}
       <div className="panel-foot">
         <span>
-          {tracks.length} bài · {formatTime(timeline.total, withHours)}
+          {tr('{n} bài', { n: tracks.length })} · {formatTime(timeline.total, withHours)}
         </span>
         <button type="button" className="btn small" onClick={() => openDialog('chapters')} disabled={tracks.length === 0}>
-          <Icon name="list" size={16} /> Timestamp YouTube
+          <Icon name="list" size={16} /> {tr('Timestamp YouTube')}
         </button>
       </div>
     </aside>
@@ -123,11 +124,11 @@ function TrackStatusBar({ st }: { st?: { state: string; progress: number; error?
   if (st.state === 'error')
     return (
       <div className="track-error" title={st.error}>
-        <Icon name="error" size={14} /> Lỗi đọc file
+        <Icon name="error" size={14} /> {tr('Lỗi đọc file')}
       </div>
     )
   return (
-    <div className="mini-progress" title="Đang phân tích âm thanh">
+    <div className="mini-progress" title={tr('Đang phân tích âm thanh')}>
       <div style={{ width: `${Math.round(st.progress * 100)}%` }} />
     </div>
   )
@@ -138,24 +139,24 @@ function TrackEditor({ track }: { track: Track }): ReactNode {
   return (
     <div className="track-editor">
       <label>
-        Tên bài
+        {tr('Tên bài')}
         <input value={track.title} onChange={(e) => updateTrack(track.id, { title: e.target.value }, { coalesce: `title-${track.id}` })} />
       </label>
       <label>
-        Ca sĩ
+        {tr('Ca sĩ')}
         <input value={track.artist} onChange={(e) => updateTrack(track.id, { artist: e.target.value }, { coalesce: `artist-${track.id}` })} />
       </label>
       <div className="two">
         <label>
-          Cắt đầu (giây)
+          {tr('Cắt đầu (giây)')}
           <NumberInput value={track.trimStart} min={0} max={Math.max(0, track.duration - track.trimEnd - 1)} onChange={(v) => updateTrack(track.id, { trimStart: v })} />
         </label>
         <label>
-          Cắt cuối (giây)
+          {tr('Cắt cuối (giây)')}
           <NumberInput value={track.trimEnd} min={0} max={Math.max(0, track.duration - track.trimStart - 1)} onChange={(v) => updateTrack(track.id, { trimEnd: v })} />
         </label>
       </div>
-      <p className="muted small">Thời lượng gốc: {formatTime(track.duration)}</p>
+      <p className="muted small">{tr('Thời lượng gốc: {time}', { time: formatTime(track.duration) })}</p>
     </div>
   )
 }

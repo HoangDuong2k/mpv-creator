@@ -8,6 +8,7 @@ import { layerRange } from '../timelineModel'
 import { Inspector } from './Inspector'
 import { TrackInspector } from './TrackInspector'
 import { Icon, IconButton } from './ui'
+import { tr } from '../../../shared/i18n'
 
 const ADDABLE: LayerType[] = ['visualizer', 'text', 'image', 'cta', 'filter', 'particles', 'flicker', 'vignette', 'progress', 'background']
 
@@ -32,10 +33,10 @@ export function LayersPanel(): ReactNode {
   return (
     <aside className="panel right">
       <div className="panel-head">
-        <h3>Lớp hiệu ứng</h3>
+        <h3>{tr('Lớp hiệu ứng')}</h3>
         <div className="add-menu">
           <button type="button" className="btn small primary" onClick={() => setMenu(!menu)}>
-            <Icon name="add" size={16} /> Thêm lớp
+            <Icon name="add" size={16} /> {tr('Thêm lớp')}
           </button>
           {menu && (
             <div className="menu" onMouseLeave={() => setMenu(false)}>
@@ -48,7 +49,7 @@ export function LayersPanel(): ReactNode {
                     setMenu(false)
                   }}
                 >
-                  {LAYER_LABELS[t]}
+                  {tr(LAYER_LABELS[t])}
                 </button>
               ))}
             </div>
@@ -65,34 +66,34 @@ export function LayersPanel(): ReactNode {
               className={`layer${selectedIds.includes(l.id) ? ' selected' : ''}${l.enabled ? '' : ' disabled'}`}
               onClick={(e) => (e.ctrlKey || e.metaKey || e.shiftKey ? toggleLayerSelection(l.id) : selectLayer(l.id))}
             >
-              <IconButton icon={l.enabled ? 'eye' : 'eyeOff'} title={l.enabled ? 'Ẩn lớp' : 'Hiện lớp'} onClick={() => toggleLayer(l.id)} size={16} />
+              <IconButton icon={l.enabled ? 'eye' : 'eyeOff'} title={l.enabled ? tr('Ẩn lớp') : tr('Hiện lớp')} onClick={() => toggleLayer(l.id)} size={16} />
               <span className="layer-title">
-                {l.name}
-                {l.name !== LAYER_LABELS[l.type] && <small>{LAYER_LABELS[l.type]}</small>}
+                {tr(l.name)}
+                {l.name !== LAYER_LABELS[l.type] && <small>{tr(LAYER_LABELS[l.type])}</small>}
               </span>
               {r && (
-                <span className="layer-range" title="Khoảng thời gian của đoạn này">
-                  {formatTime(r.start, withHours)}–{l.timing.end === null ? 'hết' : formatTime(r.end, withHours)}
+                <span className="layer-range" title={tr('Khoảng thời gian của đoạn này')}>
+                  {formatTime(r.start, withHours)}–{l.timing.end === null ? tr('hết') : formatTime(r.end, withHours)}
                 </span>
               )}
               <span className="layer-actions" onClick={(e) => e.stopPropagation()}>
                 <IconButton
                   icon={l.locked ? 'lock' : 'lockOpen'}
-                  title={l.locked ? 'Đang khoá — bấm để mở khoá' : 'Khoá lớp (không kéo, tách, xoá nhầm)'}
+                  title={l.locked ? tr('Đang khoá — bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
                   onClick={() => setLayersLocked([l.id], !l.locked)}
                   active={!!l.locked}
                   size={15}
                 />
-                <IconButton icon="up" title="Đưa lên trên" onClick={() => moveLayer(l.id, 1)} disabled={i === 0} size={15} />
-                <IconButton icon="down" title="Đưa xuống dưới" onClick={() => moveLayer(l.id, -1)} disabled={i === ordered.length - 1} size={15} />
-                <IconButton icon="duplicate" title="Nhân bản" onClick={() => duplicateLayer(l.id)} size={15} />
-                <IconButton icon="delete" title={l.locked ? 'Lớp đang khoá — mở khoá để xoá' : 'Xoá lớp'} onClick={() => removeLayer(l.id)} disabled={!!l.locked} size={15} />
+                <IconButton icon="up" title={tr('Đưa lên trên')} onClick={() => moveLayer(l.id, 1)} disabled={i === 0} size={15} />
+                <IconButton icon="down" title={tr('Đưa xuống dưới')} onClick={() => moveLayer(l.id, -1)} disabled={i === ordered.length - 1} size={15} />
+                <IconButton icon="duplicate" title={tr('Nhân bản')} onClick={() => duplicateLayer(l.id)} size={15} />
+                <IconButton icon="delete" title={l.locked ? tr('Lớp đang khoá — mở khoá để xoá') : tr('Xoá lớp')} onClick={() => removeLayer(l.id)} disabled={!!l.locked} size={15} />
               </span>
             </li>
           )
         })}
       </ul>
-      <div className="inspector-wrap" ref={wrapRef}>{selectedTrack ? <TrackInspector track={selectedTrack} /> : selected ? <Inspector layer={selected} /> : <p className="muted pad">Chọn một lớp ở danh sách trên, hoặc nhấp thẳng vào nó trên khung hình để chỉnh vị trí, kích thước, màu sắc.</p>}</div>
+      <div className="inspector-wrap" ref={wrapRef}>{selectedTrack ? <TrackInspector track={selectedTrack} /> : selected ? <Inspector layer={selected} /> : <p className="muted pad">{tr('Chọn một lớp ở danh sách trên, hoặc nhấp thẳng vào nó trên khung hình để chỉnh vị trí, kích thước, màu sắc.')}</p>}</div>
     </aside>
   )
 }

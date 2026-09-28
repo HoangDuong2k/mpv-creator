@@ -4,6 +4,7 @@ import { createDefaultProject, createLayer, normalizeProject } from '../../share
 import { buildTimeline } from '../../shared/timeline'
 import type { Layer, LayerPropsMap, LayerTiming, LayerType, Project, ProjectSettings, Track } from '../../shared/types'
 import { pasteTimings, splitTiming } from './timelineModel'
+import { isLang, setLang, tr, type Lang } from '../../shared/i18n'
 
 /** Độ nét preview: giảm để phát mượt trên máy yếu (không ảnh hưởng video xuất) */
 export type PreviewQuality = 'high' | 'medium' | 'low'
@@ -18,6 +19,19 @@ function loadPreviewQuality(): PreviewQuality {
     // bộ nhớ trình duyệt không dùng được (hoặc chạy trong kiểm thử)
   }
   return 'high'
+}
+
+const LANG_KEY = 'pvm.lang'
+
+/** Ngôn ngữ giao diện đã chọn (mặc định tiếng Việt) */
+function loadLang(): Lang {
+  try {
+    const v = localStorage.getItem(LANG_KEY)
+    if (isLang(v)) return v
+  } catch {
+    // bỏ qua
+  }
+  return 'vi'
 }
 
 /** Các lớp đã chép (Ctrl+C) — chỉ trong phiên làm việc */
@@ -71,6 +85,7 @@ interface State {
   dialog: DialogName
   toasts: Toast[]
   previewQuality: PreviewQuality
+  lang: Lang
 
   update(fn: (p: Project) => void, opts?: UpdateOptions): void
   undo(): void
@@ -117,6 +132,7 @@ interface State {
   setLayersColor(ids: string[], color: string | undefined): void
   setLayersEnabled(ids: string[], enabled: boolean): void
   setPreviewQuality(q: PreviewQuality): void
+  setLanguage(lang: Lang): void
 
   bumpFeatures(): void
   setTime(t: number): void
@@ -134,6 +150,8 @@ function defaultSelection(p: Project): string | null {
   return (p.layers.find((l) => l.type === 'visualizer') ?? p.layers[p.layers.length - 1])?.id ?? null
 }
 
+// Nạp ngôn ngữ trước khi tạo project mặc định (tên project, chữ trên nút Đăng ký…)
+setLang(loadLang())
 const initialProject = createDefaultProject()
 
 export const useStore = create<State>((set, get) => ({
@@ -154,6 +172,7 @@ export const useStore = create<State>((set, get) => ({
   dialog: null,
   toasts: [],
   previewQuality: loadPreviewQuality(),
+  lang: loadLang(),
 
   update(fn, opts = {}) {
     const { project, past, lastCoalesce } = get()
@@ -291,7 +310,7 @@ export const useStore = create<State>((set, get) => ({
     const src = get().project.layers.find((l) => l.id === id)
     if (!src) return
     // Bản sao nằm hàng riêng trên timeline, không khoá
-    const copy = { ...structuredClone(src), id: createLayer(src.type).id, name: `${src.name} (bản sao)`, row: undefined, locked: undefined } as Layer
+    const copy = { ...structuredClone(src), id: createLayer(src.type).id, name: `${tr(src.name)} ${tr('(bản sao)')}`, row: undefined, locked: undefined } as Layer
     get().update((p) => {
       const i = p.layers.findIndex((l) => l.id === id)
       p.layers.splice(i + 1, 0, copy)
@@ -472,6 +491,16 @@ export const useStore = create<State>((set, get) => ({
     get().update((p) => {
       for (const l of p.layers) if (ids.includes(l.id)) l.enabled = enabled
     })
+  },
+
+  setLanguage(lang) {
+    setLang(lang)
+    set({ lang })
+    try {
+      localStorage.setItem(LANG_KEY, lang)
+    } catch {
+      // bỏ qua
+    }
   },
 
   setPreviewQuality(q) {

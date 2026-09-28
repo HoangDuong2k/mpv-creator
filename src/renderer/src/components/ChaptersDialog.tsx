@@ -4,14 +4,15 @@ import { buildChapters } from '../../../shared/time'
 import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { Icon, Modal, Row } from './ui'
+import { tr, trKey } from '../../../shared/i18n'
 
 const api = window.api
 
 const TEMPLATES: Array<[string, string]> = [
-  ['{time} {title}{ - artist}', '0:00 Tên bài - Ca sĩ'],
-  ['{time} {title}', '0:00 Tên bài'],
-  ['{time} {index}. {title}{ - artist}', '0:00 01. Tên bài - Ca sĩ'],
-  ['{time} | {title}{ - artist}', '0:00 | Tên bài - Ca sĩ']
+  ['{time} {title}{ - artist}', trKey('0:00 Tên bài - Ca sĩ')],
+  ['{time} {title}', trKey('0:00 Tên bài')],
+  ['{time} {index}. {title}{ - artist}', trKey('0:00 01. Tên bài - Ca sĩ')],
+  ['{time} | {title}{ - artist}', trKey('0:00 | Tên bài - Ca sĩ')]
 ]
 
 export function ChaptersDialog(): ReactNode {
@@ -23,12 +24,12 @@ export function ChaptersDialog(): ReactNode {
 
   const tooShort = timeline.entries.filter((e) => e.displayEnd - e.displayStart < 10).length
   const warnings: string[] = []
-  if (timeline.entries.length < 3) warnings.push('YouTube cần ít nhất 3 mốc thời gian để hiện chương (chapter).')
-  if (tooShort > 0) warnings.push(`${tooShort} bài ngắn hơn 10 giây — YouTube yêu cầu mỗi chương dài tối thiểu 10 giây.`)
+  if (timeline.entries.length < 3) warnings.push(tr('YouTube cần ít nhất 3 mốc thời gian để hiện chương (chapter).'))
+  if (tooShort > 0) warnings.push(tr('{n} bài ngắn hơn 10 giây — YouTube yêu cầu mỗi chương dài tối thiểu 10 giây.', { n: tooShort }))
 
   return (
     <Modal
-      title="Timestamp cho mô tả YouTube"
+      title={tr('Timestamp cho mô tả YouTube')}
       onClose={() => openDialog(null)}
       wide
       footer={
@@ -37,21 +38,21 @@ export function ChaptersDialog(): ReactNode {
             type="button"
             className="btn"
             onClick={async () => {
-              const p = await api.saveFile('text', `${safeFileName(project.name)} - timestamp.txt`)
+              const p = await api.saveFile('text', `${safeFileName(tr(project.name))} - timestamp.txt`)
               if (p) {
                 await api.writeText(p, text)
-                toast('success', 'Đã lưu file timestamp')
+                toast('success', tr('Đã lưu file timestamp'))
               }
             }}
           >
-            Lưu file .txt
+            {tr('Lưu file .txt')}
           </button>
           <button
             type="button"
             className="btn primary"
             onClick={async () => {
               await api.copyText(text)
-              toast('success', 'Đã copy timestamp — dán vào phần mô tả video')
+              toast('success', tr('Đã copy timestamp — dán vào phần mô tả video'))
             }}
           >
             <Icon name="copy" size={16} /> Copy
@@ -59,11 +60,11 @@ export function ChaptersDialog(): ReactNode {
         </>
       }
     >
-      <Row label="Định dạng">
+      <Row label={tr('Định dạng')}>
         <select value={template} onChange={(e) => setTemplate(e.target.value)}>
           {TEMPLATES.map(([v, label]) => (
             <option key={v} value={v}>
-              {label}
+              {tr(label)}
             </option>
           ))}
         </select>
@@ -74,7 +75,7 @@ export function ChaptersDialog(): ReactNode {
           {w}
         </p>
       ))}
-      <p className="muted small">Mốc thời gian lấy ở giữa đoạn crossfade — đúng lúc bài mới nghe rõ.</p>
+      <p className="muted small">{tr('Mốc thời gian lấy ở giữa đoạn crossfade — đúng lúc bài mới nghe rõ.')}</p>
     </Modal>
   )
 }
