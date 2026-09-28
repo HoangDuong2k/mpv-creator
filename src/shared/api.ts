@@ -1,5 +1,6 @@
 // Hợp đồng IPC giữa renderer (window.api) và main process.
 import type { EncoderId, Project, ProjectSettings, Track } from './types'
+import type { Lang } from './i18n'
 
 export type FileKind = 'audio' | 'image' | 'video' | 'project'
 export type SaveKind = 'video' | 'project' | 'text'
@@ -71,6 +72,8 @@ export interface PvmApi {
   cancelExport(): Promise<void>
   /** Tắt máy (sau khi xuất xong, người dùng đã chọn và không huỷ) */
   shutdown(): Promise<void>
+  /** Ngôn ngữ giao diện → main dùng cho hộp thoại, thông báo, lỗi */
+  setLanguage(lang: Lang): Promise<void>
   readProject(path: string): Promise<Project>
   writeProject(path: string, project: Project): Promise<void>
   writeText(path: string, text: string): Promise<void>

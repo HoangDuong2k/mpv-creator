@@ -13,6 +13,7 @@ import type { Workspace } from '../workspace'
 import { encoderArgs } from './encoders'
 import { chunkFramesFor, completedPartIndex, isPartsDirOf, partialName, partName, partsDirName, planChunks, renderKey, type Chunk } from './plan'
 import type { WorkerJob, WorkerMessage } from './worker'
+import { getLang, tr } from '../../shared/i18n'
 
 export type ExportStage = 'audio' | 'render' | 'mux' | 'done'
 
@@ -67,9 +68,11 @@ export interface ExportResult {
 export async function ensureWritable(path: string): Promise<void> {
   const explain = (err: NodeJS.ErrnoException): Error => {
     if (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'EACCES')
-      return new Error(`Không ghi được "${path}": file đang được mở ở chương trình khác (trình xem video…) hoặc thư mục không cho phép ghi. Hãy đóng file đó hoặc chọn nơi lưu khác.`)
-    if (err.code === 'ENOENT') return new Error(`Thư mục lưu không tồn tại: ${dirname(path)}`)
-    return new Error(`Không ghi được "${path}": ${err.message}`)
+      return new Error(
+        tr('Không ghi được "{path}": file đang được mở ở chương trình khác (trình xem video…) hoặc thư mục không cho phép ghi. Hãy đóng file đó hoặc chọn nơi lưu khác.', { path })
+      )
+    if (err.code === 'ENOENT') return new Error(tr('Thư mục lưu không tồn tại: {dir}', { dir: dirname(path) }))
+    return new Error(tr('Không ghi được "{path}": {err}', { path, err: err.message }))
   }
   await mkdir(dirname(path), { recursive: true }).catch(() => undefined)
   try {
@@ -85,8 +88,8 @@ export async function ensureWritable(path: string): Promise<void> {
 /** Đổi thông báo lỗi FFmpeg thường gặp sang tiếng Việt dễ hiểu */
 export function friendlyFfmpegError(message: string, outputPath: string): string {
   if (/Permission denied|being used by another process|Device or resource busy/i.test(message))
-    return `Không ghi được "${outputPath}": file đang được mở ở chương trình khác hoặc không có quyền ghi.`
-  if (/No space left on device|not enough space/i.test(message)) return 'Ổ đĩa đã đầy — hãy giải phóng dung lượng hoặc chọn ổ khác để lưu video.'
+    return tr('Không ghi được "{path}": file đang được mở ở chương trình khác hoặc không có quyền ghi.', { path: outputPath })
+  if (/No space left on device|not enough space/i.test(message)) return tr('Ổ đĩa đã đầy — hãy giải phóng dung lượng hoặc chọn ổ khác để lưu video.')
   return message
 }
 
@@ -217,12 +220,12 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
     if (signal?.aborted) throw new CancelledError()
   }
 
-  if (project.tracks.length === 0) throw new Error('Playlist chưa có bài hát')
+  if (project.tracks.length === 0) throw new Error(tr('Playlist chưa có bài hát'))
   const missing = project.tracks.filter((t) => !t.analysisKey)
-  if (missing.length) throw new Error(`Còn ${missing.length} bài chưa phân tích xong âm thanh`)
+  if (missing.length) throw new Error(tr('Còn {n} bài chưa phân tích xong âm thanh', { n: missing.length }))
   const featurePaths: Record<string, string> = {}
   for (const t of project.tracks) {
-    if (!workspace.hasAudio(t.analysisKey!)) throw new Error(`Thiếu dữ liệu âm thanh của bài "${t.title}" — hãy mở lại project để phân tích lại`)
+    if (!workspace.hasAudio(t.analysisKey!)) throw new Error(tr('Thiếu dữ liệu âm thanh của bài "{title}" — hãy mở lại project để phân tích lại', { title: t.title }))
     featurePaths[t.analysisKey!] = workspace.featuresPath(t.analysisKey!)
   }
 
@@ -238,7 +241,7 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
   const { pre, post } = encoderArgs(settings.encoder, settings.quality, fps)
 
   const outputPath = settings.outputPath
-  if (!outputPath) throw new Error('Chưa chọn nơi lưu video')
+  if (!outputPath) throw new Error(tr('Chưa chọn nơi lưu video'))
   // Kiểm tra ghi được file ngay từ đầu (vd. trên Windows file cũ đang mở trong trình xem video sẽ bị khoá),
   // tránh render xong 20 phút mới báo lỗi
   await ensureWritable(outputPath)
@@ -311,7 +314,9 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
           outPath: join(partsDir, partialName(c.index)),
           encoderPre: pre,
           encoderPost: post,
-          threads
+          threads,
+          // Cảnh báo từ luồng render hiện theo ngôn ngữ giao diện
+          lang: getLang()
         }
         const w = new Worker(opts.workerPath, { workerData: job, execArgv: opts.workerExecArgv })
         active.add(w)
@@ -335,7 +340,7 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
           } else finish(new Error(m.message))
         })
         w.on('error', (e) => finish(e))
-        w.on('exit', (code) => finish(signal?.aborted ? new CancelledError() : new Error(`Luồng render dừng bất thường (mã ${code})`)))
+        w.on('exit', (code) => finish(signal?.aborted ? new CancelledError() : new Error(tr('Luồng render dừng bất thường (mã {code})', { code }))))
       })
 
     const pending = chunks.filter((c) => !reused.has(c.index))
@@ -394,7 +399,7 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
       try {
         await streamMix(mix, Math.round(rangeStart * SAMPLE_RATE), Math.round(rangeDur * SAMPLE_RATE), (pcm) =>
           new Promise<void>((resolve, reject) => {
-            if (stdin.destroyed) return reject(new Error('FFmpeg đã dừng'))
+            if (stdin.destroyed) return reject(new Error(tr('FFmpeg đã dừng')))
             stdin.write(pcm, (err) => (err ? reject(err) : resolve()))
           })
         )
@@ -412,7 +417,7 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
     const pumpError = await pump
     if (pumpError) throw pumpError
     const size = (await stat(outputPath)).size
-    if (size < 1000) throw new Error('File video xuất ra bị rỗng')
+    if (size < 1000) throw new Error(tr('File video xuất ra bị rỗng'))
     report({ stage: 'done', progress: 1, framesDone: totalFrames, framesTotal: totalFrames })
     success = true
     return { outputPath, seconds: elapsed(), duration: rangeDur, warnings: [...new Set(warnings)], resumedFrames, totalFrames }

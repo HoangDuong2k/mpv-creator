@@ -4,6 +4,7 @@
 //   [0..63]    năng lượng 64 dải tần (log, 0..255)
 //   [64..191]  dạng sóng 128 điểm (int8 + 128)
 //   [192]      RMS, [193] bass, [194] độ mạnh beat (0 = không có beat)
+import { tr } from './i18n'
 
 export const FEATURE_RATE = 60
 export const SAMPLE_RATE = 48000
@@ -46,11 +47,11 @@ export function encodeFeatures(header: FeatureHeader, data: Uint8Array): Uint8Ar
 }
 
 export function decodeFeatures(buf: Uint8Array): { header: FeatureHeader; data: Uint8Array } {
-  if (buf.length < 8 || MAGIC.some((m, i) => buf[i] !== m)) throw new Error('File phân tích âm thanh không hợp lệ')
+  if (buf.length < 8 || MAGIC.some((m, i) => buf[i] !== m)) throw new Error(tr('File phân tích âm thanh không hợp lệ'))
   const len = new DataView(buf.buffer, buf.byteOffset, buf.byteLength).getUint32(4, true)
   const header = JSON.parse(new TextDecoder().decode(buf.subarray(8, 8 + len))) as FeatureHeader
   const data = buf.subarray(8 + len)
-  if (data.length < header.frames * header.stride) throw new Error('File phân tích âm thanh bị thiếu dữ liệu')
+  if (data.length < header.frames * header.stride) throw new Error(tr('File phân tích âm thanh bị thiếu dữ liệu'))
   return { header, data }
 }
 

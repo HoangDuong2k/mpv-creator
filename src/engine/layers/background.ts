@@ -32,20 +32,31 @@ function prerendered(env: RenderEnv, path: string, blur: number): CanvasImageSou
   return surf.canvas
 }
 
-/** Gradient vẽ sẵn một lần: drawImage rẻ hơn tô gradient toàn khung mỗi frame */
+/**
+ * Gradient vẽ sẵn một lần: drawImage rẻ hơn tô gradient toàn khung mỗi frame.
+ * Chỉ giữ vài gradient gần nhất — kéo bảng chọn màu không làm bộ nhớ phình ra.
+ */
 function gradientSurface(env: RenderEnv, p: BackgroundProps): OffscreenSurface {
   const { W, H } = env
-  return cached(env, `bg-gradient|${p.color}|${p.color2}|${p.angle}|${W}x${H}`, () => {
-    const s = env.assets.createSurface(W, H)
-    const a = (p.angle * Math.PI) / 180
-    const r = (Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a))) / 2
-    const g = s.ctx.createLinearGradient(W / 2 - Math.cos(a) * r, H / 2 - Math.sin(a) * r, W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r)
-    g.addColorStop(0, p.color)
-    g.addColorStop(1, p.color2)
-    s.ctx.fillStyle = g
-    s.ctx.fillRect(0, 0, W, H)
-    return s
-  })
+  const key = `${p.color}|${p.color2}|${p.angle}|${W}x${H}`
+  const lru = cached(env, 'bg-gradient-lru', () => new Map<string, OffscreenSurface>())
+  const hit = lru.get(key)
+  if (hit) {
+    lru.delete(key)
+    lru.set(key, hit)
+    return hit
+  }
+  const s = env.assets.createSurface(W, H)
+  const a = (p.angle * Math.PI) / 180
+  const r = (Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a))) / 2
+  const g = s.ctx.createLinearGradient(W / 2 - Math.cos(a) * r, H / 2 - Math.sin(a) * r, W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r)
+  g.addColorStop(0, p.color)
+  g.addColorStop(1, p.color2)
+  s.ctx.fillStyle = g
+  s.ctx.fillRect(0, 0, W, H)
+  lru.set(key, s)
+  while (lru.size > 4) lru.delete(lru.keys().next().value as string)
+  return s
 }
 
 /** Khung màu đơn W × H (chỉ cần khi nướng bộ lọc) — một canvas dùng lại, tô lại khi đổi màu */

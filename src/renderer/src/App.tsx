@@ -157,6 +157,11 @@ export function App(): ReactNode {
     document.title = `${dirty ? '● ' : ''}${tr(name)} — Playlist Video Maker`
   }, [name, dirty, lang])
 
+  // Main process dùng cùng ngôn ngữ cho hộp thoại, thông báo, thông báo lỗi
+  useEffect(() => {
+    void api.setLanguage(lang)
+  }, [lang])
+
   useEffect(() => api.on('app:open-files', (files) => void importPaths(files)), [])
 
   // Khởi động (một lần): nạp font, mở file truyền qua dòng lệnh hoặc khôi phục phiên trước

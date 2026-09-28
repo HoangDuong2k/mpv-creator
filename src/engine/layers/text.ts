@@ -4,6 +4,7 @@ import type { ProgressProps, TextProps } from '../../shared/types'
 import { recordBounds, type RenderEnv } from '../env'
 import { clamp, easeOutCubic } from '../util'
 import { bassPulse } from './background'
+import { tr, trKey } from '../../shared/i18n'
 
 const TRACK_TOKENS = /\{(title|artist|album|index|count|next|nextArtist|elapsed|duration|remaining)\}/
 
@@ -40,7 +41,7 @@ export function drawText(env: RenderEnv, p: TextProps): void {
   const editing = env.editLayerId === env.layerId
   let text = fillTemplate(env, p.template)
   // Chưa có bài hát: hiện chữ mẫu cho layer đang chỉnh để vẫn canh được vị trí
-  if (!text.trim() && editing) text = p.template.replace(/\{(\w+)\}/g, (_m, k: string) => SAMPLE[k] ?? k)
+  if (!text.trim() && editing) text = p.template.replace(/\{(\w+)\}/g, (_m, k: string) => (SAMPLE[k] !== undefined ? tr(SAMPLE[k]) : k))
   if (p.uppercase) text = text.toLocaleUpperCase('vi')
   if (!text.trim()) return
 
@@ -103,13 +104,13 @@ export function drawText(env: RenderEnv, p: TextProps): void {
 }
 
 const SAMPLE: Record<string, string> = {
-  title: 'Tên bài hát',
-  artist: 'Ca sĩ',
+  title: trKey('Tên bài hát'),
+  artist: trKey('Ca sĩ'),
   album: 'Album',
   index: '1',
   count: '10',
-  next: 'Bài kế tiếp',
-  nextArtist: 'Ca sĩ',
+  next: trKey('Bài kế tiếp'),
+  nextArtist: trKey('Ca sĩ'),
   elapsed: '1:23',
   duration: '3:45',
   remaining: '2:22',

@@ -17,6 +17,7 @@ import { asarUnpacked, defaultCacheDir } from './paths'
 import { registerFileProtocol, registerSchemePrivileges } from './protocol'
 import { shutdownCommand, type ShellCommand } from './shutdown'
 import { Workspace } from './workspace'
+import { isLang, setLang, tr, trKey } from '../shared/i18n'
 
 registerSchemePrivileges()
 
@@ -35,10 +36,15 @@ let quittingForShutdown = false
 
 /** Chữ main process hiện ra khi xuất video xong (thông báo của hệ điều hành) */
 const EXPORT_TEXT = {
-  doneTitle: 'Đã xuất xong video',
-  doneBody: (file: string, seconds: number): string => `${file} — xong sau ${formatTime(seconds, seconds >= 3600)}`,
-  failTitle: 'Xuất video không thành công',
-  shutdownFailed: (detail: string): string => `Không tắt được máy: ${detail}`
+  doneTitle: (): string => tr('Đã xuất xong video'),
+  doneBody: (file: string, seconds: number): string => tr('{file} — xong sau {time}', { file, time: formatTime(seconds, seconds >= 3600) }),
+  failTitle: (): string => tr('Xuất video không thành công'),
+  shutdownFailed: (detail: string): string => tr('Không tắt được máy: {detail}', { detail })
+}
+
+/** Tên nhóm file trong hộp thoại mở / lưu theo ngôn ngữ giao diện */
+function localized(filters: Electron.FileFilter[]): Electron.FileFilter[] {
+  return filters.map((f) => ({ ...f, name: tr(f.name) }))
 }
 
 function send<K extends keyof EventMap>(channel: K, data: EventMap[K]): void {
@@ -76,8 +82,8 @@ function audioArgs(argv: string[]): string[] {
 }
 
 const FILTERS: Record<FileKind, Electron.FileFilter[]> = {
-  audio: [{ name: 'Âm thanh', extensions: AUDIO_EXTENSIONS }],
-  image: [{ name: 'Ảnh', extensions: IMAGE_EXTENSIONS }],
+  audio: [{ name: trKey('Âm thanh'), extensions: AUDIO_EXTENSIONS }],
+  image: [{ name: trKey('Ảnh'), extensions: IMAGE_EXTENSIONS }],
   video: [{ name: 'Video', extensions: VIDEO_EXTENSIONS }],
   project: [{ name: 'Project Playlist Video', extensions: ['json'] }]
 }
@@ -85,7 +91,7 @@ const FILTERS: Record<FileKind, Electron.FileFilter[]> = {
 const SAVE_FILTERS: Record<SaveKind, Electron.FileFilter[]> = {
   video: [{ name: 'Video MP4', extensions: ['mp4'] }],
   project: [{ name: 'Project Playlist Video', extensions: ['json'] }],
-  text: [{ name: 'Văn bản', extensions: ['txt'] }]
+  text: [{ name: trKey('Văn bản'), extensions: ['txt'] }]
 }
 
 async function expandAudioPaths(paths: string[]): Promise<string[]> {
@@ -139,14 +145,14 @@ function registerIpc(): void {
 
   handle('dialog:open', async (kind: FileKind, multi: boolean) => {
     const props: Array<'openFile' | 'multiSelections'> = multi ? ['openFile', 'multiSelections'] : ['openFile']
-    const r = await dialog.showOpenDialog(mainWindow!, { properties: props, filters: FILTERS[kind] })
+    const r = await dialog.showOpenDialog(mainWindow!, { properties: props, filters: localized(FILTERS[kind]) })
     return r.canceled ? [] : r.filePaths
   })
 
   handle('dialog:save', async (kind: SaveKind, defaultName: string) => {
     const dir = kind === 'video' ? app.getPath('videos') : app.getPath('documents')
     const defaultPath = defaultName.includes('/') || defaultName.includes('\\') ? defaultName : join(dir, defaultName)
-    const r = await dialog.showSaveDialog(mainWindow!, { defaultPath, filters: SAVE_FILTERS[kind] })
+    const r = await dialog.showSaveDialog(mainWindow!, { defaultPath, filters: localized(SAVE_FILTERS[kind]) })
     if (r.canceled || !r.filePath) return null
     // Luôn đúng đuôi (vd. gõ "video.final" → "video.final.mp4"), FFmpeg dựa vào đuôi để chọn định dạng
     return withExtension(r.filePath, SAVE_FILTERS[kind][0].extensions[0])
@@ -180,7 +186,7 @@ function registerIpc(): void {
   })
 
   handle('export:start', async (project: Project, range?: { start: number; duration: number }) => {
-    if (exportAbort) throw new Error('Đang có một tiến trình xuất video')
+    if (exportAbort) throw new Error(tr('Đang có một tiến trình xuất video'))
     const ctrl = new AbortController()
     exportAbort = ctrl
     // Video dài xuất mất hàng chục phút, người dùng thường để máy tự chạy: không cho máy ngủ giữa chừng
@@ -203,12 +209,12 @@ function registerIpc(): void {
         }
       })
       // Xuất thử 15 giây thì người dùng đang ngồi xem — chỉ báo khi xuất cả video
-      if (!range) notifyUnfocused(EXPORT_TEXT.doneTitle, EXPORT_TEXT.doneBody(basename(result.outputPath), result.seconds))
+      if (!range) notifyUnfocused(EXPORT_TEXT.doneTitle(), EXPORT_TEXT.doneBody(basename(result.outputPath), result.seconds))
       return result
     } catch (err) {
-      if (err instanceof CancelledError) throw new Error('Đã huỷ xuất video')
+      if (err instanceof CancelledError) throw new Error(tr('Đã huỷ xuất video'))
       failed = true
-      if (!range) notifyUnfocused(EXPORT_TEXT.failTitle, (err as Error).message)
+      if (!range) notifyUnfocused(EXPORT_TEXT.failTitle(), (err as Error).message)
       throw err
     } finally {
       exportAbort = null
@@ -221,6 +227,10 @@ function registerIpc(): void {
         }, 15000)
       } else mainWindow?.setProgressBar(-1)
     }
+  })
+
+  handle('app:set-language', (lang: unknown) => {
+    if (isLang(lang)) setLang(lang)
   })
 
   handle('system:shutdown', async () => {
@@ -241,7 +251,7 @@ function registerIpc(): void {
       child.on('exit', (code) => {
         clearTimeout(timer)
         if (code === 0) resolve()
-        else reject(new Error(EXPORT_TEXT.shutdownFailed(`mã ${code}`)))
+        else reject(new Error(EXPORT_TEXT.shutdownFailed(tr('mã {code}', { code: String(code) }))))
       })
       child.unref()
     })
@@ -327,11 +337,11 @@ function createWindow(): void {
     }
     const choice = dialog.showMessageBoxSync(mainWindow!, {
       type: 'question',
-      buttons: ['Thoát không lưu', 'Ở lại'],
+      buttons: [tr('Thoát không lưu'), tr('Ở lại')],
       defaultId: 1,
       cancelId: 1,
-      title: 'Project chưa lưu',
-      message: 'Project có thay đổi chưa lưu. Bạn vẫn muốn thoát?'
+      title: tr('Project chưa lưu'),
+      message: tr('Project có thay đổi chưa lưu. Bạn vẫn muốn thoát?')
     })
     if (choice === 0) event.preventDefault()
   })

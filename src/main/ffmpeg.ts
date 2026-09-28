@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess, type SpawnOptions } from 'child_process'
 import { existsSync } from 'fs'
 import { asarUnpacked } from './paths'
+import { tr } from '../shared/i18n'
 
 let resolved: string | null = null
 
@@ -45,11 +46,11 @@ export function runFfmpeg(args: string[], opts: { onStderr?: (line: string) => v
     if (opts.onStderr) for (const line of chunk.split(/[\r\n]+/)) if (line) opts.onStderr(line)
   })
   const done = new Promise<void>((resolve, reject) => {
-    proc.on('error', (err) => reject(new Error(`Không chạy được FFmpeg (${ffmpegPath()}): ${err.message}`)))
+    proc.on('error', (err) => reject(new Error(tr('Không chạy được FFmpeg ({path}): {err}', { path: ffmpegPath(), err: err.message }))))
     proc.on('close', (code) => {
       if (killed) reject(new CancelledError())
       else if (code === 0) resolve()
-      else reject(new Error(`FFmpeg lỗi (mã ${code}): ${tail.trim().split('\n').slice(-6).join('\n')}`))
+      else reject(new Error(tr('FFmpeg lỗi (mã {code}): {detail}', { code: String(code), detail: tail.trim().split('\n').slice(-6).join('\n') })))
     })
   })
   return {
@@ -64,7 +65,7 @@ export function runFfmpeg(args: string[], opts: { onStderr?: (line: string) => v
 
 export class CancelledError extends Error {
   constructor() {
-    super('Đã huỷ')
+    super(tr('Đã huỷ'))
     this.name = 'CancelledError'
   }
 }

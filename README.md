@@ -1,24 +1,25 @@
 # Playlist Video Maker
 
-Ứng dụng desktop (Windows / Linux / macOS) dựng **video playlist nhạc cho YouTube**: ghép nhiều bài hát trên một nền, thêm cột sóng nhạc, hiệu ứng nháy theo beat, tên bài tự đổi, nút **Đăng ký / Like / Chuông**, rồi xuất MP4 kèm timestamp cho phần mô tả.
+Ứng dụng desktop (Windows / Linux / macOS, giao diện **tiếng Việt / English**) dựng **video playlist nhạc cho YouTube**: ghép nhiều bài hát trên một nền, thêm cột sóng nhạc, hiệu ứng nháy theo beat, tên bài tự đổi, nút **Đăng ký / Like / Chuông**, rồi xuất MP4 kèm timestamp cho phần mô tả.
 
 ## Tính năng
 
 | Nhóm | Có gì |
 |---|---|
 | **Playlist** | Kéo thả file/thư mục nhạc (MP3, WAV, FLAC, M4A, OGG…), đọc tên bài/ca sĩ/ảnh bìa từ tag, sắp xếp bằng kéo thả, sửa tên, cắt đầu/cuối bài |
-| **Timeline kiểu CapCut** | Thước thời gian, đầu phát kéo để tua, Ctrl + lăn chuột để zoom, "Vừa khung"; **hàng nhạc** có sóng âm (kéo clip đổi thứ tự, kéo mép để cắt đầu/cuối, crossfade hiện giữa các clip); **mỗi lớp một hàng**: kéo thân thanh để dời (thanh kéo dài đến hết video thì dời điểm bắt đầu), kéo mép để chọn khoảng thời gian hiện, núm hiện dần/ẩn dần; các lần hiện nút Đăng ký kéo thả được, nhấp đúp để thêm, Delete để xoá; bắt dính vào đầu phát, mép clip, ranh giới bài (Shift để tắt) |
+| **Timeline kiểu CapCut** | Thước thời gian, đầu phát kéo để tua, Ctrl + lăn chuột để zoom, "Vừa khung"; **hàng nhạc** có sóng âm (kéo clip đổi thứ tự, kéo mép để cắt đầu/cuối, crossfade hiện giữa các clip); **mỗi lớp một hàng**: kéo thân thanh để dời (thanh kéo dài đến hết video thì dời điểm bắt đầu), kéo mép để chọn khoảng thời gian hiện, núm hiện dần/ẩn dần; các lần hiện nút Đăng ký kéo thả được, nhấp đúp để thêm, Delete để xoá; bắt dính vào đầu phát, mép clip, ranh giới bài (Shift để tắt). **Ctrl+B tách thanh** tại đầu phát (các đoạn nằm chung một hàng), **Ctrl/Shift + nhấp chọn nhiều thanh** rồi kéo cả nhóm, **Ctrl+C / Ctrl+V** chép – dán tại đầu phát, **khoá lớp** để không kéo / tách / xoá nhầm, đổi **màu hàng** |
 | **Âm thanh** | Crossfade / khoảng lặng / nối liền giữa các bài, fade đầu–cuối video; preview phát theo từng đoạn nên đổi thứ tự, cắt bài là nghe được ngay |
 | **Nền** | Gradient, màu đơn, ảnh (làm mờ được), video lặp, ảnh bìa bài hát tự đổi theo bài; zoom đập theo bass, rung theo beat, Ken Burns |
 | **Cột sóng** | Cột, cột đối xứng, vòng tròn quanh ảnh bìa (xoay được), dải sóng mềm, đường waveform; chỉnh màu/gradient/cầu vồng, glow, độ nhạy, độ mượt, dải tần |
 | **Hiệu ứng** | Flicker (nháy sáng theo beat / bass / ngẫu nhiên), hạt bay (bụi, tuyết, bokeh, mưa, sao — giới hạn được vùng), viền tối vignette |
-| **Bộ lọc màu** | 13 bộ lọc dựng sẵn như app chỉnh ảnh (Ấm áp, Lạnh, Rực rỡ, Cổ điển, Đen trắng, Phim cũ, Lofi chill, Hoàng hôn, Mơ màng, Neon đêm, Nhạt màu, Tối & sâu), xem trước bằng ảnh mẫu lấy từ chính khung hình; kéo cường độ; tự chỉnh sáng, tương phản, bão hoà, nhiệt độ màu, sắc độ, xoay màu, sepia, nhạt màu, hạt phim, viền tối, làm mờ. Bộ lọc tác động lên mọi lớp nằm dưới nó: chọn *Chỉ lọc ảnh nền* hoặc *Lọc cả khung hình*. Có khoảng thời gian và hiện dần/ẩn dần trên timeline như các lớp khác, thêm nhiều bộ lọc để mỗi đoạn một màu |
+| **Bộ lọc màu** | 13 bộ lọc dựng sẵn như app chỉnh ảnh (Ấm áp, Lạnh, Rực rỡ, Cổ điển, Đen trắng, Phim cũ, Lofi chill, Hoàng hôn, Mơ màng, Neon đêm, Nhạt màu, Tối & sâu), xem trước bằng ảnh mẫu lấy từ chính khung hình; kéo cường độ; tự chỉnh sáng, tương phản, bão hoà, nhiệt độ màu, sắc độ, xoay màu, sepia, nhạt màu, hạt phim, viền tối, làm mờ. Bộ lọc tác động lên mọi lớp nằm dưới nó: chọn *Chỉ lọc ảnh nền* hoặc *Lọc cả khung hình*. Có khoảng thời gian và hiện dần/ẩn dần trên timeline như các lớp khác, thêm nhiều bộ lọc để mỗi đoạn một màu. Bộ lọc chỉ lọc ảnh nền tĩnh được lọc sẵn một lần nên gần như không làm chậm lúc xuất |
 | **Chữ** | Mẫu có biến tự đổi theo bài: `{title}` `{artist}` `{next}` `{index}/{count}` `{elapsed}`…; 7 font hỗ trợ tiếng Việt; viền, bóng, hiệu ứng khi đổi bài |
 | **Đăng ký / Like** | Hoạt cảnh có con trỏ bấm Đăng ký → Like → Chuông (tiếng Việt / English), hoặc ảnh PNG riêng; đổi chữ trên nút, màu nút/chữ/biểu tượng, đặt ở 9 góc hoặc kéo tự do; hiện lặp mỗi N phút, đầu mỗi bài hoặc tại các mốc tự nhập |
-| **Chỉnh trực tiếp** | Nhấp vào lớp trên khung preview để chọn, kéo để di chuyển, kéo ô vuông để đổi kích thước, tự bắt dính vào giữa khung (giữ Shift để tắt); mọi màu sắc, cỡ, độ mạnh chỉnh ở bảng bên phải |
+| **Chỉnh trực tiếp** | Nhấp vào lớp trên khung preview để chọn, kéo để di chuyển, kéo ô vuông để đổi kích thước, tự bắt dính vào giữa khung (giữ Shift để tắt); mọi màu sắc, cỡ, độ mạnh chỉnh ở bảng bên phải. Máy yếu chọn **Preview ½ / ¼** để phát mượt (video xuất vẫn đủ nét) |
 | **Khác** | Ảnh/logo (cắt tròn, xoay kiểu đĩa than), thanh tiến trình, undo/redo, lưu/mở project, tự lưu phiên làm việc |
-| **Xuất video** | MP4 H.264 + AAC, 720p → 4K, Shorts 9:16, 24–60 fps; render song song nhiều luồng; tự dò NVENC / Quick Sync / AMF / VAAPI; xuất thử 15 giây |
+| **Xuất video** | MP4 H.264 + AAC, 720p → 4K, Shorts 9:16, 24–60 fps; render song song nhiều luồng; tự dò NVENC / Quick Sync / AMF / VAAPI; xuất thử 15 giây. Video dài: **xuất tiếp khi bị ngắt** (mất điện, lỡ tắt app — lần sau chỉ render phần còn thiếu), giữ máy không ngủ khi đang xuất, tiến độ trên thanh tác vụ, thông báo khi xong, tuỳ chọn **tắt máy khi xuất xong** (60 giây để huỷ) |
 | **YouTube** | Sinh timestamp chương (`0:00 Tên bài - Ca sĩ`) để dán vào mô tả |
+| **Ngôn ngữ** | Giao diện tiếng Việt / English: nút **VI / EN** trên thanh trên cùng hoặc trong *Cài đặt project*; hộp thoại, thông báo, lỗi đều theo ngôn ngữ đã chọn |
 
 Hình trong preview và video xuất ra do **cùng một engine** vẽ, nên xuất ra đúng như những gì thấy.
 
@@ -68,8 +69,8 @@ Bộ cài và ảnh chụp các bước kiểm thử nằm trong mục *Artifact
 2. Dùng **timeline** ở dưới: kéo clip nhạc để đổi thứ tự, kéo mép để cắt; kéo thanh của từng lớp (flicker, cột sóng, chữ…) để chọn lúc nó xuất hiện; kéo các ô đỏ ở hàng "Đăng ký / Like" để đặt thời điểm hiện nút.
 3. Nhấp vào cột sóng, chữ, nút Đăng ký… ngay trên khung preview (hoặc chọn trong danh sách **Lớp hiệu ứng**) rồi kéo để di chuyển, kéo ô vuông ở góc/cạnh để đổi kích thước; màu sắc và các thông số khác chỉnh ở bảng bên phải. Khi đang dừng, lớp đang chọn luôn hiện (kể cả nút Đăng ký ngoài giờ xuất hiện) để dễ canh. Nút **Thêm lớp** để thêm hiệu ứng (mỗi loại thêm được nhiều lần, mỗi lớp một khoảng thời gian riêng); thả một ảnh/video vào cửa sổ để đặt làm nền.
 4. Chỉnh màu như app ảnh: **Thêm lớp → Bộ lọc màu**, bấm một ảnh mẫu, kéo *Cường độ*, rồi chọn *Chỉ lọc ảnh nền* hoặc *Lọc cả khung hình*.
-5. **Space** (hoặc nhấp đúp lên preview) phát/dừng, **← →** tua 5 giây (Shift: 30 giây), **Home / End** về đầu/cuối, **Ctrl+Z / Ctrl+Y** hoàn tác/làm lại, **Ctrl+S** lưu, **Ctrl+E** xuất; trên timeline: **Ctrl + lăn chuột** để zoom, **Delete** xoá mục đang chọn.
-6. **Xuất video** → chọn nơi lưu → *Xuất thử 15 giây* để kiểm tra, rồi *Xuất video*.
+5. **Space** (hoặc nhấp đúp lên preview) phát/dừng, **← →** tua 5 giây (Shift: 30 giây), **Home / End** về đầu/cuối, **Ctrl+Z / Ctrl+Y** hoàn tác/làm lại, **Ctrl+S** lưu, **Ctrl+E** xuất; trên timeline: **Ctrl+B** tách thanh tại đầu phát, **Ctrl/Shift + nhấp** chọn nhiều thanh, **Ctrl+A** chọn hết, **Esc** bỏ chọn, **Ctrl+C / Ctrl+V** chép – dán, **Ctrl + lăn chuột** để zoom, **Delete** xoá mục đang chọn.
+6. **Xuất video** → chọn nơi lưu → *Xuất thử 15 giây* để kiểm tra, rồi *Xuất video*. Để máy xuất video dài qua đêm thì tích *Tắt máy khi xuất xong*. Nếu việc xuất bị ngắt giữa chừng, cứ xuất lại vào đúng file đó: app tự tiếp tục từ chỗ đã dừng (miễn là chưa sửa project).
 7. **Timestamp YouTube** (dưới playlist) → Copy → dán vào mô tả video.
 
 ## Kiến trúc
@@ -90,17 +91,18 @@ tests/        Unit test (vitest)
 - **Phân tích âm thanh**: mỗi bài được giải mã một lần bằng FFmpeg rồi tính phổ, dạng sóng, bass và beat ở 60 frame/giây, đồng thời lưu bản PCM đã giải mã vào cache. Mở lại project hay đổi thứ tự bài không phải phân tích lại. Cache chiếm khoảng 660 MB mỗi giờ nhạc; khi vượt 10 GB, app tự xoá các bài lâu không dùng.
 - **Âm thanh preview và export dùng chung một bộ trộn**: đọc thẳng đoạn cần nghe từ PCM trong cache (crossfade, fade đầu/cuối). Preview xin từng đoạn vài giây qua IPC và phát bằng Web Audio, nên sửa trên timeline là có tiếng ngay (đo được khoảng 44 ms với playlist 75 phút). Khi xuất, cùng bộ trộn đó đẩy thẳng PCM vào FFmpeg.
 - **Mọi hiệu ứng chỉ phụ thuộc thời điểm t.** Độ mượt và xung beat được tính bằng cách nhìn lại các frame trước, không giữ trạng thái. Nhờ vậy có thể tua tự do, và chia video thành nhiều đoạn render song song mà vẫn khớp từng frame.
-- **Xuất video**: dùng tối đa 8 luồng. Mỗi luồng tự vẽ các frame trong đoạn của mình bằng Skia (`@napi-rs/canvas`) rồi đưa cho FFmpeg mã hóa. Sau cùng, các đoạn được nối lại (`-c copy`) và ghép tiếng AAC. Màu được chuyển theo chuẩn BT.709.
-- Tốc độ đo được trên CPU 20 luồng, 1080p30, mã hóa x264, đủ 9 lớp hiệu ứng mặc định: khoảng **3× thời gian thực** (video 1 giờ ≈ 20 phút). Bộ lọc màu phủ cả khung hình tốn thêm: khoảng 1,75× thời gian thực với "Ấm áp" (1 giờ ≈ 34 phút) và 1,3× với bộ lọc có làm mờ như "Mơ màng" (1 giờ ≈ 45 phút). Phần vẽ hình chạy trên CPU nên tốc độ tăng theo số nhân CPU; bộ mã hóa phần cứng chỉ giảm phần mã hóa.
+- **Xuất video**: video được chia thành các đoạn khoảng 30 giây, tối đa 8 luồng render cùng lúc. Mỗi luồng tự vẽ các frame trong đoạn của mình bằng Skia (`@napi-rs/canvas`) rồi đưa cho FFmpeg mã hóa. Sau cùng, các đoạn được nối lại (`-c copy`) và ghép tiếng AAC. Màu được chuyển theo chuẩn BT.709. Đoạn nào xong mới được đổi tên thành file hoàn chỉnh, thư mục tạm mang "khoá" của mọi thứ ảnh hưởng tới hình (`src/main/export/plan.ts`), nên xuất lại cùng project sẽ dùng lại các đoạn đã có.
+- **Đa ngôn ngữ**: câu tiếng Việt trong code là khoá, `tr('…')` tra bản tiếng Anh trong `src/shared/i18n-en.ts`. `tests/i18n.test.ts` kiểm tra không thiếu câu nào, không có câu thừa và giữ đúng các biến `{…}`.
+- Tốc độ đo được trên CPU 20 luồng, 1080p30, mã hóa x264, đủ 9 lớp hiệu ứng mặc định: khoảng **3× thời gian thực** (video 1 giờ ≈ 20 phút). Bộ lọc màu chỉ lọc ảnh nền tĩnh (mặc định khi thêm bộ lọc) được lọc sẵn một lần nên tốc độ gần như không đổi. Bộ lọc phủ cả khung hình thì phải lọc từng frame: khoảng 1,75× thời gian thực với "Ấm áp" (1 giờ ≈ 34 phút) và 1,3× với bộ lọc có làm mờ như "Mơ màng" (1 giờ ≈ 45 phút). Phần vẽ hình chạy trên CPU nên tốc độ tăng theo số nhân CPU; bộ mã hóa phần cứng chỉ giảm phần mã hóa.
 
 ## Kiểm thử
 
 Các lệnh dưới đây chạy được trên Windows, macOS và Linux; chỉ cần Node.js, không cần cài FFmpeg hay bash.
 
 ```bash
-npm test                       # unit test: timeline, FFT, beat, lịch CTA, ghép âm thanh bằng FFmpeg thật, bộ lọc màu, đường dẫn Windows
+npm test                       # unit test: timeline (tách, chọn nhiều, chép/dán, khoá), FFT, beat, lịch CTA, ghép âm thanh bằng FFmpeg thật, bộ lọc màu, xuất tiếp khi bị ngắt, bản dịch tiếng Anh, đường dẫn Windows
 npm run typecheck
-npm run build && npm run e2e   # mở app thật, nhập nhạc, phát, tua, kéo thả timeline, undo, bộ lọc màu, xuất thử video
+npm run build && npm run e2e   # mở app thật, nhập nhạc, phát, tua, kéo thả timeline, tách / chọn nhiều / chép dán / khoá, undo, bộ lọc màu, đổi ngôn ngữ, xuất thử video
 npm run test-audio             # tạo 3 bài nhạc tổng hợp để thử (test-output/audio)
 npm run cli -- render --audio a.mp3 b.mp3 --out video.mp4 [--start 0 --duration 20]
 npm run cli -- frame --audio a.mp3 --time 12.5 --out frame.png
@@ -115,4 +117,4 @@ npm run cli -- frame --audio a.mp3 --time 12.5 --out frame.png
 
 ## Chưa làm (lộ trình tiếp theo)
 
-Keyframe, tách clip (split), chọn nhiều clip và copy/paste trên timeline (giai đoạn 2), lời bài hát `.lrc`, chuẩn hóa âm lượng −14 LUFS, tách phông xanh cho CTA, GIF/WebM có kênh alpha, hiệu ứng glitch/VHS, bộ lọc từ file LUT `.cube`, xuất thumbnail, render hàng loạt, upload thẳng lên YouTube.
+Keyframe, lời bài hát `.lrc`, chuẩn hóa âm lượng −14 LUFS, tách phông xanh cho CTA, GIF/WebM có kênh alpha, hiệu ứng glitch/VHS, bộ lọc từ file LUT `.cube`, xuất thumbnail, render hàng loạt, upload thẳng lên YouTube.

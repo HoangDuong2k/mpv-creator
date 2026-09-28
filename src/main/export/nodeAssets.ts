@@ -7,6 +7,7 @@ import type { Project } from '../../shared/types'
 import type { EngineAssets, OffscreenSurface } from '../../engine/env'
 import { collectAssets } from '../../engine'
 import { runFfmpeg, type FfmpegRun } from '../ffmpeg'
+import { tr } from '../../shared/i18n'
 
 let fontsRegistered = false
 
@@ -140,13 +141,13 @@ export class NodeAssets implements EngineAssets {
       try {
         this.images.set(p, fitImage(await loadImage(p), Math.max(W, H)))
       } catch (err) {
-        this.warnings.push(`Không mở được ảnh ${p}: ${(err as Error).message}`)
+        this.warnings.push(tr('Không mở được ảnh {file}: {err}', { file: p, err: (err as Error).message }))
       }
     }
     for (const p of videos) {
       const dur = await probeDuration(p)
       if (dur <= 0) {
-        this.warnings.push(`Không đọc được video nền ${p}`)
+        this.warnings.push(tr('Không đọc được video nền {file}', { file: p }))
         continue
       }
       this.videos.set(p, new VideoFrameReader(p, startTime % dur, W, H, fps))
@@ -159,7 +160,7 @@ export class NodeAssets implements EngineAssets {
       if (!(await r.next())) {
         r.close()
         this.videos.delete(p)
-        this.warnings.push(`Video nền bị dừng giữa chừng: ${p}`)
+        this.warnings.push(tr('Video nền bị dừng giữa chừng: {file}', { file: p }))
       }
     }
   }

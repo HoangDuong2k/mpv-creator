@@ -8,6 +8,7 @@ import { buildTimeline } from '../../shared/timeline'
 import type { Project } from '../../shared/types'
 import { runFfmpeg, type FfmpegRun } from '../ffmpeg'
 import { NodeAssets, registerFonts } from './nodeAssets'
+import { setLang, type Lang } from '../../shared/i18n'
 
 export interface WorkerJob {
   id: number
@@ -21,6 +22,7 @@ export interface WorkerJob {
   encoderPre: string[]
   encoderPost: string[]
   threads: number
+  lang: Lang
 }
 
 export type WorkerMessage =
@@ -29,6 +31,7 @@ export type WorkerMessage =
   | { type: 'error'; id: number; message: string }
 
 const job = workerData as WorkerJob
+setLang(job.lang)
 let encoder: FfmpegRun | null = null
 let assets: NodeAssets | null = null
 let cancelled = false

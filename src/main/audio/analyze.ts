@@ -19,6 +19,7 @@ import {
 } from '../../shared/featureFormat'
 import { runFfmpeg } from '../ffmpeg'
 import { FFT } from './fft'
+import { tr } from '../../shared/i18n'
 
 const HOP = SAMPLE_RATE / FEATURE_RATE // 800 mẫu mỗi frame
 const N = FFT_SIZE
@@ -349,7 +350,7 @@ export async function analyzeFile(
   })
   try {
     await run.done
-    if (analyzer.samples === 0) throw new Error(`Không đọc được âm thanh từ file: ${inputPath}`)
+    if (analyzer.samples === 0) throw new Error(tr('Không đọc được âm thanh từ file: {file}', { file: inputPath }))
     const { header, data } = analyzer.finish()
     const tmp = `${outPath}.${process.pid}.tmp`
     await writeFile(tmp, encodeFeatures(header, data))
