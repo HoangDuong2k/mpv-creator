@@ -19,20 +19,13 @@ interface ExportState {
   error: string | null
   /** Lần xuất gần nhất là cả video (không phải xuất thử) */
   full: boolean
-  /** Tắt máy khi xuất xong (nhớ giữa các lần mở app) */
+  /**
+   * Tắt máy khi xuất xong. Chỉ có hiệu lực trong lần mở app này (không lưu lại) — tránh hôm sau
+   * xuất video khác thì máy tự tắt ngoài ý muốn.
+   */
   shutdownAfter: boolean
   /** Số giây còn lại trước khi tắt máy; 0 = đang tắt; null = không đếm ngược */
   shutdownLeft: number | null
-}
-
-const SHUTDOWN_KEY = 'pvm.shutdownAfterExport'
-
-function loadShutdownAfter(): boolean {
-  try {
-    return localStorage.getItem(SHUTDOWN_KEY) === '1'
-  } catch {
-    return false
-  }
 }
 
 /** Trạng thái xuất video giữ ngoài dialog để đóng/mở lại vẫn thấy tiến độ */
@@ -42,7 +35,7 @@ export const useExportStore = create<ExportState>(() => ({
   result: null,
   error: null,
   full: false,
-  shutdownAfter: loadShutdownAfter(),
+  shutdownAfter: false,
   shutdownLeft: null
 }))
 
@@ -50,11 +43,6 @@ api.on('export:progress', (p) => useExportStore.setState({ progress: p }))
 
 function setShutdownAfter(on: boolean): void {
   useExportStore.setState({ shutdownAfter: on })
-  try {
-    localStorage.setItem(SHUTDOWN_KEY, on ? '1' : '0')
-  } catch {
-    // không lưu được (chế độ riêng tư…) — vẫn dùng được cho lần này
-  }
 }
 
 const SHUTDOWN_SECONDS = 60
