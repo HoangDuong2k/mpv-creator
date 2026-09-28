@@ -1,6 +1,7 @@
 import type { BackgroundProps } from '../../shared/types'
 import { cached, type OffscreenSurface, type RenderEnv } from '../env'
 import { clamp, drawCover, noise1 } from '../util'
+import { bakeFilterInto, bakeSignature } from './filter'
 
 /** Xung "đập" theo nhạc 0..1: kết hợp beat và mức bass */
 export function bassPulse(env: RenderEnv): number {
@@ -31,63 +32,136 @@ function prerendered(env: RenderEnv, path: string, blur: number): CanvasImageSou
   return surf.canvas
 }
 
+/** Gradient vẽ sẵn một lần: drawImage rẻ hơn tô gradient toàn khung mỗi frame */
+function gradientSurface(env: RenderEnv, p: BackgroundProps): OffscreenSurface {
+  const { W, H } = env
+  return cached(env, `bg-gradient|${p.color}|${p.color2}|${p.angle}|${W}x${H}`, () => {
+    const s = env.assets.createSurface(W, H)
+    const a = (p.angle * Math.PI) / 180
+    const r = (Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a))) / 2
+    const g = s.ctx.createLinearGradient(W / 2 - Math.cos(a) * r, H / 2 - Math.sin(a) * r, W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r)
+    g.addColorStop(0, p.color)
+    g.addColorStop(1, p.color2)
+    s.ctx.fillStyle = g
+    s.ctx.fillRect(0, 0, W, H)
+    return s
+  })
+}
+
+/** Khung màu đơn W × H (chỉ cần khi nướng bộ lọc) — một canvas dùng lại, tô lại khi đổi màu */
+function colorSurface(env: RenderEnv, color: string): CanvasImageSource {
+  const { W, H } = env
+  const slot = cached(env, `bg-color|${W}x${H}`, () => ({ color: '', surf: env.assets.createSurface(W, H) }))
+  if (slot.color !== color) {
+    slot.surf.ctx.fillStyle = color
+    slot.surf.ctx.fillRect(0, 0, W, H)
+    slot.color = color
+  }
+  return slot.surf.canvas
+}
+
+/** Số ảnh nền đã nướng bộ lọc giữ lại (ảnh bìa lúc chuyển bài cần 2) */
+const BAKE_MAX = 6
+
+/**
+ * Ảnh nền đã nướng bộ lọc (env.bake). Mỗi (lớp bộ lọc, nguồn ảnh) có đúng một canvas: đổi thông số
+ * bộ lọc (kéo thanh trượt…) thì nướng lại vào chính canvas đó, không sinh thêm.
+ */
+function bakedSurface(env: RenderEnv, srcKey: string, src: CanvasImageSource, dim: number): CanvasImageSource {
+  const bake = env.bake!
+  const { W, H } = env
+  const lru = cached(env, 'filter-bake', () => new Map<string, { sig: string; surf: OffscreenSurface }>())
+  const key = `${bake.filterId}|${srcKey}|${W}x${H}`
+  const sig = bakeSignature(bake.props, dim)
+  let entry = lru.get(key)
+  if (entry) lru.delete(key)
+  else {
+    let surf: OffscreenSurface | undefined
+    if (lru.size >= BAKE_MAX) {
+      const oldest = lru.keys().next().value as string
+      const old = lru.get(oldest)!.surf
+      lru.delete(oldest)
+      const c = old.canvas as unknown as { width: number; height: number }
+      if (c.width === W && c.height === H) surf = old
+    }
+    entry = { sig: '', surf: surf ?? env.assets.createSurface(W, H) }
+  }
+  if (entry.sig !== sig) {
+    bakeFilterInto(env, entry.surf, src, bake.props, dim)
+    entry.sig = sig
+  }
+  lru.set(key, entry)
+  return entry.surf.canvas
+}
+
 const COVER_FADE = 1.2
 
-function drawContent(env: RenderEnv, p: BackgroundProps): void {
+/**
+ * Nền vẽ ra đúng một ảnh tĩnh (W × H) ở frame này nên nướng sẵn bộ lọc màu được: ảnh, màu, gradient,
+ * ảnh bìa (trừ lúc đang chuyển ảnh bìa giữa hai bài — khi đó lọc từng frame cho đúng màu lúc đan nhau).
+ */
+export function isStaticBackground(env: RenderEnv, p: BackgroundProps): boolean {
+  if (p.mode === 'video') return false
+  if (p.mode !== 'cover') return true
+  const e = env.entry
+  if (!e || e.index === 0) return true
+  const prev = env.timeline.entries[e.index - 1]
+  return (env.t - e.displayStart) / COVER_FADE >= 1 || prev.track.coverPath === e.track.coverPath
+}
+
+/** Vẽ nội dung nền (trong hệ toạ độ đã phóng / lia). `baked`: vẽ bản đã nướng bộ lọc. */
+function drawContent(env: RenderEnv, p: BackgroundProps, baked: boolean, alpha: number): void {
   const { ctx, W, H } = env
+  ctx.globalAlpha = alpha
+  // Một nguồn tĩnh W × H — đã lọc sẵn nếu cần
+  const put = (key: string, src: CanvasImageSource): void => {
+    ctx.drawImage(baked ? bakedSurface(env, key, src, p.dim) : src, 0, 0)
+  }
   const fallback = (): void => {
-    ctx.fillStyle = p.color
-    ctx.fillRect(0, 0, W, H)
+    if (baked) put(`color|${p.color}`, colorSurface(env, p.color))
+    else {
+      ctx.fillStyle = p.color
+      ctx.fillRect(0, 0, W, H)
+    }
   }
   switch (p.mode) {
     case 'color':
       fallback()
       return
-    case 'gradient': {
-      // Vẽ sẵn một lần: drawImage rẻ hơn tô gradient toàn khung mỗi frame
-      const surf = cached(env, `bg-gradient|${p.color}|${p.color2}|${p.angle}|${W}x${H}`, () => {
-        const s = env.assets.createSurface(W, H)
-        const a = (p.angle * Math.PI) / 180
-        const r = (Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a))) / 2
-        const g = s.ctx.createLinearGradient(W / 2 - Math.cos(a) * r, H / 2 - Math.sin(a) * r, W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r)
-        g.addColorStop(0, p.color)
-        g.addColorStop(1, p.color2)
-        s.ctx.fillStyle = g
-        s.ctx.fillRect(0, 0, W, H)
-        return s
-      })
-      ctx.drawImage(surf.canvas, 0, 0)
+    case 'gradient':
+      put(`gradient|${p.color}|${p.color2}|${p.angle}`, gradientSurface(env, p).canvas)
       return
-    }
     case 'image': {
       const img = p.src ? prerendered(env, p.src, p.blur) : null
-      if (img) ctx.drawImage(img, 0, 0)
+      if (img) put(`image|${p.src}|${p.blur}`, img)
       else fallback()
       return
     }
     case 'video': {
+      // Frame video đổi liên tục: không nướng được (Renderer không chọn cách này cho nền video)
+      if (baked && env.bake) env.bake.failed = true
       const frame = p.src ? env.assets.video(p.src, env.t) : null
       if (frame) drawCover(ctx, frame, 0, 0, W, H)
-      else fallback()
+      else {
+        ctx.fillStyle = p.color
+        ctx.fillRect(0, 0, W, H)
+      }
       return
     }
     case 'cover': {
       const e = env.entry
       const cur = e?.track.coverPath ? prerendered(env, e.track.coverPath, p.blur) : null
-      if (cur) ctx.drawImage(cur, 0, 0)
+      if (cur) put(`image|${e!.track.coverPath}|${p.blur}`, cur)
       else fallback()
       if (e && e.index > 0) {
         const k = (env.t - e.displayStart) / COVER_FADE
         const prev = env.timeline.entries[e.index - 1]
         if (k < 1 && prev.track.coverPath !== e.track.coverPath) {
           const old = prev.track.coverPath ? prerendered(env, prev.track.coverPath, p.blur) : null
-          ctx.globalAlpha = (1 - clamp(k)) * env.fade
-          if (old) ctx.drawImage(old, 0, 0)
-          else {
-            ctx.fillStyle = p.color
-            ctx.fillRect(0, 0, W, H)
-          }
-          ctx.globalAlpha = env.fade
+          ctx.globalAlpha = (1 - clamp(k)) * alpha
+          if (old) put(`image|${prev.track.coverPath}|${p.blur}`, old)
+          else fallback()
+          ctx.globalAlpha = alpha
         }
       }
       return
@@ -110,15 +184,36 @@ export function drawBackground(env: RenderEnv, p: BackgroundProps): void {
   const dx = shakeAmp * beat * (noise1(frame * 0.9, 11) * 2 - 1)
   const dy = shakeAmp * beat * (noise1(frame * 0.9, 23) * 2 - 1)
 
-  ctx.save()
-  ctx.translate(W / 2 + panX + dx, H / 2 + panY + dy)
-  ctx.scale(zoom, zoom)
-  ctx.translate(-W / 2, -H / 2)
-  drawContent(env, p)
-  ctx.restore()
-
-  if (p.dim > 0) {
-    ctx.fillStyle = `rgba(0,0,0,${clamp(p.dim)})`
-    ctx.fillRect(0, 0, W, H)
+  const content = (baked: boolean, alpha: number): void => {
+    ctx.save()
+    ctx.translate(W / 2 + panX + dx, H / 2 + panY + dy)
+    ctx.scale(zoom, zoom)
+    ctx.translate(-W / 2, -H / 2)
+    drawContent(env, p, baked, alpha)
+    ctx.restore()
   }
+  const dimFill = (): void => {
+    if (p.dim > 0) {
+      ctx.fillStyle = `rgba(0,0,0,${clamp(p.dim)})`
+      ctx.fillRect(0, 0, W, H)
+    }
+  }
+
+  const bake = env.bake
+  if (!bake) {
+    content(false, env.fade)
+    dimFill()
+    return
+  }
+  if (bake.fade >= 0.999) {
+    // Ảnh đã nướng có sẵn độ tối của nền
+    content(true, env.fade)
+    if (bake.failed) dimFill()
+    return
+  }
+  // Bộ lọc đang hiện dần / ẩn dần: ảnh gốc, rồi ảnh đã lọc phủ lên theo độ hiện của bộ lọc
+  content(false, env.fade)
+  dimFill()
+  content(true, env.fade * bake.fade)
+  ctx.globalAlpha = env.fade
 }
