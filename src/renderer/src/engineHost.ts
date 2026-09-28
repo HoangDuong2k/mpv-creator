@@ -156,6 +156,16 @@ export class PreviewPlayer {
   private gen = 0
   private readonly sources = new Set<AudioBufferSourceNode>()
   private timer: number | null = null
+  /**
+   * Đồng hồ cho hình preview: 'audio' = theo AudioContext (khớp tiếng từng mẫu),
+   * 'wall' = đồng hồ hệ thống (chưa có âm thanh, hoặc máy không phát được tiếng:
+   * không có loa/tai nghe, Remote Desktop không chuyển tiếng…) để hình vẫn chạy.
+   */
+  private clock: 'audio' | 'wall' = 'wall'
+  /** AudioContext có chạy được không (tự kiểm tra lại liên tục) */
+  private audioOk = true
+  private lastCtx = 0
+  private lastCtxWall = 0
 
   private audioCtx(): AudioContext {
     if (!this.ctx) {
@@ -175,16 +185,48 @@ export class PreviewPlayer {
 
   time(): number {
     if (!this.playing) return this.base
-    let t: number
-    if (this.spec) {
-      if (this.ctxStart === null || !this.ctx) return this.base
-      t = this.base + Math.max(0, this.ctx.currentTime - this.ctxStart - this.latency())
-    } else t = this.base + (performance.now() - this.clockStart) / 1000
+    if (this.clock === 'audio') {
+      const c = this.ctx
+      if (this.ctxStart !== null && c) return this.endCheck(this.base + Math.max(0, c.currentTime - this.ctxStart - this.latency()))
+      // Đang chờ đoạn âm thanh đầu tiên; AudioContext không khởi động được sau 1 giây → dùng đồng hồ hệ thống
+      if (!(c && c.state !== 'running' && performance.now() - this.clockStart > 1000)) return this.base
+      this.useWallClock(this.base)
+    }
+    return this.endCheck(this.base + (performance.now() - this.clockStart) / 1000)
+  }
+
+  private endCheck(t: number): number {
     if (this.total > 0 && t >= this.total) {
       this.finish()
       return this.total
     }
     return t
+  }
+
+  private useWallClock(t: number): void {
+    this.base = t
+    this.clockStart = performance.now()
+    this.clock = 'wall'
+  }
+
+  /** Phát hiện đồng hồ âm thanh đứng yên (không có thiết bị phát, driver lỗi) → chuyển sang đồng hồ hệ thống */
+  private watchdog(): void {
+    const c = this.ctx
+    if (!c || !this.playing) return
+    const now = performance.now()
+    if (c.currentTime > this.lastCtx + 1e-4) {
+      this.lastCtx = c.currentTime
+      this.lastCtxWall = now
+      this.audioOk = true
+    } else if (this.clock === 'audio' && this.ctxStart !== null && now - this.lastCtxWall > 700) {
+      this.audioOk = false
+      this.useWallClock(this.time())
+    }
+  }
+
+  /** Trạng thái để kiểm thử / chẩn đoán */
+  get debug(): { clock: string; audioOk: boolean; state: string; ctxTime: number; chunks: number } {
+    return { clock: this.clock, audioOk: this.audioOk, state: this.ctx?.state ?? 'none', ctxTime: this.ctx?.currentTime ?? 0, chunks: this.chunksScheduled }
   }
 
   /** Dữ liệu âm thanh của project thay đổi (thêm/xoá/đổi chỗ/cắt bài…) */
@@ -244,8 +286,14 @@ export class PreviewPlayer {
     this.inflight = 0
     this.ctxStart = null
     this.clockStart = performance.now()
+    // Máy đã biết không phát được tiếng → hình chạy theo đồng hồ hệ thống ngay (vẫn thử phát tiếng)
+    this.clock = this.spec && this.audioOk ? 'audio' : 'wall'
+    this.lastCtxWall = performance.now()
+    this.lastCtx = this.ctx?.currentTime ?? 0
     if (this.spec) {
-      void this.audioCtx().resume()
+      void this.audioCtx()
+        .resume()
+        .catch(() => undefined)
       this.pump()
     }
     if (this.timer === null) this.timer = window.setInterval(() => this.pump(), 150)
@@ -259,6 +307,7 @@ export class PreviewPlayer {
   }
 
   private pump(): void {
+    this.watchdog()
     if (!this.playing || !this.spec) return
     const totalFrames = Math.round(this.total * SR)
     const playing = Math.round(this.time() * SR)
@@ -282,6 +331,8 @@ export class PreviewPlayer {
           if (gen !== this.gen) return
           this.inflight--
           console.warn('Không đọc được âm thanh', err)
+          // Không có đoạn đầu thì hình vẫn phải chạy
+          if (this.ctxStart === null && this.clock === 'audio') this.useWallClock(this.base)
         }
       )
     }

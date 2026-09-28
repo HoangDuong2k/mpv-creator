@@ -7,7 +7,7 @@
 import { spawnSync } from 'child_process'
 import { existsSync, mkdirSync, rmSync } from 'fs'
 import { join, resolve } from 'path'
-import { _electron as electron } from 'playwright-core'
+import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core'
 import { ffmpegPath } from '../src/main/ffmpeg'
 import { makeTestAudio } from './make-test-audio'
 
@@ -57,9 +57,43 @@ async function boxOf(loc: { boundingBox(): Promise<{ x: number; y: number; width
   return b
 }
 
+const passed: string[] = []
+const problems: string[] = []
+let pageRef: Page | undefined
+let appRef: ElectronApplication | undefined
+
 function assert(cond: unknown, msg: string): void {
   if (!cond) throw new Error(`KIỂM THỬ THẤT BẠI: ${msg}`)
+  passed.push(msg)
   console.log(`  ✓ ${msg}`)
+}
+
+/** Trên GitHub Actions: in lỗi thành annotation (xem được công khai, không cần quyền đọc log) */
+function annotate(level: 'error' | 'notice', title: string, text: string): void {
+  if (!process.env.GITHUB_ACTIONS) return
+  const esc = (v: string): string => v.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
+  console.log(`::${level} title=${esc(title)}::${esc(text)}`)
+}
+
+async function diagnostics(): Promise<string> {
+  if (!pageRef) return 'Chưa mở được cửa sổ app'
+  try {
+    return String(
+      await pageRef.evaluate(`(() => {
+        const w = window
+        const p = w.__pvm && w.__pvm.player
+        return JSON.stringify({
+          viewport: [innerWidth, innerHeight],
+          dpr: devicePixelRatio,
+          player: p ? { t: p.time(), playing: p.playing, total: p.total, ...p.debug } : null,
+          hint: document.querySelector('.stage-hint') && document.querySelector('.stage-hint').textContent,
+          chips: Array.from(document.querySelectorAll('.chip')).map((c) => c.textContent)
+        })
+      })()`)
+    )
+  } catch (err) {
+    return `Không đọc được trạng thái: ${(err as Error).message}`
+  }
 }
 
 async function main(): Promise<void> {
@@ -69,14 +103,23 @@ async function main(): Promise<void> {
   const files = ['01-nang-am-xa-dan.mp3', '02-dem-lofi.mp3', '03-bass-cuc-manh.mp3'].map((f) => join(AUDIO, f))
   // PVM_E2E_EXE=đường dẫn app đã đóng gói → kiểm thử bản build thật (asar, ffmpeg đi kèm, font trong resources)
   const exe = process.env.PVM_E2E_EXE
-  const app = await electron.launch({
+  const app = (appRef = await electron.launch({
     executablePath: exe ?? (require('electron') as unknown as string),
     args: [...(exe ? [] : [ROOT]), ...(process.platform === 'linux' ? ['--no-sandbox'] : []), ...files],
     env: { ...process.env, PVM_USER_DATA: join(OUT, 'userdata') } as Record<string, string>
+  }))
+  app.process().stderr?.on('data', (d: Buffer) => {
+    for (const line of d.toString().split(/\r?\n/)) if (/error|lỗi|exception/i.test(line) && !/dbus|gpu|Gtk|viz|ozone|libva/i.test(line)) problems.push(`[main] ${line.slice(0, 300)}`)
   })
   try {
-    const page = await app.firstWindow()
-    page.on('pageerror', (e) => console.error('  [renderer lỗi]', e.message))
+    const page = (pageRef = await app.firstWindow())
+    page.on('pageerror', (e) => {
+      problems.push(`[renderer] ${e.message}`)
+      console.error('  [renderer lỗi]', e.message)
+    })
+    page.on('console', (m) => {
+      if (m.type() === 'error' || m.type() === 'warning') problems.push(`[console.${m.type()}] ${m.text().slice(0, 300)}`)
+    })
     await page.waitForSelector('.track', { timeout: 20000 })
     assert((await page.locator('.track').count()) === 3, 'nhập 3 bài từ dòng lệnh')
     await page.getByText('Âm thanh sẵn sàng').waitFor({ timeout: 60000 })
@@ -309,12 +352,29 @@ async function main(): Promise<void> {
     const dur = mediaDuration(testFile)
     assert(Math.abs(dur - 15) < 0.2, `thời lượng video ~15s (${dur})`)
     console.log('\nTẤT CẢ KIỂM THỬ ĐỀU QUA')
+    annotate('notice', `E2E ${process.platform}: qua ${passed.length} bước`, passed.join('\n'))
   } finally {
     await app.evaluate(({ app: a }) => a.exit(0)).catch(() => undefined)
   }
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error(err)
+  const diag = await diagnostics()
+  await pageRef?.screenshot({ path: join(OUT, 'fail.png') }).catch(() => undefined)
+  annotate(
+    'error',
+    `E2E ${process.platform} thất bại`,
+    [
+      String((err as Error)?.message ?? err).slice(0, 1500),
+      '',
+      `Đã qua ${passed.length} bước, bước cuối: ${passed[passed.length - 1] ?? '(chưa có)'}`,
+      `Chẩn đoán: ${diag}`,
+      '',
+      'Lỗi / cảnh báo từ app:',
+      ...problems.slice(-12)
+    ].join('\n')
+  )
+  await appRef?.evaluate(({ app: a }) => a.exit(1)).catch(() => undefined)
   process.exit(1)
 })
