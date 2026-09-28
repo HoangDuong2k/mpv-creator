@@ -56,7 +56,7 @@ describe('kéo thả trên preview', () => {
     expect(patch.height).toBeUndefined()
   })
 
-  it('chọn layer trên cùng; layer phủ kín khung chỉ là lựa chọn cuối', () => {
+  it('chọn layer trên cùng; layer phủ kín khung không bắt nhấp chuột', () => {
     const particles = createLayer('particles')
     const text = createLayer('text')
     const layers = [particles, viz, text] as Layer[]
@@ -67,7 +67,7 @@ describe('kéo thả trên preview', () => {
     ])
     expect(hitTest(layers, bounds, 900, 640, W, H)?.id).toBe(text.id)
     expect(hitTest(layers, bounds, 400, 700, W, H)?.id).toBe(viz.id)
-    expect(hitTest(layers, bounds, 50, 50, W, H)?.id).toBe(particles.id)
+    expect(hitTest(layers, bounds, 50, 50, W, H)).toBeNull()
   })
 })
 

@@ -720,8 +720,9 @@ const AudioRow = memo(function AudioRow({
           )
         })}
         {entries.map((e) =>
-          e.overlapIn > 0 ? (
-            <div key={`x-${e.track.id}`} className="tl-xfade" style={{ left: (e.start + e.overlapIn / 2) * zoom }} title={`Crossfade ${e.overlapIn.toFixed(1)}s`}>
+          // Chỉ vẽ dấu crossfade khi đoạn chồng đủ rộng, và không bắt chuột (không che tay nắm cắt bài)
+          e.overlapIn > 0 && e.overlapIn * zoom >= 24 ? (
+            <div key={`x-${e.track.id}`} className="tl-xfade" style={{ left: (e.start + e.overlapIn / 2) * zoom }}>
               ✕
             </div>
           ) : null

@@ -36,6 +36,18 @@ function mediaDuration(file: string): number {
   return m ? +m[1] * 3600 + +m[2] * 60 + parseFloat(m[3]) : NaN
 }
 
+/** Toạ độ phần tử sau khi đã đứng yên (khung chọn trên preview cập nhật chậm một khung hình sau mỗi thao tác) */
+async function stableBox(loc: { boundingBox(): Promise<{ x: number; y: number; width: number; height: number } | null> }): Promise<{ x: number; y: number; width: number; height: number }> {
+  let prev = await boxOf(loc)
+  for (let i = 0; i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 120))
+    const cur = await boxOf(loc)
+    if (Math.abs(cur.x - prev.x) < 0.5 && Math.abs(cur.y - prev.y) < 0.5 && Math.abs(cur.width - prev.width) < 0.5 && Math.abs(cur.height - prev.height) < 0.5) return cur
+    prev = cur
+  }
+  return prev
+}
+
 /** Chờ điều kiện đúng (giao diện React cập nhật sau một nhịp) */
 async function until(check: () => Promise<boolean>, timeout = 3000): Promise<boolean> {
   const end = Date.now() + timeout
@@ -60,6 +72,7 @@ async function boxOf(loc: { boundingBox(): Promise<{ x: number; y: number; width
 const passed: string[] = []
 const problems: string[] = []
 let pageRef: Page | undefined
+let failDiag = ''
 let appRef: ElectronApplication | undefined
 
 function assert(cond: unknown, msg: string): void {
@@ -113,6 +126,19 @@ async function main(): Promise<void> {
   })
   try {
     const page = (pageRef = await app.firstWindow())
+    // PVM_E2E_WINDOW=1008x729: giả lập màn hình nhỏ (vd. máy ảo Windows 1024×768 của GitHub)
+    const win = /^(\d+)x(\d+)$/.exec(process.env.PVM_E2E_WINDOW ?? '')
+    if (win) {
+      await app.evaluate(
+        ({ BrowserWindow }, [w, h]) => {
+          const bw = BrowserWindow.getAllWindows()[0]
+          bw.setMinimumSize(640, 480)
+          bw.setContentSize(w, h)
+        },
+        [Number(win[1]), Number(win[2])]
+      )
+      await page.waitForTimeout(300)
+    }
     page.on('pageerror', (e) => {
       problems.push(`[renderer] ${e.message}`)
       console.error('  [renderer lỗi]', e.message)
@@ -129,10 +155,10 @@ async function main(): Promise<void> {
 
     // Phát 1.5 giây
     await page.locator('.play-btn').click()
-    await page.waitForTimeout(1500)
+    const playing = await until(async () => !((await page.locator('.time').textContent()) ?? '0:00').startsWith('0:00 '), 6000)
     await page.locator('.play-btn').click()
     const t1 = await page.locator('.time').textContent()
-    assert(t1 && !t1.startsWith('0:00 '), `thời gian chạy khi phát (${t1})`)
+    assert(playing, `thời gian chạy khi phát (${t1})`)
 
     const audio = await page.evaluate(() => {
       const p = (window as unknown as Probe).__pvm.player
@@ -156,7 +182,7 @@ async function main(): Promise<void> {
     assert((await page.locator('.layer.selected').textContent())?.includes('Cột sóng nhạc'), 'mặc định chọn sẵn lớp cột sóng, có khung chọn trên preview')
     const x0 = Number(await num('Vị trí ngang').inputValue())
     const w0 = Number(await num('Chiều rộng').inputValue())
-    let r = (await boxOf(selBox))
+    let r = (await stableBox(selBox))
     await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2)
     await page.mouse.down()
     await page.mouse.move(r.x + r.width / 2 + 60, r.y + r.height / 2 - 40, { steps: 8 })
@@ -165,7 +191,7 @@ async function main(): Promise<void> {
     const x1 = Number(await num('Vị trí ngang').inputValue())
     assert(x1 > x0 + 0.02, `kéo cột sóng sang phải: x ${x0} → ${x1}`)
     // Kéo gần giữa khung → bắt dính đúng 0.5
-    r = (await boxOf(selBox))
+    r = (await stableBox(selBox))
     await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2)
     await page.mouse.down()
     await page.mouse.move(r.x + r.width / 2 - 60 + 3, r.y + r.height / 2, { steps: 8 })
@@ -173,7 +199,7 @@ async function main(): Promise<void> {
     assert(await until(async () => Number(await num('Vị trí ngang').inputValue()) === 0.5), 'bắt dính vào giữa khung hình')
     // Kéo ô vuông cạnh phải để rộng ra
     const handle = page.locator('.handle[data-handle="e"]')
-    const hb = (await boxOf(handle))
+    const hb = (await stableBox(handle))
     await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2)
     await page.mouse.down()
     await page.mouse.move(hb.x + hb.width / 2 + 50, hb.y + hb.height / 2, { steps: 8 })
@@ -185,17 +211,15 @@ async function main(): Promise<void> {
     // Mỗi lần kéo là một bước hoàn tác
     await page.locator('.panel.right .panel-head h3').click()
     for (let i = 0; i < 3; i++) await page.keyboard.press('Control+z')
-    assert(
-      await until(async () => Number(await num('Vị trí ngang').inputValue()) === x0 && Number(await num('Chiều rộng').inputValue()) === w0),
-      'Ctrl+Z ×3 trả về vị trí và kích thước ban đầu'
-    )
+    const undoOk = await until(async () => Number(await num('Vị trí ngang').inputValue()) === x0 && Number(await num('Chiều rộng').inputValue()) === w0)
+    assert(undoOk, 'Ctrl+Z ×3 trả về vị trí và kích thước ban đầu')
 
     // Nhấp vào tên bài trên preview để chọn lớp chữ
     const stage = (await boxOf(page.locator('.stage-inner')))
     await page.mouse.click(stage.x + stage.width * 0.5, stage.y + stage.height * 0.16)
     assert(await until(async () => !!(await page.locator('.layer.selected').textContent())?.includes('Tên bài hát')), 'nhấp lên preview chọn đúng lớp chữ')
     const size0 = Number(await num('Cỡ chữ').inputValue())
-    const corner = (await boxOf(page.locator('.handle[data-handle="se"]')))
+    const corner = (await stableBox(page.locator('.handle[data-handle="se"]')))
     await page.mouse.move(corner.x + 5, corner.y + 5)
     await page.mouse.down()
     await page.mouse.move(corner.x + 45, corner.y + 25, { steps: 6 })
@@ -205,7 +229,7 @@ async function main(): Promise<void> {
     // Nút Đăng ký: chọn trong danh sách → luôn hiện để canh → kéo tự do
     await page.locator('.layer', { hasText: 'Đăng ký / Like' }).click()
     await selBox.waitFor()
-    r = (await boxOf(selBox))
+    r = (await stableBox(selBox))
     await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2)
     await page.mouse.down()
     await page.mouse.move(r.x + r.width / 2 - 200, r.y + r.height / 2 - 150, { steps: 8 })
@@ -352,7 +376,12 @@ async function main(): Promise<void> {
     const dur = mediaDuration(testFile)
     assert(Math.abs(dur - 15) < 0.2, `thời lượng video ~15s (${dur})`)
     console.log('\nTẤT CẢ KIỂM THỬ ĐỀU QUA')
-    annotate('notice', `E2E ${process.platform}: qua ${passed.length} bước`, passed.join('\n'))
+    annotate('notice', `E2E ${process.platform}: qua ${passed.length} bước`, `${await diagnostics()}\n${passed.join('\n')}`)
+  } catch (err) {
+    // Thu thập chẩn đoán khi app còn mở
+    failDiag = await diagnostics()
+    await pageRef?.screenshot({ path: join(OUT, 'fail.png') }).catch(() => undefined)
+    throw err
   } finally {
     await app.evaluate(({ app: a }) => a.exit(0)).catch(() => undefined)
   }
@@ -360,8 +389,7 @@ async function main(): Promise<void> {
 
 main().catch(async (err) => {
   console.error(err)
-  const diag = await diagnostics()
-  await pageRef?.screenshot({ path: join(OUT, 'fail.png') }).catch(() => undefined)
+  const diag = failDiag || (await diagnostics())
   annotate(
     'error',
     `E2E ${process.platform} thất bại`,

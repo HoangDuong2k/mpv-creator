@@ -150,16 +150,18 @@ export function applyDrag(layer: Layer, s: DragSession, px: number, py: number, 
   return { patch, guides }
 }
 
-/** Layer trên cùng chứa điểm (x, y). Layer phủ gần kín khung chỉ chọn được khi không còn layer nào khác. */
+/**
+ * Layer trên cùng chứa điểm (x, y). Layer phủ gần kín khung (hạt bay toàn màn hình…) không bắt nhấp chuột —
+ * nếu không, nhấp vào chỗ trống sẽ luôn chọn nhầm nó; chọn các layer đó qua danh sách lớp hoặc timeline.
+ */
 export function hitTest(layers: Layer[], bounds: Map<string, Rect>, x: number, y: number, W: number, H: number): Layer | null {
-  let fallback: Layer | null = null
   for (let i = layers.length - 1; i >= 0; i--) {
     const l = layers[i]
     if (!l.enabled || !isMovable(l)) continue
     const b = bounds.get(l.id)
     if (!b || x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) continue
-    if (b.w * b.h > W * H * 0.9) fallback ??= l
-    else return l
+    if (b.w * b.h > W * H * 0.9) continue
+    return l
   }
-  return fallback
+  return null
 }

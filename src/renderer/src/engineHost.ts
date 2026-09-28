@@ -236,6 +236,8 @@ export class PreviewPlayer {
     const t = this.time()
     this.spec = spec
     this.specKey = key
+    // Khởi động sẵn thiết bị âm thanh để lần bấm Play đầu tiên có tiếng ngay (khởi động có thể mất gần 1 giây)
+    if (spec && !this.ctx) void this.audioCtx().resume().catch(() => undefined)
     if (this.playing) this.restart(t)
   }
 
