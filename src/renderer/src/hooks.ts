@@ -40,8 +40,10 @@ export function useAnalysis(): void {
       seen.add(t.path)
       const st = trackStatus[t.path]
       if (st && st.state !== 'pending') {
-        // Bài đã phân tích nhưng project mới mở chưa có analysisKey
-        if (st.state === 'ready' && !t.analysisKey) setTrackStatus(t.path, { state: 'pending', progress: 0 })
+        // Bài đã phân tích nhưng còn bản trong playlist chưa có analysisKey: project mới mở,
+        // hoặc thêm lại cùng một bài để lặp playlist (lấy lại từ cache, không phân tích lại)
+        const missing = tracks.some((x) => x.path === t.path && !x.analysisKey)
+        if (st.state === 'ready' && missing) setTrackStatus(t.path, { state: 'pending', progress: 0 })
         else continue
       }
       setTrackStatus(t.path, { state: 'analyzing', progress: 0 })

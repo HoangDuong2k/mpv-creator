@@ -485,6 +485,15 @@ async function main(): Promise<void> {
     for (let i = 0; i + 2 < px.stdout.length; i += 3) worstPx = Math.max(worstPx, Math.abs(px.stdout[i] - px.stdout[i + 1]), Math.abs(px.stdout[i + 1] - px.stdout[i + 2]))
     assert(px.stdout.length === 64 * 36 * 3 && worstPx <= 12, `video xuất ra cũng đen trắng (lệch màu tối đa ${worstPx})`)
     assert(Math.abs(dur - 15) < 0.2, `thời lượng video ~15s (${dur})`)
+    // Lặp playlist thủ công: thêm lại bài đã phân tích → bản mới dùng ngay dữ liệu trong cache
+    await page.evaluate(`window.api.importMedia([${JSON.stringify(files[0])}]).then((t) => window.__pvm.store.getState().addTracks(t))`)
+    const allAnalyzed = (): Promise<boolean> =>
+      page.evaluate('window.__pvm.store.getState().project.tracks.length === 4 && window.__pvm.store.getState().project.tracks.every((t) => t.analysisKey)') as Promise<boolean>
+    assert(await until(allAnalyzed, 8000), 'thêm lại một bài (lặp playlist): bản mới có ngay dữ liệu âm thanh')
+    assert(await until(async () => ((await page.locator('.status-chips').textContent()) ?? '').includes('Âm thanh sẵn sàng')), 'vẫn báo âm thanh sẵn sàng')
+    await page.evaluate('window.__pvm.store.getState().undo()')
+    assert(await until(async () => (await state()).tracks.length === 3), 'Ctrl+Z bỏ bài vừa thêm')
+
     // Giao diện tiếng Anh: bấm EN → chữ đổi ngay (kể cả tên lớp mặc định); bấm VI → trở lại
     await page.keyboard.press('Escape') // đóng hộp thoại xuất video
     const exportBtn = page.locator('.topbar .btn.primary')
