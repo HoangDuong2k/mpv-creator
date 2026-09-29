@@ -8,7 +8,7 @@ import { SettingsDialog } from './components/SettingsDialog'
 import { Timeline } from './components/Timeline'
 import { Icon, IconButton, fileName } from './components/ui'
 import { assets, loadFonts, player } from './engineHost'
-import { safeFileName } from '../../shared/files'
+import { mediaKind, safeFileName } from '../../shared/files'
 import { errorText, useAnalysis, useAudioSpec, useAutosave } from './hooks'
 import { useStore } from './store'
 import { copySelection, pasteAtPlayhead, splitAtPlayhead } from './timelineActions'
@@ -16,8 +16,6 @@ import { LANGS, tr } from '../../shared/i18n'
 
 const api = window.api
 let booted = false
-const IMAGE_RE = /\.(png|jpe?g|webp|bmp|gif)$/i
-const VIDEO_RE = /\.(mp4|mov|webm|mkv|m4v|avi)$/i
 
 async function saveProject(saveAs = false): Promise<void> {
   const { project, filePath, markSaved, toast } = useStore.getState()
@@ -63,9 +61,9 @@ function setBackgroundFile(path: string, mode: 'image' | 'video'): void {
 }
 
 async function handleDroppedPaths(paths: string[]): Promise<void> {
-  if (paths.length === 1 && /\.json$/i.test(paths[0])) return openProject(paths[0])
-  if (paths.length === 1 && IMAGE_RE.test(paths[0])) return setBackgroundFile(paths[0], 'image')
-  if (paths.length === 1 && VIDEO_RE.test(paths[0])) return setBackgroundFile(paths[0], 'video')
+  const kind = paths.length === 1 ? mediaKind(paths[0]) : null
+  if (kind === 'project') return openProject(paths[0])
+  if (kind === 'image' || kind === 'video') return setBackgroundFile(paths[0], kind)
   await importPaths(paths)
 }
 
@@ -246,7 +244,8 @@ export function App(): ReactNode {
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes('Files')) return
         e.preventDefault()
-        setDragging(true)
+        // Trên timeline: timeline tự hiện vạch vị trí thả, không phủ cả cửa sổ
+        setDragging(!(e.target as HTMLElement).closest?.('.timeline'))
       }}
       onDragLeave={(e) => {
         if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false)
@@ -282,6 +281,7 @@ export function App(): ReactNode {
             <Icon name="music" size={48} />
             <p>{tr('Thả nhạc / thư mục để thêm vào playlist')}</p>
             <p className="muted">{tr('Thả 1 ảnh hoặc video để đặt làm nền · thả file .json để mở project')}</p>
+            <p className="muted">{tr('Thả vào timeline để chèn đúng vị trí (nhạc, ảnh, video)')}</p>
           </div>
         </div>
       )}

@@ -190,9 +190,6 @@ export const EN: Record<string, string> = {
   'Cắt đầu {time}': 'Trim start {time}',
   'Cắt cuối {time}': 'Trim end {time}',
   'Kéo để đổi chiều cao timeline': 'Drag to resize the timeline',
-  'Đang chọn {n} thanh · kéo một thanh để dời cả nhóm · Ctrl+C chép · Delete xoá · Esc bỏ chọn': '{n} bars selected · drag one bar to move them all · Ctrl+C copy · Delete remove · Esc deselect',
-  'Kéo khối để dời · kéo mép để đổi thời gian · Ctrl+B tách tại đầu phát · Ctrl/Shift + nhấp để chọn nhiều · Ctrl+C / Ctrl+V chép, dán · Ctrl + lăn chuột để zoom · Delete để xoá':
-    'Drag a bar to move it · drag its edges to change timing · Ctrl+B split at playhead · Ctrl/Shift + click to select several · Ctrl+C / Ctrl+V copy, paste · Ctrl + scroll to zoom · Delete to remove',
   'Tách thanh đang chọn tại đầu phát (Ctrl+B)': 'Split the selected bars at the playhead (Ctrl+B)',
   'Bắt dính: bật (giữ Shift để tạm tắt)': 'Snapping: on (hold Shift to disable temporarily)',
   'Bắt dính: tắt': 'Snapping: off',
@@ -214,15 +211,12 @@ export const EN: Record<string, string> = {
   'Kéo để hiện dần': 'Drag to fade in',
   'Kéo để ẩn dần': 'Drag to fade out',
   'Nhạc': 'Music',
-  'Kéo thả file nhạc vào cửa sổ để thêm vào đây': 'Drag and drop music files into the window to add them here',
   'kéo để đổi thứ tự, kéo mép để cắt': 'drag to reorder, drag the edges to trim',
   'Kéo để cắt đầu bài': 'Drag to trim the start of the track',
   'Kéo để cắt cuối bài': 'Drag to trim the end of the track',
   'Chọn thanh cần tách trên timeline, đặt đầu phát vào giữa thanh rồi bấm Ctrl+B': 'Select the bar to split on the timeline, put the playhead inside it, then press Ctrl+B',
   'Không tách được: đầu phát phải nằm trong thanh đang chọn, cách hai mép ít nhất 0,5 giây (lớp đang khoá không tách được)':
     'Cannot split: the playhead must be inside the selected bar, at least 0.5 seconds from both edges (locked layers cannot be split)',
-  'Đã chép {n} lớp — đặt đầu phát rồi bấm Ctrl+V để dán': 'Copied {n} layer(s) — place the playhead and press Ctrl+V to paste',
-  'Chưa chép lớp nào (chọn thanh trên timeline rồi bấm Ctrl+C)': 'Nothing copied yet (select bars on the timeline, then press Ctrl+C)',
   'Đã giữ lại {n} lớp đang khoá': 'Kept {n} locked layer(s)',
 
   // ---------- Clip nhạc ----------
@@ -501,5 +495,21 @@ export const EN: Record<string, string> = {
   'Không đọc được âm thanh từ file: {file}': 'Could not read audio from file: {file}',
   'File phân tích âm thanh không hợp lệ': 'Invalid audio analysis file',
   'File phân tích âm thanh bị thiếu dữ liệu': 'The audio analysis file is incomplete',
-  'Bài kế tiếp': 'Next track'
+  'Bài kế tiếp': 'Next track',
+  // ---------- Kéo thả, chọn hàng loạt trên timeline ----------
+  'Thả vào timeline để chèn đúng vị trí (nhạc, ảnh, video)': 'Drop onto the timeline to insert at that exact spot (music, images, videos)',
+  'Chuyển {n} bài tới vị trí {k}': 'Move {n} tracks to position {k}',
+  'Thả để thay ảnh / video của lớp "{name}"': 'Drop to replace the image / video of "{name}"',
+  'Chèn {n} bài vào vị trí {k}': 'Insert {n} track(s) at position {k}',
+  'Chèn nhạc vào vị trí {k}': 'Insert music at position {k}',
+  'Thêm {n} nền từ {time}': 'Add {n} background(s) from {time}',
+  'Đang chọn {n} mục · kéo một mục để dời cả nhóm · Ctrl+C chép · Delete xoá · Esc bỏ chọn': '{n} items selected · drag one to move them all · Ctrl+C copy · Delete remove · Esc deselect',
+  'Kéo khối để dời · kéo mép để đổi thời gian · kéo vùng trống để khoanh chọn · Ctrl+B tách tại đầu phát · Ctrl+C / Ctrl+V chép, dán · thả nhạc, ảnh, video vào đúng chỗ · Ctrl + lăn chuột để zoom':
+    'Drag a bar to move it · drag its edges to change timing · drag on empty space to box-select · Ctrl+B split at playhead · Ctrl+C / Ctrl+V copy, paste · drop music, images, videos right where you want them · Ctrl + scroll to zoom',
+  'Kéo thả file nhạc vào đây': 'Drag and drop music files here',
+  'Đã chép {n} mục — đặt đầu phát rồi bấm Ctrl+V để dán': 'Copied {n} item(s) — place the playhead and press Ctrl+V to paste',
+  'Chưa chép gì (chọn thanh hoặc clip nhạc trên timeline rồi bấm Ctrl+C)': 'Nothing copied yet (select bars or music clips on the timeline, then press Ctrl+C)',
+  'Đã chèn {n} bài vào vị trí {k}': 'Inserted {n} track(s) at position {k}',
+  'Đã thay nền của lớp "{name}"': 'Replaced the background of "{name}"',
+  'Đã thêm {n} nền từ {time}': 'Added {n} background(s) from {time}'
 }

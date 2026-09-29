@@ -6,9 +6,8 @@ import { parseFile } from 'music-metadata'
 import { newId } from '../shared/defaults'
 import type { Track } from '../shared/types'
 
-export const AUDIO_EXTENSIONS = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus', 'wma', 'aiff', 'aif']
-export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif']
-export const VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v']
+import { AUDIO_EXTENSIONS } from '../shared/files'
+export { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../shared/files'
 
 export function isAudioFile(path: string): boolean {
   return AUDIO_EXTENSIONS.includes(extname(path).slice(1).toLowerCase())

@@ -45,7 +45,11 @@ export function snapTime(t: number, candidates: number[], threshold: number): { 
   return best === null ? { t, snapped: null } : { t: best, snapped: best }
 }
 
-const round = (v: number, step = 0.01): number => Math.round(v / step) * step
+/** Làm tròn theo bước (0,01 giây…) — chia cho nghịch đảo để không dính sai số kiểu 42.800000000000004 */
+const round = (v: number, step = 0.01): number => {
+  const inv = Math.round(1 / step)
+  return Math.round(v * inv) / inv
+}
 
 /** Khoảng thời gian thật [start, end] của layer để vẽ / kéo (end null → hết video) */
 export function layerRange(timing: LayerTiming, total: number): { start: number; end: number } {
@@ -280,6 +284,69 @@ export function pasteTimings(timings: LayerTiming[], at: number, total: number):
     const end = t0.end === null ? null : endValue(Math.min(start + (r.end - r.start), limit), total)
     const len = (end === null ? (Number.isFinite(limit) ? limit : start + (r.end - r.start)) : end) - start
     return { start, end, ...fitFades(t0.fadeIn, t0.fadeOut, len) }
+  })
+}
+
+/**
+ * Vị trí chèn (0…n) ứng với thời điểm `t`: số clip nhạc (trừ các clip trong `exclude` — đang được kéo)
+ * có điểm giữa nằm trước `t`.
+ */
+export function insertionIndexAt(entries: Array<{ start: number; end: number }>, t: number, exclude: ReadonlySet<number> = new Set()): number {
+  let n = 0
+  entries.forEach((e, i) => {
+    if (!exclude.has(i) && (e.start + e.end) / 2 < t) n++
+  })
+  return n
+}
+
+/** Dời các bài `ids` (giữ thứ tự giữa chúng) tới vị trí `to` — tính trong danh sách các bài còn lại */
+export function moveTracksOrder<T extends { id: string }>(tracks: T[], ids: ReadonlySet<string>, to: number): T[] {
+  const moved = tracks.filter((t) => ids.has(t.id))
+  const rest = tracks.filter((t) => !ids.has(t.id))
+  const k = Math.max(0, Math.min(to, rest.length))
+  return [...rest.slice(0, k), ...moved, ...rest.slice(k)]
+}
+
+/**
+ * Thời gian của `n` ảnh / video nền thả vào timeline tại `at`:
+ * - đủ bài phía sau → mỗi file một bài (file đầu từ điểm thả tới hết bài đó, các file sau theo từng bài kế tiếp);
+ * - nhiều file hơn số bài còn lại (hoặc chưa có nhạc) → chia đều khoảng từ điểm thả tới cuối video.
+ * Đoạn sau chồng lên đoạn trước `fade` giây và hiện dần trong khoảng đó (chuyển cảnh không bị tối giữa chừng).
+ */
+export function dropSegments(
+  entries: Array<{ displayStart: number; displayEnd: number }>,
+  total: number,
+  at: number,
+  n: number,
+  fade = 1
+): LayerTiming[] {
+  if (n <= 0) return []
+  const limit = total > 0 ? total : Math.max(at, 0) + 30 * n
+  const start0 = Math.max(0, Math.min(at, limit - MIN_LAYER))
+  let k = entries.findIndex((e) => start0 < e.displayEnd - MIN_LAYER)
+  if (k < 0) k = entries.length
+  const bounds: Array<[number, number]> = []
+  if (total > 0 && n <= entries.length - k) {
+    for (let i = 0; i < n; i++) {
+      const e = entries[k + i]
+      bounds.push([i === 0 ? start0 : e.displayStart, k + i === entries.length - 1 ? limit : e.displayEnd])
+    }
+  } else {
+    const step = (limit - start0) / n
+    for (let i = 0; i < n; i++) bounds.push([start0 + step * i, i === n - 1 ? limit : start0 + step * (i + 1)])
+  }
+  return bounds.map(([s, e], i) => {
+    const len = e - s
+    const f = round(Math.min(fade, len / 3), 0.1)
+    const last = i === n - 1
+    // Chồng sang đoạn kế tiếp đúng bằng thời gian hiện dần của nó
+    const end = last ? e : Math.min(limit, e + f)
+    return {
+      start: round(s),
+      end: total > 0 && end >= total - 1e-3 ? null : round(end),
+      fadeIn: f,
+      fadeOut: last && !(total > 0 && end >= total - 1e-3) ? f : 0
+    }
   })
 }
 

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -40,6 +41,7 @@ import {
   formatTick,
   groupDeltaRange,
   insertionIndex,
+  insertionIndexAt,
   layerRange,
   moveAppearance,
   removeAppearance,
@@ -52,7 +54,8 @@ import {
   type RangePart,
   type TimelineRow
 } from '../timelineModel'
-import { deleteSelection, splitAtPlayhead } from '../timelineActions'
+import { mediaKind } from '../../../shared/files'
+import { deleteSelection, dropFiles, splitAtPlayhead } from '../timelineActions'
 import { Icon, IconButton } from './ui'
 import { tr } from '../../../shared/i18n'
 
@@ -68,6 +71,10 @@ type Session =
   | { kind: 'group'; layerId: string; ids: string[]; t0: number; timings0: Record<string, LayerTiming>; range: RangeBounds; key: string; moved: boolean }
   | { kind: 'cta'; part: 'move' | 'dur'; layerId: string; index: number; t0: number; starts0: number[]; key: string }
   | { kind: 'track-move'; from: number; x0: number; grab: number; moved: boolean; to: number }
+  /** Kéo cả nhóm clip nhạc đang chọn để đổi thứ tự */
+  | { kind: 'tracks-move'; ids: string[]; anchorId: string; x0: number; grab: number; moved: boolean; to: number; excl: Set<number>; len: number }
+  /** Nhấp vùng trống: tua; kéo: khoanh khung chọn nhiều thanh / clip */
+  | { kind: 'marquee'; x0: number; y0: number; active: boolean; additive: boolean; baseLayers: string[]; baseTracks: string[]; row: string | null }
   | { kind: 'track-trim'; side: 'start' | 'end'; trackId: string; t0: number; entry: TimelineEntry; value: number | null }
 
 interface Visual {
@@ -75,6 +82,12 @@ interface Visual {
   tip: { t: number; text: string } | null
   trackMove?: { from: number; to: number; ghostStart: number }
   trim?: { trackId: string; side: 'start' | 'end'; edgeT: number }
+  groupMove?: { ghostStart: number; len: number; insertT: number; ids: string[] }
+  /** Khung chọn (toạ độ trong vùng nội dung timeline) */
+  marquee?: { x: number; y: number; w: number; h: number }
+  /** Kéo file từ ngoài vào: vạch vị trí thả, vạch chèn bài trên hàng nhạc */
+  dropT?: number
+  dropInsertT?: number
 }
 
 function loadHeight(): number {
@@ -99,6 +112,7 @@ export function Timeline(): ReactNode {
   const selectedLayerId = useStore((s) => s.selectedLayerId)
   const selectedLayerIds = useStore((s) => s.selectedLayerIds)
   const selectedTrackId = useStore((s) => s.selectedTrackId)
+  const selectedTrackIds = useStore((s) => s.selectedTrackIds)
   const selectedCta = useStore((s) => s.selectedCta)
   const featuresVersion = useStore((s) => s.featuresVersion)
   const tl = useTimeline()
@@ -249,10 +263,18 @@ export function Timeline(): ReactNode {
         session.current = { kind: 'seek' }
         break
       case 'lane':
+        // Nhấp: tua tới đó và chọn hàng; kéo: khoanh khung chọn (giữ Ctrl/Shift để chọn thêm)
         seekTo(t)
-        if (d.row === 'audio') st.selectTrack(null)
-        else if (d.row) st.selectLayer(d.row)
-        session.current = { kind: 'seek' }
+        session.current = {
+          kind: 'marquee',
+          x0: e.clientX,
+          y0: e.clientY,
+          active: false,
+          additive: e.ctrlKey || e.metaKey || e.shiftKey,
+          baseLayers: st.selectedLayerIds,
+          baseTracks: st.selectedTrackIds,
+          row: d.row ?? null
+        }
         break
       case 'layer': {
         const layer = st.project.layers.find((l) => l.id === d.id)
@@ -296,6 +318,27 @@ export function Timeline(): ReactNode {
         const index = Number(d.index)
         const entry = tl.entries[index]
         if (!entry) return
+        // Ctrl / Shift + nhấp: thêm / bớt clip khỏi nhóm đang chọn
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+          st.toggleTrackSelection(entry.track.id)
+          return
+        }
+        if (d.part === 'move' && st.selectedTrackIds.length > 1 && st.selectedTrackIds.includes(entry.track.id)) {
+          const picked = tl.entries.filter((x) => st.selectedTrackIds.includes(x.track.id))
+          const before = picked.filter((x) => x.index < index).reduce((sum, x) => sum + x.length, 0)
+          session.current = {
+            kind: 'tracks-move',
+            ids: picked.map((x) => x.track.id),
+            anchorId: entry.track.id,
+            x0: e.clientX,
+            grab: t - entry.start + before,
+            moved: false,
+            to: 0,
+            excl: new Set(picked.map((x) => x.index)),
+            len: picked.reduce((sum, x) => sum + x.length, 0)
+          }
+          break
+        }
         st.selectTrack(entry.track.id)
         if (d.part === 'move') session.current = { kind: 'track-move', from: index, x0: e.clientX, grab: t - entry.start, moved: false, to: index }
         else session.current = { kind: 'track-trim', side: d.part === 'start' ? 'start' : 'end', trackId: entry.track.id, t0: t, entry, value: null }
@@ -394,6 +437,41 @@ export function Timeline(): ReactNode {
         }
         return
       }
+      case 'marquee': {
+        if (!s.active && Math.hypot(e.clientX - s.x0, e.clientY - s.y0) < 5) return
+        s.active = true
+        const inner = e.currentTarget.getBoundingClientRect()
+        const x1 = Math.min(s.x0, e.clientX)
+        const x2 = Math.max(s.x0, e.clientX)
+        const y1 = Math.min(s.y0, e.clientY)
+        const y2 = Math.max(s.y0, e.clientY)
+        const hitLayers: string[] = []
+        const hitTracks: string[] = []
+        e.currentTarget.querySelectorAll<HTMLElement>('[data-part="move"][data-hit="layer"], [data-part="move"][data-hit="track"]').forEach((el) => {
+          const r = el.getBoundingClientRect()
+          if (r.right < x1 || r.left > x2 || r.bottom < y1 || r.top > y2) return
+          ;(el.dataset.hit === 'layer' ? hitLayers : hitTracks).push(el.dataset.id!)
+        })
+        st.setSelection(
+          s.additive ? [...new Set([...s.baseLayers, ...hitLayers])] : hitLayers,
+          s.additive ? [...new Set([...s.baseTracks, ...hitTracks])] : hitTracks
+        )
+        setVisual({ snapT: null, tip: null, marquee: { x: x1 - inner.left, y: y1 - inner.top, w: x2 - x1, h: y2 - y1 } })
+        return
+      }
+      case 'tracks-move': {
+        if (!s.moved && Math.abs(e.clientX - s.x0) < 4) return
+        s.moved = true
+        s.to = insertionIndexAt(tl.entries, t, s.excl)
+        const others = tl.entries.filter((x) => !s.excl.has(x.index))
+        const insertT = s.to === 0 ? 0 : others[s.to - 1].end
+        setVisual({
+          snapT: null,
+          tip: { t, text: tr('Chuyển {n} bài tới vị trí {k}', { n: s.ids.length, k: s.to + 1 }) },
+          groupMove: { ghostStart: t - s.grab, len: s.len, insertT, ids: s.ids }
+        })
+        return
+      }
       case 'track-move': {
         if (!s.moved && Math.abs(e.clientX - s.x0) < 4) return
         s.moved = true
@@ -429,6 +507,15 @@ export function Timeline(): ReactNode {
     const st = useStore.getState()
     // Nhấp (không kéo) vào một thanh trong nhóm: chỉ chọn thanh đó
     if (s?.kind === 'group' && !s.moved) st.selectLayer(s.layerId)
+    if (s?.kind === 'tracks-move') {
+      if (s.moved) st.moveTracks(s.ids, s.to)
+      else st.selectTrack(s.anchorId)
+    }
+    // Nhấp (không kéo) vào vùng trống: chọn hàng đó (hàng nhạc: bỏ chọn)
+    if (s?.kind === 'marquee' && !s.active && !s.additive) {
+      if (s.row === 'audio') st.setSelection([], [])
+      else if (s.row) st.selectLayer(s.row)
+    }
     if (s?.kind === 'track-move' && s.moved && s.to !== s.from) st.moveTrack(s.from, s.to)
     if (s?.kind === 'track-trim' && s.value !== null) {
       const cur = s.side === 'start' ? s.entry.track.trimStart : s.entry.track.trimEnd
@@ -467,11 +554,15 @@ export function Timeline(): ReactNode {
     const st = useStore.getState()
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
       e.preventDefault()
-      st.selectLayers(st.project.layers.filter((l) => l.type !== 'cta').map((l) => l.id))
+      st.setSelection(
+        st.project.layers.filter((l) => l.type !== 'cta').map((l) => l.id),
+        st.project.tracks.map((t) => t.id)
+      )
       return
     }
-    if (e.key === 'Escape' && st.selectedLayerIds.length > 1) {
-      st.selectLayer(st.selectedLayerId)
+    if (e.key === 'Escape' && st.selectedLayerIds.length + st.selectedTrackIds.length > 1) {
+      if (st.selectedTrackId) st.selectTrack(st.selectedTrackId)
+      else st.selectLayer(st.selectedLayerId)
       return
     }
     if (e.key !== 'Delete' && e.key !== 'Backspace') return
@@ -482,9 +573,68 @@ export function Timeline(): ReactNode {
         st.setLayerProps(layer.id, { schedule: 'times', times })
         st.selectCta(null)
       }
-    } else if (st.selectedTrackId) st.removeTrack(st.selectedTrackId)
-    else if (!deleteSelection()) return
+    } else if (!deleteSelection()) return
     e.preventDefault()
+  }
+
+  /** Kéo file từ ngoài vào: thời điểm thả (đã bắt dính) và lớp nằm dưới con trỏ */
+  const dropInfo = (e: DragEvent<HTMLElement>): { t: number; snapped: number | null; targetLayerId: string | null } => {
+    const st = useStore.getState()
+    const thr = snapOn && !e.shiftKey ? SNAP_PX / zoomRef.current : 0
+    const sn = snapTime(timeAt(e.clientX), snapCandidates(st.project.layers, tl, player.time()), thr)
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-hit]')
+    const id = el?.dataset.hit === 'layer' ? el.dataset.id : el?.dataset.hit === 'lane' && el.dataset.row !== 'audio' ? el.dataset.row : undefined
+    return { t: Math.max(0, sn.t), snapped: sn.snapped, targetLayerId: id ?? null }
+  }
+  const lastDropTip = useRef('')
+
+  const onDragOver = (e: DragEvent<HTMLElement>): void => {
+    if (!e.dataTransfer.types.includes('Files')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    const { t, snapped, targetLayerId } = dropInfo(e)
+    // Loại file theo MIME (tên file chưa đọc được khi đang kéo)
+    const items = [...e.dataTransfer.items].filter((it) => it.kind === 'file')
+    const audio = items.filter((it) => it.type.startsWith('audio/')).length
+    const media = items.filter((it) => it.type.startsWith('image/') || it.type.startsWith('video/')).length
+    const other = items.length - audio - media
+    const target = useStore.getState().project.layers.find((l) => l.id === targetLayerId)
+    let text: string
+    let insertT: number | undefined
+    if (media === 1 && audio + other === 0 && target?.type === 'background') text = tr('Thả để thay ảnh / video của lớp "{name}"', { name: tr(target.name) })
+    else {
+      const parts: string[] = []
+      if (audio + other > 0) {
+        const k = insertionIndexAt(tl.entries, t)
+        insertT = k === 0 ? 0 : tl.entries[k - 1].end
+        parts.push(audio > 0 ? tr('Chèn {n} bài vào vị trí {k}', { n: audio, k: k + 1 }) : tr('Chèn nhạc vào vị trí {k}', { k: k + 1 }))
+      }
+      if (media > 0) parts.push(tr('Thêm {n} nền từ {time}', { n: media, time: formatTimePrecise(t, withHours) }))
+      text = parts.join(' · ')
+    }
+    const key = `${t}|${snapped}|${text}|${insertT}`
+    if (key === lastDropTip.current) return
+    lastDropTip.current = key
+    setVisual({ snapT: snapped, tip: { t, text }, dropT: t, dropInsertT: insertT })
+  }
+
+  const onDragLeave = (e: DragEvent<HTMLElement>): void => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    lastDropTip.current = ''
+    setVisual(null)
+  }
+
+  const onDrop = (e: DragEvent<HTMLElement>): void => {
+    lastDropTip.current = ''
+    setVisual(null)
+    if (!e.dataTransfer.files.length) return
+    const paths = [...e.dataTransfer.files].map((f) => window.api.pathForFile(f)).filter(Boolean)
+    // Một file project (.json): để cửa sổ mở project như khi thả vào chỗ khác
+    if (paths.length === 1 && mediaKind(paths[0]) === 'project') return
+    e.preventDefault()
+    e.stopPropagation()
+    const { t, targetLayerId } = dropInfo(e)
+    void dropFiles(paths, t, targetLayerId)
   }
 
   const startResize = (e: PointerEvent<HTMLDivElement>): void => {
@@ -513,20 +663,32 @@ export function Timeline(): ReactNode {
   const logZ = Math.log(zoom)
 
   return (
-    <section className="timeline" style={{ height }} ref={rootRef} tabIndex={0} onKeyDown={onKeyDown} aria-label="Timeline">
+    <section
+      className="timeline"
+      style={{ height }}
+      ref={rootRef}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      aria-label="Timeline"
+    >
       <div className="tl-resize" onPointerDown={startResize} title={tr('Kéo để đổi chiều cao timeline')} />
       <div className="tl-bar">
         <span className="tl-time">
           <span ref={timeRef}>0:00</span>
           <span className="muted"> / {formatTime(total, withHours)}</span>
         </span>
-        {selectedLayerIds.length > 1 ? (
+        {selectedLayerIds.length + selectedTrackIds.length > 1 ? (
           <span className="tl-hint tl-multi">
-            {tr('Đang chọn {n} thanh · kéo một thanh để dời cả nhóm · Ctrl+C chép · Delete xoá · Esc bỏ chọn', { n: selectedLayerIds.length })}
+            {tr('Đang chọn {n} mục · kéo một mục để dời cả nhóm · Ctrl+C chép · Delete xoá · Esc bỏ chọn', { n: selectedLayerIds.length + selectedTrackIds.length })}
           </span>
         ) : (
           <span className="tl-hint muted">
-            {tr('Kéo khối để dời · kéo mép để đổi thời gian · Ctrl+B tách tại đầu phát · Ctrl/Shift + nhấp để chọn nhiều · Ctrl+C / Ctrl+V chép, dán · Ctrl + lăn chuột để zoom · Delete để xoá')}
+            {tr(
+              'Kéo khối để dời · kéo mép để đổi thời gian · kéo vùng trống để khoanh chọn · Ctrl+B tách tại đầu phát · Ctrl+C / Ctrl+V chép, dán · thả nhạc, ảnh, video vào đúng chỗ · Ctrl + lăn chuột để zoom'
+            )}
           </span>
         )}
         <span className="tl-tools">
@@ -584,7 +746,7 @@ export function Timeline(): ReactNode {
                 zoom={zoom}
                 total={total}
                 laneW={laneW}
-                selIds={selectedTrackId ? '' : row.layers.filter((l) => selectedSet.has(l.id)).map((l) => l.id).join(',')}
+                selIds={row.layers.filter((l) => selectedSet.has(l.id)).map((l) => l.id).join(',')}
                 primaryId={!selectedTrackId && row.layers.some((l) => l.id === selectedLayerId) ? selectedLayerId : null}
                 ctaIndex={selectedCta?.layerId === head.id ? selectedCta.index : null}
                 starts={head.type === 'cta' ? ctaStartTimes(head.props as CtaProps, tl) : null}
@@ -597,13 +759,15 @@ export function Timeline(): ReactNode {
             laneW={laneW}
             left={view.left}
             viewW={laneViewW}
-            selectedTrackId={selectedTrackId}
+            selTracks={selectedTrackIds.join(',')}
             featuresVersion={featuresVersion}
             visual={visual}
             playheadRef={audioPlayheadRef}
           />
           <div className="tl-playhead" ref={playheadRef} />
           {visual?.snapT !== null && visual?.snapT !== undefined && <div className="tl-snapline" style={{ left: HEAD_W + visual.snapT * zoom }} />}
+          {visual?.dropT !== undefined && <div className="tl-dropline" style={{ left: HEAD_W + visual.dropT * zoom }} />}
+          {visual?.marquee && <div className="tl-marquee" style={{ left: visual.marquee.x, top: visual.marquee.y, width: visual.marquee.w, height: visual.marquee.h }} />}
         </div>
       </div>
     </section>
@@ -826,7 +990,7 @@ const AudioRow = memo(function AudioRow({
   laneW,
   left,
   viewW,
-  selectedTrackId,
+  selTracks,
   featuresVersion,
   visual,
   playheadRef
@@ -836,14 +1000,17 @@ const AudioRow = memo(function AudioRow({
   laneW: number
   left: number
   viewW: number
-  selectedTrackId: string | null
+  /** Id các clip nhạc đang chọn, nối bằng dấu phẩy */
+  selTracks: string
   featuresVersion: number
   visual: Visual | null
   playheadRef: RefObject<HTMLDivElement | null>
 }): ReactNode {
   const api = window.api
   const move = visual?.trackMove
+  const group = visual?.groupMove
   const trim = visual?.trim
+  const selected = new Set(selTracks ? selTracks.split(',') : [])
   // Vị trí vạch chèn khi đổi chỗ bài
   let insertAt: number | null = null
   let ghostLen = 0
@@ -861,7 +1028,7 @@ const AudioRow = memo(function AudioRow({
       </div>
       <div className="tl-lane" data-hit="lane" data-row="audio" style={{ width: laneW }}>
         <Waveform entries={entries} zoom={zoom} left={left} width={viewW} height={AUDIO_ROW_H} version={featuresVersion} />
-        {entries.length === 0 && <div className="tl-empty">{tr('Kéo thả file nhạc vào cửa sổ để thêm vào đây')}</div>}
+        {entries.length === 0 && <div className="tl-empty">{tr('Kéo thả file nhạc vào đây')}</div>}
         {entries.map((e, i) => {
           let s = e.start
           let en = e.end
@@ -873,7 +1040,7 @@ const AudioRow = memo(function AudioRow({
           return (
             <div
               key={e.track.id}
-              className={`tl-clip t-audio${selectedTrackId === e.track.id ? ' selected' : ''}${move?.from === i ? ' dragging' : ''}`}
+              className={`tl-clip t-audio${selected.has(e.track.id) ? ' selected' : ''}${move?.from === i || group?.ids.includes(e.track.id) ? ' dragging' : ''}`}
               style={{ left: s * zoom, width: Math.max(4, (en - s) * zoom) }}
               {...hitProps('move')}
               title={`${e.track.title}${e.track.artist ? ` — ${e.track.artist}` : ''} (${formatTime(e.length)}) · ${tr('kéo để đổi thứ tự, kéo mép để cắt')}`}
@@ -903,6 +1070,13 @@ const AudioRow = memo(function AudioRow({
             {insertAt !== null && <div className="tl-insert" style={{ left: insertAt * zoom }} />}
           </>
         )}
+        {group && (
+          <>
+            <div className="tl-ghost" style={{ left: group.ghostStart * zoom, width: Math.max(4, group.len * zoom) }} />
+            <div className="tl-insert" style={{ left: group.insertT * zoom }} />
+          </>
+        )}
+        {visual?.dropInsertT !== undefined && <div className="tl-insert" style={{ left: visual.dropInsertT * zoom }} />}
       </div>
     </div>
   )

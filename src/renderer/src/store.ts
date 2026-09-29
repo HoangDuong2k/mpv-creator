@@ -1,9 +1,9 @@
 import { produce } from 'immer'
 import { create } from 'zustand'
-import { createDefaultProject, createLayer, normalizeProject } from '../../shared/defaults'
+import { createDefaultProject, createLayer, newId, normalizeProject } from '../../shared/defaults'
 import { buildTimeline } from '../../shared/timeline'
-import type { Layer, LayerPropsMap, LayerTiming, LayerType, Project, ProjectSettings, Track } from '../../shared/types'
-import { pasteTimings, splitTiming } from './timelineModel'
+import type { BackgroundProps, Layer, LayerPropsMap, LayerTiming, LayerType, Project, ProjectSettings, Track } from '../../shared/types'
+import { dropSegments, insertionIndexAt, moveTracksOrder, pasteTimings, splitTiming } from './timelineModel'
 import { isLang, setLang, tr, type Lang } from '../../shared/i18n'
 
 /** Độ nét preview: giảm để phát mượt trên máy yếu (không ảnh hưởng video xuất) */
@@ -34,8 +34,11 @@ function loadLang(): Lang {
   return 'vi'
 }
 
-/** Các lớp đã chép (Ctrl+C) — chỉ trong phiên làm việc */
-let clipboard: Layer[] = []
+/**
+ * Những gì đã chép (Ctrl+C) — chỉ trong phiên làm việc. `anchor`: thời điểm bắt đầu của bài
+ * đầu tiên được chép, để lớp dán ra vẫn khớp với bài dán ra.
+ */
+let clipboard: { layers: Layer[]; tracks: Track[]; anchor: number } = { layers: [], tracks: [], anchor: 0 }
 
 export interface TrackStatus {
   state: 'pending' | 'analyzing' | 'ready' | 'error'
@@ -75,8 +78,10 @@ interface State {
   selectedLayerId: string | null
   /** Mọi lớp đang chọn (chọn thêm bằng Ctrl/Shift + nhấp); luôn chứa selectedLayerId nếu có */
   selectedLayerIds: string[]
-  /** Clip nhạc đang chọn trên timeline */
+  /** Clip nhạc chính đang chọn (bảng thuộc tính của bài) */
   selectedTrackId: string | null
+  /** Mọi clip nhạc đang chọn (chọn thêm bằng Ctrl/Shift + nhấp, kéo khung) — chọn lẫn được với các lớp */
+  selectedTrackIds: string[]
   selectedCta: CtaSelection | null
   trackStatus: Record<string, TrackStatus>
   featuresVersion: number
@@ -95,8 +100,12 @@ interface State {
   markSaved(filePath: string): void
 
   addTracks(tracks: Track[]): void
+  /** Chèn bài vào vị trí `index` của playlist (thả file vào timeline); chọn các bài vừa chèn */
+  insertTracks(tracks: Track[], index: number): void
   removeTrack(id: string): void
   moveTrack(from: number, to: number): void
+  /** Dời cả nhóm bài tới vị trí `to` (tính trong các bài còn lại) — một bước hoàn tác */
+  moveTracks(ids: string[], to: number): void
   updateTrack(id: string, patch: Partial<Track>, opts?: UpdateOptions): void
   setTrackStatus(path: string, status: TrackStatus): void
   setSettings(patch: Partial<ProjectSettings>): void
@@ -118,6 +127,10 @@ interface State {
   toggleLayerSelection(id: string): void
   selectLayers(ids: string[]): void
   selectTrack(id: string | null): void
+  /** Ctrl/Shift + nhấp clip nhạc: thêm / bớt khỏi nhóm đang chọn (giữ các lớp đang chọn) */
+  toggleTrackSelection(id: string): void
+  /** Chọn đúng các lớp và clip nhạc này (kéo khung, Ctrl+A) */
+  setSelection(layerIds: string[], trackIds: string[]): void
   selectCta(sel: CtaSelection | null): void
 
   /** Xoá các lớp (bỏ qua lớp đang khoá); trả về số lớp đã xoá */
@@ -126,8 +139,18 @@ interface State {
   splitLayers(ids: string[], t: number): number
   /** Chép các lớp (Ctrl+C); trả về số lớp đã chép */
   copyLayers(ids: string[]): number
-  /** Dán các lớp đã chép tại thời điểm `at` (Ctrl+V); trả về số lớp đã dán */
+  /** Dán những gì đã chép tại thời điểm `at` (Ctrl+V); trả về số mục đã dán */
   pasteLayers(at: number): number
+  /** Chép cùng lúc lớp và clip nhạc */
+  copyItems(layerIds: string[], trackIds: string[]): number
+  /** Dán: bài chèn vào ranh giới gần `at` nhất, lớp đặt theo đúng khoảng cách với bài như lúc chép */
+  pasteItems(at: number): number
+  /** Xoá cùng lúc lớp (bỏ qua lớp khoá) và clip nhạc — một bước hoàn tác; trả về số mục đã xoá */
+  removeItems(layerIds: string[], trackIds: string[]): number
+  /** Thêm ảnh / video nền thả vào timeline tại `at` (mỗi file một bài, chung một hàng); trả về id lớp mới */
+  addDroppedBackgrounds(files: Array<{ path: string; kind: 'image' | 'video' }>, at: number): string[]
+  /** Đổi ảnh / video của một lớp nền (thả file vào hàng của lớp đó) */
+  setBackgroundSource(layerId: string, file: { path: string; kind: 'image' | 'video' }): void
   setLayersLocked(ids: string[], locked: boolean): void
   setLayersColor(ids: string[], color: string | undefined): void
   setLayersEnabled(ids: string[], enabled: boolean): void
@@ -164,6 +187,7 @@ export const useStore = create<State>((set, get) => ({
   selectedLayerId: defaultSelection(initialProject),
   selectedLayerIds: [defaultSelection(initialProject)].filter((x): x is string => !!x),
   selectedTrackId: null,
+  selectedTrackIds: [],
   selectedCta: null,
   trackStatus: {},
   featuresVersion: 0,
@@ -200,14 +224,16 @@ export const useStore = create<State>((set, get) => ({
     const { past, project, future } = get()
     const prev = past[past.length - 1]
     if (!prev) return
-    set({ project: keepDerived(prev, project), past: past.slice(0, -1), future: [project, ...future], dirty: true, lastCoalesce: null })
+    const restored = keepDerived(prev, project)
+    set({ project: restored, past: past.slice(0, -1), future: [project, ...future], dirty: true, lastCoalesce: null, ...prunedSelection(get(), restored) })
   },
 
   redo() {
     const { past, project, future } = get()
     const next = future[0]
     if (!next) return
-    set({ project: keepDerived(next, project), past: [...past, project], future: future.slice(1), dirty: true, lastCoalesce: null })
+    const restored = keepDerived(next, project)
+    set({ project: restored, past: [...past, project], future: future.slice(1), dirty: true, lastCoalesce: null, ...prunedSelection(get(), restored) })
   },
 
   loadProject(project, filePath, dirty = false) {
@@ -223,6 +249,7 @@ export const useStore = create<State>((set, get) => ({
       selectedLayerId: sel,
       selectedLayerIds: sel ? [sel] : [],
       selectedTrackId: null,
+      selectedTrackIds: [],
       selectedCta: null,
       currentTime: 0,
       playing: false
@@ -243,11 +270,20 @@ export const useStore = create<State>((set, get) => ({
     })
   },
 
+  insertTracks(tracks, index) {
+    if (tracks.length === 0) return
+    get().update((p) => {
+      p.tracks.splice(Math.max(0, Math.min(index, p.tracks.length)), 0, ...tracks)
+    })
+    get().setSelection([], tracks.map((t) => t.id))
+  },
+
   removeTrack(id) {
     get().update((p) => {
       p.tracks = p.tracks.filter((t) => t.id !== id)
     })
-    if (get().selectedTrackId === id) set({ selectedTrackId: null })
+    const { selectedTrackId, selectedTrackIds } = get()
+    set({ selectedTrackIds: selectedTrackIds.filter((x) => x !== id), ...(selectedTrackId === id ? { selectedTrackId: null } : {}) })
   },
 
   moveTrack(from, to) {
@@ -255,6 +291,15 @@ export const useStore = create<State>((set, get) => ({
     get().update((p) => {
       const [t] = p.tracks.splice(from, 1)
       p.tracks.splice(to, 0, t)
+    })
+  },
+
+  moveTracks(ids, to) {
+    const set0 = new Set(ids)
+    const next = moveTracksOrder(get().project.tracks, set0, to)
+    if (next.every((t, i) => t === get().project.tracks[i])) return
+    get().update((p) => {
+      p.tracks = moveTracksOrder(p.tracks, set0, to)
     })
   },
 
@@ -374,7 +419,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   selectLayer(id) {
-    set({ selectedLayerId: id, selectedLayerIds: id ? [id] : [], selectedTrackId: null, selectedCta: null })
+    set({ selectedLayerId: id, selectedLayerIds: id ? [id] : [], selectedTrackId: null, selectedTrackIds: [], selectedCta: null })
   },
 
   toggleLayerSelection(id) {
@@ -383,21 +428,41 @@ export const useStore = create<State>((set, get) => ({
     const ids = has ? selectedLayerIds.filter((x) => x !== id) : [...selectedLayerIds, id]
     // Lớp chính: lớp vừa thêm; bỏ lớp chính thì lấy lớp chọn gần nhất còn lại
     const primary = has ? (selectedLayerId === id ? (ids[ids.length - 1] ?? null) : selectedLayerId) : id
+    // Giữ các clip nhạc đang chọn (chọn lẫn); bảng thuộc tính chuyển sang lớp
     set({ selectedLayerIds: ids, selectedLayerId: primary, selectedTrackId: null, selectedCta: null })
   },
 
   selectLayers(ids) {
-    set({ selectedLayerIds: ids, selectedLayerId: ids[ids.length - 1] ?? null, selectedTrackId: null, selectedCta: null })
+    set({ selectedLayerIds: ids, selectedLayerId: ids[ids.length - 1] ?? null, selectedTrackId: null, selectedTrackIds: [], selectedCta: null })
   },
 
   selectTrack(id) {
     const keep = id ? null : get().selectedLayerId
-    set({ selectedTrackId: id, selectedLayerId: keep, selectedLayerIds: keep ? [keep] : [], selectedCta: null })
+    set({ selectedTrackId: id, selectedTrackIds: id ? [id] : [], selectedLayerId: keep, selectedLayerIds: keep ? [keep] : [], selectedCta: null })
+  },
+
+  toggleTrackSelection(id) {
+    const { selectedTrackIds, selectedTrackId } = get()
+    const has = selectedTrackIds.includes(id)
+    const ids = has ? selectedTrackIds.filter((x) => x !== id) : [...selectedTrackIds, id]
+    const primary = has ? (selectedTrackId === id ? (ids[ids.length - 1] ?? null) : selectedTrackId) : id
+    set({ selectedTrackIds: ids, selectedTrackId: primary, selectedCta: null })
+  },
+
+  setSelection(layerIds, trackIds) {
+    set({
+      selectedLayerIds: layerIds,
+      selectedLayerId: layerIds[layerIds.length - 1] ?? null,
+      selectedTrackIds: trackIds,
+      // Bảng thuộc tính: ưu tiên lớp (nhiều thuộc tính hơn), chỉ chọn nhạc thì hiện bài
+      selectedTrackId: layerIds.length === 0 ? (trackIds[trackIds.length - 1] ?? null) : null,
+      selectedCta: null
+    })
   },
 
   selectCta(sel) {
     const keep = sel ? sel.layerId : get().selectedLayerId
-    set({ selectedCta: sel, selectedLayerId: keep, selectedLayerIds: keep ? [keep] : [], selectedTrackId: null })
+    set({ selectedCta: sel, selectedLayerId: keep, selectedLayerIds: keep ? [keep] : [], selectedTrackId: null, selectedTrackIds: [] })
   },
 
   removeLayers(ids) {
@@ -442,26 +507,51 @@ export const useStore = create<State>((set, get) => ({
   },
 
   copyLayers(ids) {
-    // Giữ thứ tự chồng lớp (dưới → trên)
-    clipboard = get()
-      .project.layers.filter((l) => ids.includes(l.id))
-      .map((l) => structuredClone(l))
-    return clipboard.length
+    return get().copyItems(ids, [])
   },
 
   pasteLayers(at) {
-    if (clipboard.length === 0) return 0
-    const total = timelineTotal(get().project)
+    return get().pasteItems(at)
+  },
+
+  copyItems(layerIds, trackIds) {
+    const { project } = get()
+    const tl = buildTimeline(project.tracks, project.settings)
+    // Giữ thứ tự chồng lớp (dưới → trên) và thứ tự bài trong playlist
+    const layers = project.layers.filter((l) => layerIds.includes(l.id)).map((l) => structuredClone(l))
+    const entries = tl.entries.filter((e) => trackIds.includes(e.track.id))
+    const tracks = entries.map((e) => structuredClone(e.track))
+    clipboard = { layers, tracks, anchor: entries.length ? entries[0].start : 0 }
+    return layers.length + tracks.length
+  },
+
+  pasteItems(at) {
+    const { layers: srcLayers, tracks: srcTracks, anchor } = clipboard
+    if (srcLayers.length + srcTracks.length === 0) return 0
+    const { project } = get()
+    let total = timelineTotal(project)
+    let layerAt = at
+    let insertAt = -1
+    const tracks = srcTracks.map((t) => ({ ...structuredClone(t), id: newId('track') }))
+    if (tracks.length) {
+      // Bài dán vào ranh giới gần đầu phát nhất; lớp đi kèm giữ đúng khoảng cách với bài như lúc chép
+      insertAt = insertionIndexAt(buildTimeline(project.tracks, project.settings).entries, at)
+      const next = [...project.tracks.slice(0, insertAt), ...tracks, ...project.tracks.slice(insertAt)]
+      const tl = buildTimeline(next, project.settings)
+      total = tl.total
+      if (srcLayers.length) layerAt = tl.entries[insertAt].start + (Math.min(...srcLayers.map((l) => l.timing.start)) - anchor)
+    }
     const timings = pasteTimings(
-      clipboard.map((l) => l.timing),
-      at,
+      srcLayers.map((l) => l.timing),
+      layerAt,
       total
     )
-    const pasted = clipboard.map((src, i) => ({
+    const pasted = srcLayers.map((src, i) => ({
       src: src.id,
       layer: { ...structuredClone(src), id: createLayer(src.type).id, timing: timings[i], row: undefined, locked: undefined } as Layer
     }))
     get().update((p) => {
+      if (tracks.length) p.tracks.splice(insertAt, 0, ...tracks)
       for (const { src, layer } of pasted) {
         // Ngay trên lớp gốc nếu còn (giữ phạm vi của bộ lọc…), nếu không thì theo quy tắc thêm lớp
         const i = p.layers.findIndex((l) => l.id === src)
@@ -471,8 +561,60 @@ export const useStore = create<State>((set, get) => ({
         else p.layers.push(layer)
       }
     })
-    get().selectLayers(pasted.map((x) => x.layer.id))
-    return pasted.length
+    get().setSelection(
+      pasted.map((x) => x.layer.id),
+      tracks.map((t) => t.id)
+    )
+    return pasted.length + tracks.length
+  },
+
+  removeItems(layerIds, trackIds) {
+    const { project } = get()
+    const dropLayers = new Set(project.layers.filter((l) => layerIds.includes(l.id) && !l.locked).map((l) => l.id))
+    const dropTracks = new Set(project.tracks.filter((t) => trackIds.includes(t.id)).map((t) => t.id))
+    if (dropLayers.size + dropTracks.size === 0) return 0
+    get().update((p) => {
+      p.layers = p.layers.filter((l) => !dropLayers.has(l.id))
+      p.tracks = p.tracks.filter((t) => !dropTracks.has(t.id))
+    })
+    const st = get()
+    const restLayers = st.selectedLayerIds.filter((x) => !dropLayers.has(x))
+    set({
+      selectedLayerIds: restLayers,
+      selectedLayerId: st.selectedLayerId && dropLayers.has(st.selectedLayerId) ? (restLayers[restLayers.length - 1] ?? null) : st.selectedLayerId,
+      selectedTrackIds: st.selectedTrackIds.filter((x) => !dropTracks.has(x)),
+      selectedTrackId: st.selectedTrackId && dropTracks.has(st.selectedTrackId) ? null : st.selectedTrackId,
+      selectedCta: null
+    })
+    return dropLayers.size + dropTracks.size
+  },
+
+  addDroppedBackgrounds(files, at) {
+    if (files.length === 0) return []
+    const { project } = get()
+    const tl = buildTimeline(project.tracks, project.settings)
+    const timings = dropSegments(tl.entries, tl.total, at, files.length)
+    // Giữ cách hiển thị của nền đang có (làm tối, đập theo bass…) cho đồng bộ
+    const base = [...project.layers].reverse().find((l) => l.type === 'background')?.props as BackgroundProps | undefined
+    const row = files.length > 1 ? newId('row') : undefined
+    const layers = files.map((f, i) => {
+      const l = createLayer('background', { ...(base ? structuredClone(base) : {}), mode: f.kind, src: f.path }, fileLabel(f.path)) as Layer
+      return { ...l, timing: timings[i], row } as Layer
+    })
+    get().update((p) => {
+      // Ngay trên các lớp nền đang có (dưới bộ lọc, cột sóng, chữ…); đoạn sau nằm trên đoạn trước
+      p.layers.splice(aboveBackground(p.layers), 0, ...layers)
+    })
+    get().selectLayers(layers.map((l) => l.id))
+    return layers.map((l) => l.id)
+  },
+
+  setBackgroundSource(layerId, file) {
+    get().update((p) => {
+      const l = p.layers.find((x) => x.id === layerId)
+      if (l?.type === 'background') Object.assign(l.props, { mode: file.kind, src: file.path })
+    })
+    get().selectLayer(layerId)
   },
 
   setLayersLocked(ids, locked) {
@@ -530,7 +672,8 @@ export const useStore = create<State>((set, get) => ({
 
   toast(kind, text) {
     const id = ++toastId
-    set((s) => ({ toasts: [...s.toasts, { id, kind, text }] }))
+    // Chỉ giữ 3 thông báo mới nhất: thao tác liên tiếp không phủ kín khung preview
+    set((s) => ({ toasts: [...s.toasts, { id, kind, text }].slice(-3) }))
     setTimeout(() => get().dismissToast(id), kind === 'error' ? 8000 : 4000)
   },
 
@@ -538,6 +681,23 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
   }
 }))
+
+/** Sau hoàn tác / làm lại: bỏ khỏi vùng chọn các lớp, bài không còn trong project */
+function prunedSelection(st: State, p: Project): Partial<State> {
+  const layers = new Set(p.layers.map((l) => l.id))
+  const tracks = new Set(p.tracks.map((t) => t.id))
+  return {
+    selectedLayerIds: st.selectedLayerIds.filter((id) => layers.has(id)),
+    selectedLayerId: st.selectedLayerId && layers.has(st.selectedLayerId) ? st.selectedLayerId : null,
+    selectedTrackIds: st.selectedTrackIds.filter((id) => tracks.has(id)),
+    selectedTrackId: st.selectedTrackId && tracks.has(st.selectedTrackId) ? st.selectedTrackId : null
+  }
+}
+
+/** Tên file (không đuôi) làm tên lớp nền thả vào timeline */
+function fileLabel(path: string): string {
+  return (path.split(/[\\/]/).pop() ?? path).replace(/\.[^.]+$/, '')
+}
 
 /** Độ dài video hiện tại (0 khi chưa có bài) — để tách / dán đúng giới hạn */
 function timelineTotal(p: Project): number {

@@ -69,6 +69,8 @@ async function boxOf(loc: { boundingBox(): Promise<{ x: number; y: number; width
   return b
 }
 
+/** Chiều cao thước thời gian của timeline (ghim ở trên, che các hàng cuộn qua) */
+const RULER_BAR_H = 26
 const passed: string[] = []
 const problems: string[] = []
 let pageRef: Page | undefined
@@ -381,6 +383,112 @@ async function main(): Promise<void> {
     assert(await until(async () => (await canvasW()) === 480), 'preview nhẹ (¼): canvas 480px')
     await page.locator('select.chip-select').selectOption('high')
     assert(await until(async () => (await canvasW()) === 1920), 'preview nét trở lại 1920px')
+
+    // ---------- Kéo thả, chọn hàng loạt như CapCut ----------
+    const trackIds = async (): Promise<string[]> => (await page.evaluate('window.__pvm.store.getState().project.tracks.map((t) => t.id)')) as string[]
+    const selTracks = async (): Promise<string[]> => (await page.evaluate('window.__pvm.store.getState().selectedTrackIds')) as string[]
+    // Kéo file qua timeline: vạch vị trí thả + chữ báo trước kết quả
+    const dragTip = (await page.evaluate(`(() => {
+      const lane = document.querySelector('.tl-row.audio .tl-lane')
+      const r = lane.getBoundingClientRect()
+      const dt = new DataTransfer()
+      dt.items.add(new File(['x'], 'nen.png', { type: 'image/png' }))
+      lane.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + r.width * 0.3, clientY: r.top + 10 }))
+      return new Promise((ok) => setTimeout(() => {
+        const tip = document.querySelector('.tl-tip')?.textContent ?? ''
+        const line = !!document.querySelector('.tl-dropline')
+        lane.dispatchEvent(new DragEvent('dragleave', { bubbles: true, dataTransfer: dt }))
+        ok(line ? tip : '')
+      }, 150))
+    })()`)) as string
+    assert(dragTip.includes('Thêm 1 nền'), `kéo ảnh qua timeline: hiện vạch vị trí thả ("${dragTip}")`)
+    // Thả 2 ảnh vào giữa video → 2 lớp nền mới chung một hàng, mỗi ảnh một bài, preview hiện đúng ảnh
+    const imgA = join(OUT, 'nen-1.png')
+    const imgB = join(OUT, 'nen-2.png')
+    for (const [f, c] of [[imgA, '0x2255ee'], [imgB, '0xee5522']] as const)
+      spawnSync(ffmpegPath(), ['-v', 'error', '-y', '-f', 'lavfi', '-i', `color=c=${c}:s=320x180`, '-frames:v', '1', f], { windowsHide: true })
+    const bgBefore = (await state()).layers.filter((l) => l.type === 'background').length
+    await page.evaluate(`window.__pvm.dropFiles(${JSON.stringify([imgB, imgA])}, 40, null)`)
+    const dropped = async (): Promise<Array<{ id: string; row?: string; timing: { start: number; end: number | null }; props: Record<string, unknown> }>> =>
+      (await state()).layers.filter((l) => l.type === 'background').slice(bgBefore)
+    assert(await until(async () => (await dropped()).length === 2), 'thả 2 ảnh vào timeline: thêm 2 lớp nền')
+    const [d1, d2] = await dropped()
+    assert(
+      d1.props.src === imgA && d2.props.src === imgB && !!d1.row && d1.row === d2.row && d1.timing.start === 40 && d2.timing.start > 40 && (await page.locator('.tl-clip.t-background').count()) === 3,
+      `ảnh xếp theo tên, chung một hàng, ảnh đầu từ điểm thả (${d1.timing.start}s → ${d2.timing.start}s)`
+    )
+    await page.evaluate('window.__pvm.player.seek(45); window.__pvm.store.getState().setTime(45)')
+    const bluish = async (): Promise<boolean> =>
+      (await page.evaluate(`(() => {
+        const c = document.querySelector('.stage-canvas')
+        const d = c.getContext('2d').getImageData(Math.round(c.width * 0.25), Math.round(c.height * 0.42), 1, 1).data
+        return d[2] > d[0] + 30
+      })()`)) as boolean
+    assert(await until(bluish, 4000), 'preview hiện ảnh vừa thả tại đúng thời điểm')
+    await page.locator('.timeline').focus()
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await dropped()).length === 0), 'Ctrl+Z bỏ các nền vừa thả')
+    // Thả 1 bài nhạc vào đầu timeline → chèn vào vị trí 1
+    const ids0 = await trackIds()
+    await page.evaluate(`window.__pvm.dropFiles(${JSON.stringify([files[2]])}, 1, null)`)
+    assert(await until(async () => (await trackIds()).length === 4 && !ids0.includes((await trackIds())[0])), 'thả nhạc vào đầu timeline: chèn vào vị trí 1')
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await trackIds()).join() === ids0.join()), 'Ctrl+Z bỏ bài vừa chèn')
+    // Ctrl + nhấp chọn 2 clip nhạc, kéo cả nhóm lên đầu
+    await page.keyboard.down('Control')
+    for (const i of [1, 2]) {
+      const b = await boxOf(audioClips.nth(i))
+      await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2)
+    }
+    await page.keyboard.up('Control')
+    assert(await until(async () => (await selTracks()).length === 2), 'Ctrl + nhấp chọn 2 clip nhạc')
+    const first = await boxOf(audioClips.nth(0))
+    await dragBy(await boxOf(audioClips.nth(2)), first.x + 5 - ((await boxOf(audioClips.nth(2))).x + (await boxOf(audioClips.nth(2))).width / 2))
+    assert(await until(async () => (await trackIds()).join() === [ids0[1], ids0[2], ids0[0]].join()), 'kéo cả nhóm 2 bài lên đầu, giữ thứ tự giữa chúng')
+    await page.locator('.timeline').focus()
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await trackIds()).join() === ids0.join()), 'Ctrl+Z trả lại thứ tự')
+    // Chép 1 clip nhạc, dán ở đầu video (lặp bài)
+    const b0 = await boxOf(audioClips.nth(0))
+    await page.mouse.click(b0.x + b0.width / 2, b0.y + b0.height / 2)
+    await page.keyboard.press('Control+c')
+    await seekAt(0.02)
+    await page.keyboard.press('Control+v')
+    assert(await until(async () => (await trackIds()).length === 4), 'Ctrl+C / Ctrl+V chép và dán clip nhạc')
+    assert(
+      await until(async () => (await page.evaluate('window.__pvm.store.getState().project.tracks.every((t) => t.analysisKey)')) as boolean),
+      'bài dán ra dùng ngay dữ liệu âm thanh sẵn có'
+    )
+    await page.locator('.timeline').focus()
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await trackIds()).length === 3), 'Ctrl+Z bỏ bài vừa dán')
+    // Kéo khung trên vùng trống (sau cuối video) để khoanh nhiều thanh + clip nhạc
+    const endX = (await boxOf(audioClips.nth(2))).x + (await boxOf(audioClips.nth(2))).width
+    const audioRowBox = await boxOf(page.locator('.tl-row.audio'))
+    // Hàng lớp đầu tiên đang nhìn thấy (không bị thước thời gian ghim ở trên che)
+    const rulerBottom = (await boxOf(page.locator('.tl-ruler'))).y + RULER_BAR_H
+    let firstRow = await boxOf(page.locator('.tl-row').first())
+    for (let i = 0; i < (await page.locator('.tl-row:not(.audio)').count()); i++) {
+      const b = await boxOf(page.locator('.tl-row:not(.audio)').nth(i))
+      if (b.y >= rulerBottom && b.y + b.height <= audioRowBox.y) {
+        firstRow = b
+        break
+      }
+    }
+    await page.mouse.move(endX + 15, firstRow.y + firstRow.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(endX - 40, audioRowBox.y + audioRowBox.height / 2, { steps: 8 })
+    const marqueeBox = await page.locator('.tl-marquee').boundingBox()
+    await page.screenshot({ path: join(OUT, '5c-marquee.png') })
+    await page.mouse.up()
+    const selL = (await page.evaluate('window.__pvm.store.getState().selectedLayerIds.length')) as number
+    assert(
+      !!marqueeBox && selL >= 2 && (await selTracks()).length >= 1,
+      `kéo khung chọn ${selL} thanh và ${(await selTracks()).length} clip nhạc (khung ${JSON.stringify(marqueeBox)}, hàng đầu ${JSON.stringify(firstRow)}, hàng nhạc ${JSON.stringify(audioRowBox)}, cuối video x=${endX})`
+    )
+    await page.locator('.timeline').focus()
+    await page.keyboard.press('Escape')
+    assert(await until(async () => ((await page.evaluate('window.__pvm.store.getState().selectedLayerIds.length')) as number) + (await selTracks()).length === 1), 'Esc bỏ chọn nhóm')
 
     // Nút Đăng ký: kéo lần hiện tự động → thành mốc tự chỉnh
     await page.locator('.layer', { hasText: 'Đăng ký / Like' }).click()

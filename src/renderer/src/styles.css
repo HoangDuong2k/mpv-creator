@@ -883,13 +883,20 @@ textarea.chapters {
 .drop-overlay p {
   margin: 8px 0 0;
 }
+/* Thông báo ở giữa phía trên (dưới thanh công cụ): không che timeline khi đang kéo thả */
 .toasts {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  top: 60px;
+  left: 50%;
   z-index: 70;
   display: grid;
+  justify-items: center;
   gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.toasts .toast {
+  pointer-events: auto;
 }
 .toast {
   max-width: 420px;
@@ -1475,4 +1482,25 @@ button.tl-dot:hover {
 .lang-switch button.on {
   background: #2a3142;
   color: #fff;
+}
+
+/* Khung chọn nhiều thanh / clip trên timeline */
+.tl-marquee {
+  position: absolute;
+  z-index: 6;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events: none;
+}
+/* Vị trí thả file từ ngoài vào timeline */
+.tl-dropline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  width: 2px;
+  margin-left: -1px;
+  background: #7cf29c;
+  box-shadow: 0 0 8px #7cf29c;
+  pointer-events: none;
 }

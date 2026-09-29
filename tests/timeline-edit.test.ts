@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createDefaultProject, createLayer, FULL_TIMING } from '../src/shared/defaults'
 import type { Layer, LayerTiming, Project } from '../src/shared/types'
 import { useStore } from '../src/renderer/src/store'
-import { dragRange, groupDeltaRange, pasteTimings, rowBounds, splitTiming, timelineRows } from '../src/renderer/src/timelineModel'
+import { buildTimeline } from '../src/shared/timeline'
+import { dragRange, dropSegments, groupDeltaRange, insertionIndexAt, moveTracksOrder, pasteTimings, rowBounds, splitTiming, timelineRows } from '../src/renderer/src/timelineModel'
 import { track } from './helpers'
 
 const TOTAL = 100
@@ -178,5 +179,129 @@ describe('khoá lớp, màu hàng', () => {
     expect(st().project.layers.map((l) => l.color)).toEqual(['#81c784', '#81c784'])
     st().setLayersColor([y.id], undefined)
     expect(st().project.layers[1].color).toBeUndefined()
+  })
+})
+
+describe('clip nhạc: chèn, dời nhóm, chọn lẫn với lớp', () => {
+  const mk = (): Project => ({ ...createDefaultProject(), layers: [], tracks: [track('a', 60), track('b', 60), track('c', 60)] })
+  const ids = (): string[] => st().project.tracks.map((t) => t.id)
+
+  it('vị trí chèn theo thời điểm (bỏ qua các clip đang kéo)', () => {
+    const tl = buildTimeline(mk().tracks, mk().settings)
+    expect(insertionIndexAt(tl.entries, 10)).toBe(0)
+    expect(insertionIndexAt(tl.entries, 100)).toBe(2)
+    expect(insertionIndexAt(tl.entries, 100, new Set([0]))).toBe(1)
+    expect(insertionIndexAt(tl.entries, 1000)).toBe(3)
+  })
+
+  it('dời nhóm bài giữ thứ tự giữa chúng', () => {
+    const list = ['a', 'b', 'c', 'd'].map((id) => ({ id }))
+    const order = (to: number): string => moveTracksOrder(list, new Set(['b', 'd']), to).map((x) => x.id).join('')
+    expect(order(0)).toBe('bdac')
+    expect(order(1)).toBe('abdc')
+    expect(order(2)).toBe('acbd')
+  })
+
+  it('store: chèn bài vào giữa, dời nhóm — mỗi thao tác một bước hoàn tác', () => {
+    useStore.getState().loadProject(mk(), null)
+    st().insertTracks([track('x', 30)], 1)
+    expect(ids()).toEqual(['a', 'x', 'b', 'c'])
+    expect(st().selectedTrackIds).toEqual(['x'])
+    st().moveTracks(['a', 'c'], 2)
+    expect(ids()).toEqual(['x', 'b', 'a', 'c'])
+    st().undo()
+    expect(ids()).toEqual(['a', 'x', 'b', 'c'])
+    st().undo()
+    expect(ids()).toEqual(['a', 'b', 'c'])
+  })
+
+  it('Ctrl/Shift + nhấp clip nhạc giữ các lớp đang chọn; bảng thuộc tính theo mục vừa nhấp', () => {
+    const l = flicker(timing(0, 10))
+    useStore.getState().loadProject({ ...mk(), layers: [l] }, null)
+    st().selectLayer(l.id)
+    st().toggleTrackSelection('b')
+    expect(st().selectedLayerIds).toEqual([l.id])
+    expect(st().selectedTrackIds).toEqual(['b'])
+    expect(st().selectedTrackId).toBe('b')
+    st().toggleLayerSelection(l.id)
+    expect(st().selectedTrackIds).toEqual(['b'])
+    st().setSelection([l.id], ['a', 'c'])
+    expect(st().selectedTrackId).toBeNull()
+    expect(st().selectedLayerId).toBe(l.id)
+  })
+
+  it('xoá lẫn clip nhạc và lớp trong một bước hoàn tác', () => {
+    const l = flicker(timing(0, 10))
+    useStore.getState().loadProject({ ...mk(), layers: [l] }, null)
+    expect(st().removeItems([l.id], ['b'])).toBe(2)
+    expect(ids()).toEqual(['a', 'c'])
+    expect(st().project.layers).toHaveLength(0)
+    st().undo()
+    expect(ids()).toEqual(['a', 'b', 'c'])
+    expect(st().project.layers).toHaveLength(1)
+  })
+
+  it('chép bài kèm lớp của nó, dán: bài chèn vào ranh giới gần nhất, lớp đi theo bài', () => {
+    // b bắt đầu ở 57s (crossfade 3s); lớp bắt đầu ở 70s = 13s sau đầu bài b
+    const l = flicker(timing(70, 80))
+    useStore.getState().loadProject({ ...mk(), layers: [l] }, null)
+    expect(st().copyItems([l.id], ['b'])).toBe(2)
+    expect(st().pasteItems(1)).toBe(2)
+    expect(st().project.tracks.map((t) => t.title)).toEqual(['Bài b', 'Bài a', 'Bài b', 'Bài c'])
+    expect(st().project.tracks[0].id).not.toBe('b')
+    expect(st().project.tracks[0].analysisKey).toBe('key-b')
+    const pasted = st().project.layers.find((x) => x.id !== l.id)!
+    expect(pasted.timing).toMatchObject({ start: 13, end: 23 })
+    expect(st().selectedTrackIds).toEqual([st().project.tracks[0].id])
+    expect(st().selectedLayerIds).toEqual([pasted.id])
+    st().undo()
+    expect(ids()).toEqual(['a', 'b', 'c'])
+    expect(st().project.layers).toHaveLength(1)
+  })
+})
+
+describe('thả ảnh / video vào timeline', () => {
+  const mk = (): Project => ({ ...createDefaultProject(), tracks: [track('a', 60), track('b', 60), track('c', 60)] })
+
+  it('mỗi file một bài từ điểm thả; đoạn sau chồng lên đoạn trước để chuyển cảnh không bị tối', () => {
+    const tl = buildTimeline(mk().tracks, mk().settings)
+    const two = dropSegments(tl.entries, tl.total, 10, 2)
+    expect(two).toEqual([
+      { start: 10, end: 59.5, fadeIn: 1, fadeOut: 0 },
+      { start: 58.5, end: 115.5, fadeIn: 1, fadeOut: 1 }
+    ])
+    // Tới bài cuối → kéo dài đến hết video
+    expect(dropSegments(tl.entries, tl.total, 10, 3)[2]).toMatchObject({ start: 115.5, end: null, fadeOut: 0 })
+    // Nhiều file hơn số bài còn lại → chia đều tới cuối video
+    const five = dropSegments(tl.entries, tl.total, 10, 5)
+    expect(five.map((x) => x.start)).toEqual([10, 42.8, 75.6, 108.4, 141.2])
+    expect(five[4].end).toBeNull()
+  })
+
+  it('store: nền mới nằm trên nền cũ, chung một hàng, giữ cách hiển thị của nền cũ', () => {
+    const p = mk()
+    const bg = p.layers.find((l) => l.type === 'background')!
+    ;(bg.props as { dim: number }).dim = 0.4
+    useStore.getState().loadProject(p, null)
+    const added = st().addDroppedBackgrounds(
+      [
+        { path: '/anh/1.jpg', kind: 'image' },
+        { path: '/anh/2.mp4', kind: 'video' }
+      ],
+      10
+    )
+    const layers = st().project.layers
+    const i = layers.findIndex((l) => l.id === bg.id)
+    expect(layers.slice(i, i + 3).map((l) => l.id)).toEqual([bg.id, ...added])
+    const [n1, n2] = added.map((id) => layers.find((l) => l.id === id)!)
+    expect(n1.props).toMatchObject({ mode: 'image', src: '/anh/1.jpg', dim: 0.4 })
+    expect(n2.props).toMatchObject({ mode: 'video', src: '/anh/2.mp4' })
+    expect(n1.name).toBe('1')
+    expect(n1.row).toBeDefined()
+    expect(n1.row).toBe(n2.row)
+    expect(timelineRows(layers).some((r) => r.layers.length === 2)).toBe(true)
+    expect(st().selectedLayerIds).toEqual(added)
+    st().setBackgroundSource(bg.id, { path: '/nen.mp4', kind: 'video' })
+    expect(st().project.layers.find((l) => l.id === bg.id)!.props).toMatchObject({ mode: 'video', src: '/nen.mp4' })
   })
 })
