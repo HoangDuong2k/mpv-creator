@@ -10,6 +10,7 @@ import { join, resolve } from 'path'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core'
 import { ffmpegPath } from '../src/main/ffmpeg'
 import { makeTestAudio } from './make-test-audio'
+import { ROW_COLORS } from '../src/renderer/src/timelineModel'
 
 const ROOT = resolve(__dirname, '..')
 const OUT = join(ROOT, 'test-output', 'e2e')
@@ -375,7 +376,7 @@ async function main(): Promise<void> {
     // Đổi màu hàng
     await flickRow.locator('.tl-dot').click()
     await page.locator('.tl-palette .swatch').nth(1).click()
-    assert(await until(async () => (await flickers()).every((l) => l.color === '#81c784')), 'đổi màu hàng flicker')
+    assert(await until(async () => (await flickers()).every((l) => l.color === ROW_COLORS[1])), 'đổi màu hàng flicker')
     await page.screenshot({ path: join(OUT, '5b-timeline-split.png') })
     // Preview nhẹ cho máy yếu
     const canvasW = (): Promise<number> => page.locator('.stage-canvas').evaluate((c) => (c as HTMLCanvasElement).width)

@@ -79,8 +79,10 @@ function TopBar(): ReactNode {
   return (
     <header className="topbar">
       <div className="brand">
-        <Icon name="music" size={20} />
-        <span>Playlist Video Maker</span>
+        <span className="brand-mark" aria-hidden="true">
+          <Icon name="music" size={14} />
+        </span>
+        <span className="brand-name">Playlist Video Maker</span>
       </div>
       <div className="toolbar">
         <IconButton
@@ -189,7 +191,7 @@ export function App(): ReactNode {
   useAutosave()
 
   useEffect(() => {
-    document.title = `${dirty ? '● ' : ''}${tr(name)} — Playlist Video Maker`
+    document.title = `${dirty ? '● ' : ''}${tr(name)} - Playlist Video Maker`
   }, [name, dirty, lang])
 
   // Main process dùng cùng ngôn ngữ cho hộp thoại, thông báo, thông báo lỗi
@@ -328,7 +330,7 @@ export function App(): ReactNode {
           <div>
             <Icon name="music" size={48} />
             <p>{tr('Thả nhạc / thư mục để thêm vào playlist')}</p>
-            <p className="muted">{tr('Thả 1 ảnh hoặc video để đặt làm nền · thả file .json để mở project')}</p>
+            <p className="muted">{tr('Thả 1 ảnh hoặc video để đặt làm nền, thả file .json để mở project')}</p>
             <p className="muted">{tr('Thả vào timeline để chèn đúng vị trí (nhạc, ảnh, video)')}</p>
           </div>
         </div>

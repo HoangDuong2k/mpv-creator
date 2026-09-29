@@ -63,7 +63,7 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
     const st = useStore.getState()
     if (mode === 'styles') {
       st.applyStyle(t, keepBg && mediaBg)
-      st.toast('success', tr('Đã áp phong cách "{name}" — bấm Ctrl+Z để hoàn tác', { name: tr(t.name) }))
+      st.toast('success', tr('Đã áp phong cách "{name}". Bấm Ctrl+Z để hoàn tác.', { name: tr(t.name) }))
     } else {
       player.pause()
       st.setPlaying(false)
@@ -126,7 +126,7 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
   const lead =
     mode === 'styles'
       ? tr('Áp phong cách cho project đang làm: giữ nguyên nhạc, thay nền, cột sóng, chữ và hiệu ứng. Hoàn tác được bằng Ctrl+Z.')
-      : tr('Chọn một phong cách để bắt đầu — đổi lại bất cứ lúc nào bằng nút Mẫu phong cách trên thanh công cụ. Rê chuột lên mẫu để xem chuyển động.')
+      : tr('Chọn một phong cách để bắt đầu. Đổi lại lúc nào cũng được bằng nút Mẫu phong cách trên thanh công cụ; rê chuột lên mẫu để xem chuyển động.')
 
   const footer =
     mode === 'welcome' ? (

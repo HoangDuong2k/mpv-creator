@@ -25,7 +25,7 @@ export function ChaptersDialog(): ReactNode {
   const tooShort = timeline.entries.filter((e) => e.displayEnd - e.displayStart < 10).length
   const warnings: string[] = []
   if (timeline.entries.length < 3) warnings.push(tr('YouTube cần ít nhất 3 mốc thời gian để hiện chương (chapter).'))
-  if (tooShort > 0) warnings.push(tr('{n} bài ngắn hơn 10 giây — YouTube yêu cầu mỗi chương dài tối thiểu 10 giây.', { n: tooShort }))
+  if (tooShort > 0) warnings.push(tr('{n} bài ngắn hơn 10 giây. YouTube yêu cầu mỗi chương dài tối thiểu 10 giây.', { n: tooShort }))
 
   return (
     <Modal
@@ -52,7 +52,7 @@ export function ChaptersDialog(): ReactNode {
             className="btn primary"
             onClick={async () => {
               await api.copyText(text)
-              toast('success', tr('Đã copy timestamp — dán vào phần mô tả video'))
+              toast('success', tr('Đã copy timestamp, giờ dán vào phần mô tả video'))
             }}
           >
             <Icon name="copy" size={16} /> Copy
@@ -75,7 +75,7 @@ export function ChaptersDialog(): ReactNode {
           {w}
         </p>
       ))}
-      <p className="muted small">{tr('Mốc thời gian lấy ở giữa đoạn crossfade — đúng lúc bài mới nghe rõ.')}</p>
+      <p className="muted small">{tr('Mốc thời gian lấy ở giữa đoạn crossfade, đúng lúc bài mới nghe rõ.')}</p>
     </Modal>
   )
 }

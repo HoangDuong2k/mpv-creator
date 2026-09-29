@@ -29,7 +29,7 @@ export function splitAtPlayhead(): void {
 export function copySelection(): void {
   const st = useStore.getState()
   const n = st.copyItems(st.selectedLayerIds, st.selectedTrackIds)
-  if (n > 0) st.toast('info', tr('Đã chép {n} mục — đặt đầu phát rồi bấm Ctrl+V để dán', { n }))
+  if (n > 0) st.toast('info', tr('Đã chép {n} mục. Đặt đầu phát rồi bấm Ctrl+V để dán.', { n }))
 }
 
 /** Ctrl+V: dán tại đầu phát (bài chèn vào ranh giới gần nhất, lớp đi theo bài) */
@@ -46,7 +46,7 @@ export function deleteSelection(): boolean {
   const locked = st.project.layers.filter((l) => ids.includes(l.id) && l.locked).length
   st.removeItems(ids, st.selectedTrackIds)
   if (locked > 0)
-    st.toast('info', locked === ids.length && st.selectedTrackIds.length === 0 ? tr('Lớp đang khoá — mở khoá để xoá') : tr('Đã giữ lại {n} lớp đang khoá', { n: locked }))
+    st.toast('info', locked === ids.length && st.selectedTrackIds.length === 0 ? tr('Lớp đang khoá, mở khoá rồi mới xoá được') : tr('Đã giữ lại {n} lớp đang khoá', { n: locked }))
   return true
 }
 

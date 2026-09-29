@@ -62,7 +62,7 @@ import { ctaMenu, laneMenu, layerMenu, trackMenu } from '../contextMenus'
 import { ContextMenu, type MenuState } from './ContextMenu'
 import { useThumbUrl } from '../thumbs'
 import { useLayout } from '../layout'
-import { Icon, IconButton } from './ui'
+import { Icon, IconButton, rangeFill } from './ui'
 import { tr } from '../../../shared/i18n'
 
 const SNAP_PX = 8
@@ -309,7 +309,7 @@ export function Timeline(): ReactNode {
         const inGroup = d.part === 'move' && st.selectedLayerIds.length > 1 && st.selectedLayerIds.includes(layer.id)
         if (layer.locked) {
           if (!inGroup) st.selectLayer(layer.id)
-          setVisual({ snapT: null, tip: { t, text: tr('Lớp đang khoá — bấm biểu tượng ổ khoá ở đầu hàng để mở') } })
+          setVisual({ snapT: null, tip: { t, text: tr('Lớp đang khoá. Bấm biểu tượng ổ khoá ở đầu hàng để mở.') } })
           return
         }
         if (inGroup) {
@@ -746,11 +746,11 @@ export function Timeline(): ReactNode {
         </span>
         {selectedLayerIds.length + selectedTrackIds.length > 1 ? (
           <span className="tl-hint tl-multi">
-            {tr('Đang chọn {n} mục · kéo để dời cả nhóm · Delete xoá · Esc bỏ chọn', { n: selectedLayerIds.length + selectedTrackIds.length })}
+            {tr('Đang chọn {n} mục. Kéo để dời cả nhóm, Delete để xoá, Esc để bỏ chọn.', { n: selectedLayerIds.length + selectedTrackIds.length })}
           </span>
         ) : (
           <span className="tl-hint muted">
-            {tr('Kéo để dời · kéo mép để đổi thời gian · kéo vùng trống để chọn nhiều · ? xem phím tắt')}
+            {tr('Kéo thanh để dời, kéo mép để đổi thời gian, kéo vùng trống để chọn nhiều. Bấm ? để xem phím tắt')}
           </span>
         )}
         <span className="tl-tools">
@@ -767,6 +767,7 @@ export function Timeline(): ReactNode {
             max={Math.log(MAX_ZOOM)}
             step={0.01}
             value={logZ}
+            style={rangeFill(logZ, Math.log(MIN_ZOOM), Math.log(MAX_ZOOM))}
             onChange={(e) => zoomTo(Math.exp(parseFloat(e.target.value)))}
             aria-label={tr('Mức zoom timeline')}
           />
@@ -948,7 +949,7 @@ const LayerRow = memo(function LayerRow({
         <span className={`tl-head-tools${locked || !enabled ? ' on' : ''}`} onClick={(e) => e.stopPropagation()}>
           <IconButton
             icon={locked ? 'lock' : 'lockOpen'}
-            title={locked ? tr('Đang khoá — bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
+            title={locked ? tr('Đang khoá. Bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
             onClick={() => setLayersLocked(ids, !locked)}
             active={locked}
             size={14}
@@ -971,7 +972,7 @@ const LayerRow = memo(function LayerRow({
                 data-id={layer.id}
                 data-index={i}
                 data-part="move"
-                title={tr('Lần hiện {n}: {time}', { n: i + 1, time: formatTimePrecise(s) }) + (auto ? tr(' — đang tự động theo lịch, kéo để chỉnh riêng từng lần') : '')}
+                title={tr('Lần hiện {n}: {time}', { n: i + 1, time: formatTimePrecise(s) }) + (auto ? tr(' (đang tự động theo lịch, kéo để chỉnh riêng từng lần)') : '')}
               >
                 <span className="tl-label">{i + 1}</span>
                 <div className="tl-edge r" data-hit="cta" data-id={layer.id} data-index={i} data-part="dur" />
@@ -1030,7 +1031,7 @@ function LayerClip({ layer, zoom, total, selected, primary }: { layer: Layer; zo
       className={`tl-clip t-${layer.type}${selected ? ' selected' : ''}${locked ? ' locked' : ''}${layer.enabled ? '' : ' off'}${thumb ? ' has-thumb' : ''}`}
       style={{ left: start * zoom, width: w, ...colorStyle(layer.color) }}
       {...part('move')}
-      title={locked ? tr('{name} — đang khoá', { name: tr(layer.name) }) : undefined}
+      title={locked ? tr('{name} (đang khoá)', { name: tr(layer.name) }) : undefined}
     >
       {/* Ảnh nền / video nền / logo: dải ảnh thu nhỏ lặp dọc thanh (như cuộn phim) */}
       {thumb && <div className="tl-thumbs" style={{ backgroundImage: `url("${thumb}")` }} />}
@@ -1112,7 +1113,7 @@ const AudioRow = memo(function AudioRow({
               className={`tl-clip t-audio${selected.has(e.track.id) ? ' selected' : ''}${move?.from === i || group?.ids.includes(e.track.id) ? ' dragging' : ''}`}
               style={{ left: s * zoom, width: Math.max(4, (en - s) * zoom) }}
               {...hitProps('move')}
-              title={`${e.track.title}${e.track.artist ? ` — ${e.track.artist}` : ''} (${formatTime(e.length)}) · ${tr('kéo để đổi thứ tự, kéo mép để cắt')}`}
+              title={`${e.track.title}${e.track.artist ? ` - ${e.track.artist}` : ''} (${formatTime(e.length)})\n${tr('kéo để đổi thứ tự, kéo mép để cắt')}`}
             >
               <span className="tl-label">
                 {e.track.coverPath && <img src={api.fileUrl(e.track.coverPath)} alt="" />}
@@ -1189,7 +1190,7 @@ function Waveform({ entries, zoom, left, width, height, version }: { entries: Ti
     const top = 20
     const mid = (top + height - 3) / 2
     const half = (height - 3 - top) / 2
-    ctx.fillStyle = 'rgba(126, 210, 255, 0.55)'
+    ctx.fillStyle = 'rgba(150, 182, 222, 0.62)'
     for (const e of entries) {
       const x0 = e.start * zoom - left
       const x1 = e.end * zoom - left

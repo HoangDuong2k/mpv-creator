@@ -117,8 +117,9 @@ npm run cli -- frame --audio a.mp3 --time 12.5 --out frame.png
 
 ## Giấy phép bên thứ ba
 
-- Font trong `resources/fonts`: SIL Open Font License (Be Vietnam Pro, Oswald, Playfair Display, Dancing Script, Pacifico, Lobster, Bungee).
-- Biểu tượng: Material Icons (Apache License 2.0).
+- Font trong `resources/fonts` (chữ trên video): SIL Open Font License (Be Vietnam Pro, Oswald, Playfair Display, Dancing Script, Pacifico, Lobster, Bungee).
+- Font giao diện trong `src/renderer/src/assets/fonts`: Hanken Grotesk và JetBrains Mono, SIL Open Font License (kèm file giấy phép).
+- Biểu tượng: Phosphor Icons (MIT License).
 - FFmpeg (`ffmpeg-static`) là bản build GPL (kèm libx264). Nếu phân phối thương mại mã nguồn đóng, cần thay bằng bản FFmpeg LGPL và dùng bộ mã hóa phần cứng hoặc OpenH264.
 - Nút "Đăng ký" được thiết kế riêng, không dùng logo YouTube. Bản quyền nhạc trong video thuộc trách nhiệm người dùng.
 

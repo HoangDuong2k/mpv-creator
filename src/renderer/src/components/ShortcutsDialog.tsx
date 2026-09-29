@@ -24,7 +24,7 @@ const GROUPS: Array<[string, Array<[string, string]>]> = [
     'Timeline',
     [
       [trKey('Chuột phải'), trKey('Menu thao tác: tách, chép, nhân bản, khoá, đổi màu, xoá…')],
-      [trKey('Kéo thanh · kéo mép'), trKey('Dời thời gian · đổi lúc bắt đầu / kết thúc')],
+      [trKey('Kéo thanh · kéo mép'), trKey('Dời thời gian, hoặc đổi lúc bắt đầu / kết thúc')],
       [trKey('Kéo núm tròn'), trKey('Hiện dần / ẩn dần')],
       [trKey('Ctrl/Shift + nhấp'), trKey('Chọn thêm thanh hiệu ứng, clip nhạc')],
       [trKey('Kéo trên vùng trống'), trKey('Khoanh chọn nhiều mục')],
@@ -43,7 +43,7 @@ const GROUPS: Array<[string, Array<[string, string]>]> = [
     trKey('Khung preview và bảng thuộc tính'),
     [
       [trKey('Nhấp vào chữ, cột sóng…'), trKey('Chọn lớp đó')],
-      [trKey('Kéo · kéo ô vuông'), trKey('Di chuyển · đổi kích thước (giữ Shift: không bắt dính)')],
+      [trKey('Kéo · kéo ô vuông'), trKey('Di chuyển, hoặc đổi kích thước (giữ Shift để không bắt dính)')],
       [trKey('Nhấp đúp thanh trượt'), trKey('Đưa thông số về mặc định')]
     ]
   ]
@@ -61,7 +61,7 @@ export function ShortcutsDialog(): ReactNode {
                 {rows.map(([keys, what]) => (
                   <tr key={keys}>
                     <td>
-                      <kbd>{tr(keys)}</kbd>
+                      <Keys text={tr(keys)} />
                     </td>
                     <td>{tr(what)}</td>
                   </tr>
@@ -72,5 +72,23 @@ export function ShortcutsDialog(): ReactNode {
         ))}
       </div>
     </Modal>
+  )
+}
+
+/** Phím thật hiện trong ô phím; thao tác chuột ("Chuột phải", "Kéo thanh"…) là chữ thường */
+const KEY = /^(Ctrl|Shift|Alt|Cmd|Space|Home|End|Esc|Delete|Enter|Tab|F\d{1,2}|[←→↑↓?]|[A-Z])(\+\S+)*$/
+
+function Keys({ text }: { text: string }): ReactNode {
+  // Các cách bấm tương đương cách nhau bằng " · " trong dữ liệu, hiện thành "/"
+  const parts = text.split(/\s*·\s*/)
+  return (
+    <span className="keys">
+      {parts.map((p, i) => (
+        <span key={i}>
+          {i > 0 && <span className="keys-or">/</span>}
+          {p.split(' ').every((w) => KEY.test(w)) ? p.split(' ').map((w) => <kbd key={w}>{w}</kbd>) : <span className="keys-text">{p}</span>}
+        </span>
+      ))}
+    </span>
   )
 }

@@ -9,7 +9,7 @@ export interface EncoderInfo {
 }
 
 export const ENCODERS: EncoderInfo[] = [
-  { id: 'libx264', label: trKey('CPU – x264 (luôn dùng được, chất lượng tốt)'), hardware: false },
+  { id: 'libx264', label: trKey('CPU (x264), luôn dùng được, chất lượng tốt'), hardware: false },
   { id: 'h264_nvenc', label: trKey('NVIDIA NVENC (card rời NVIDIA)'), hardware: true },
   { id: 'h264_qsv', label: 'Intel Quick Sync', hardware: true },
   { id: 'h264_amf', label: trKey('AMD AMF (card AMD, Windows)'), hardware: true },

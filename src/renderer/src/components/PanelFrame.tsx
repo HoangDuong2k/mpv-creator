@@ -30,7 +30,7 @@ export function ColumnResizer({ side }: { side: 'left' | 'right' }): ReactNode {
       className={`col-resize ${side}`}
       onPointerDown={onPointerDown}
       onDoubleClick={() => useLayout.getState().setOpen(side, false)}
-      title={tr('Kéo để đổi độ rộng · nhấp đúp để thu gọn')}
+      title={tr('Kéo để đổi độ rộng, nhấp đúp để thu gọn')}
       role="separator"
       aria-orientation="vertical"
     />

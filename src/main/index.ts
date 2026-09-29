@@ -40,7 +40,7 @@ let quittingForShutdown = false
 /** Chữ main process hiện ra khi xuất video xong (thông báo của hệ điều hành) */
 const EXPORT_TEXT = {
   doneTitle: (): string => tr('Đã xuất xong video'),
-  doneBody: (file: string, seconds: number): string => tr('{file} — xong sau {time}', { file, time: formatTime(seconds, seconds >= 3600) }),
+  doneBody: (file: string, seconds: number): string => tr('{file} xong sau {time}', { file, time: formatTime(seconds, seconds >= 3600) }),
   failTitle: (): string => tr('Xuất video không thành công'),
   shutdownFailed: (detail: string): string => tr('Không tắt được máy: {detail}', { detail })
 }

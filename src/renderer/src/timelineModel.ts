@@ -18,7 +18,7 @@ export const MIN_TRACK = 1
 export const CTA_MIN_DURATION = 1.5
 export const CTA_MAX_DURATION = 30
 /** Màu chọn cho hàng / thanh trên timeline */
-export const ROW_COLORS = ['#4fc3f7', '#81c784', '#ffb74d', '#e57373', '#ba68c8', '#f06292', '#fff176', '#90a4ae']
+export const ROW_COLORS = ['#5b9eb6', '#74a383', '#c9bf6b', '#cf8a6e', '#a08ac6', '#c96f84', '#6e97c7', '#8f8a82']
 
 const STEPS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200]
 

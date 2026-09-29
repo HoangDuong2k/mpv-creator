@@ -82,7 +82,7 @@ function LibCard({ item, name, scene, selected, title }: { item: LibraryItem; na
       className={`lib-card${selected ? ' selected' : ''}`}
       draggable
       data-item={id}
-      title={title ?? tr('Bấm để thêm vào video · kéo vào timeline để đặt từ chỗ thả đến hết bài')}
+      title={title ?? tr('Bấm để thêm vào video, hoặc kéo vào timeline để đặt từ chỗ thả đến hết bài')}
       onClick={() => addLibraryItem(item)}
       onDragStart={(e) => {
         setHover(false)
@@ -111,7 +111,7 @@ const presetBuild = (p: LayerPreset): (() => PreviewScene) => {
 function EffectsTab(): ReactNode {
   return (
     <div className="lib-body">
-      <LibHint>{tr('Bấm để thêm cho cả video · kéo vào timeline để đặt từ chỗ thả đến hết bài · rê chuột để xem chuyển động')}</LibHint>
+      <LibHint>{tr('Bấm để thêm cho cả video, hoặc kéo vào timeline để đặt từ chỗ thả đến hết bài. Rê chuột lên mẫu để xem chuyển động.')}</LibHint>
       {EFFECT_GROUPS.map((g) => (
         <section key={g.id} className="lib-group">
           <h4>{tr(g.name)}</h4>
@@ -122,7 +122,7 @@ function EffectsTab(): ReactNode {
                 item={{ kind: 'preset', id: p.id }}
                 name={tr(p.name)}
                 scene={presetBuild(p)}
-                title={p.type === 'cta' ? tr('Bấm để thêm (hiện theo lịch mặc định) · kéo vào timeline để hiện một lần tại chỗ thả') : undefined}
+                title={p.type === 'cta' ? tr('Bấm để thêm theo lịch mặc định, hoặc kéo vào timeline để hiện một lần tại chỗ thả') : undefined}
               />
             ))}
           </div>
@@ -135,7 +135,7 @@ function EffectsTab(): ReactNode {
 function TextTab(): ReactNode {
   return (
     <div className="lib-body">
-      <LibHint>{tr('Chữ tự đổi theo bài đang phát ({title}, {artist}…) · bấm để thêm · kéo vào timeline để đặt đúng chỗ')}</LibHint>
+      <LibHint>{tr('Chữ tự đổi theo bài đang phát ({title}, {artist}…). Bấm để thêm, hoặc kéo vào timeline để đặt đúng chỗ.')}</LibHint>
       <div className="lib-grid">
         {TEXT_PRESETS.map((p) => (
           <LibCard key={p.id} item={{ kind: 'preset', id: p.id }} name={tr(p.name)} scene={presetBuild(p)} />
@@ -160,7 +160,7 @@ function FiltersTab(): ReactNode {
       <LibHint>
         {current !== null
           ? tr('Đang chọn một lớp bộ lọc: bấm mẫu để đổi bộ lọc của lớp đó')
-          : tr('Bấm để thêm bộ lọc cho cả video · kéo vào timeline để lọc một đoạn, thả lên hàng bộ lọc có sẵn để đổi mẫu')}
+          : tr('Bấm để lọc cả video. Kéo vào timeline để lọc một đoạn, hoặc thả lên hàng bộ lọc có sẵn để đổi mẫu.')}
       </LibHint>
       <div className="lib-grid">
         {FILTER_PRESETS.filter((p) => p.id !== 'none').map((p) => (
@@ -227,7 +227,7 @@ function MediaTab(): ReactNode {
         { kind: 'separator' },
         { label: tr('Hiện trong thư mục'), icon: 'folder', onClick: () => void api.showItem(path) },
         {
-          label: used ? tr('Đang dùng trong video — không xoá được') : tr('Xoá khỏi thư viện'),
+          label: used ? tr('Đang dùng trong video nên không xoá được') : tr('Xoá khỏi thư viện'),
           icon: 'delete',
           danger: true,
           disabled: used || !inLibrary,
@@ -258,7 +258,7 @@ function MediaTab(): ReactNode {
         </div>
       ) : (
         <>
-          <LibHint>{tr('Bấm + để làm nền cả video · kéo vào timeline để làm nền từ chỗ thả · chuột phải để xem thêm')}</LibHint>
+          <LibHint>{tr('Bấm + để làm nền cho cả video, hoặc kéo vào timeline để làm nền từ chỗ thả. Chuột phải để xem thêm.')}</LibHint>
           <div className="lib-grid">
             {items.map((m) => (
               <MediaCard key={m.path} path={m.path} used={m.used} onMenu={(e) => openMenu(e, m.path, m.used, m.inLibrary)} />
@@ -281,7 +281,7 @@ function MediaCard({ path, used, onMenu }: { path: string; used: boolean; onMenu
       className="lib-card media"
       draggable
       data-item={path}
-      title={`${path}\n${tr('Kéo vào timeline để làm nền từ chỗ thả · chuột phải để xem thêm')}`}
+      title={`${path}\n${tr('Kéo vào timeline để làm nền từ chỗ thả. Chuột phải để xem thêm.')}`}
       onDragStart={(e) => startLibraryDrag(e, item)}
       onDragEnd={endLibraryDrag}
       onContextMenu={onMenu}

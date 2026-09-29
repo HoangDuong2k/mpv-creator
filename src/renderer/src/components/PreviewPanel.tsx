@@ -6,7 +6,7 @@ import { assets, features, player } from '../engineHost'
 import { useTimeline } from '../hooks'
 import { PREVIEW_QUALITY_SCALE, useStore, type PreviewQuality } from '../store'
 import { Stage } from './Stage'
-import { Icon, IconButton } from './ui'
+import { Icon, IconButton, rangeFill } from './ui'
 import { tr, trKey } from '../../../shared/i18n'
 import { useLayout } from '../layout'
 
@@ -118,9 +118,9 @@ export function PreviewPanel(): ReactNode {
         </span>
         {/* Một dòng điều khiển (tiết kiệm chiều cao cho preview trên màn hình laptop); tua bằng timeline bên dưới */}
         {cur ? (
-          <span className="now-playing" title={`${cur.track.title}${cur.track.artist ? ` — ${cur.track.artist}` : ''}`}>
+          <span className="now-playing" title={`${cur.track.title}${cur.track.artist ? ` - ${cur.track.artist}` : ''}`}>
             ♪ {cur.track.title}
-            {cur.track.artist ? ` — ${cur.track.artist}` : ''}
+            {cur.track.artist ? ` - ${cur.track.artist}` : ''}
           </span>
         ) : (
           <span className="now-playing muted">{tr('Thêm nhạc để bắt đầu')}</span>
@@ -172,6 +172,7 @@ function VolumeControl(): ReactNode {
         max={1}
         step={0.01}
         value={muted ? 0 : volume}
+        style={rangeFill(muted ? 0 : volume, 0, 1)}
         onChange={(e) => {
           const v = parseFloat(e.target.value)
           setVolume(v)
@@ -199,8 +200,8 @@ function FocusButton(): ReactNode {
 
 const QUALITY_LABELS: Array<[PreviewQuality, string]> = [
   ['high', trKey('Nét (đầy đủ)')],
-  ['medium', trKey('Vừa (½) — mượt hơn')],
-  ['low', trKey('Nhẹ (¼) — cho máy yếu')]
+  ['medium', trKey('Vừa (½), mượt hơn')],
+  ['low', trKey('Nhẹ (¼), cho máy yếu')]
 ]
 
 /** Menu nhỏ: độ nét preview + khung hình của project (thay cho các chip dễ bị tràn) */
@@ -258,7 +259,7 @@ function PreviewMenu({ info }: { info: string }): ReactNode {
             role="menuitemcheckbox"
             aria-checked={safeArea}
             onClick={() => useLayout.getState().toggleSafeArea()}
-            title={tr('Những chỗ giao diện YouTube thường che mất — tránh đặt chữ, nút Đăng ký ở đó. Không có trong video xuất ra.')}
+            title={tr('Những chỗ giao diện YouTube thường che mất. Tránh đặt chữ, nút Đăng ký ở đó; vùng này không có trong video xuất ra.')}
           >
             {safeArea ? '☑' : '☐'} {tr('Hiện vùng an toàn YouTube')}
           </button>
@@ -269,7 +270,7 @@ function PreviewMenu({ info }: { info: string }): ReactNode {
               useStore.getState().openDialog('settings')
             }}
           >
-            {tr('Khung hình {info} — đổi trong Cài đặt…', { info })}
+            {tr('Khung hình {info}. Đổi trong Cài đặt…', { info })}
           </button>
         </div>
       )}

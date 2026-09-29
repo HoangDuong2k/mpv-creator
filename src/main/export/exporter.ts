@@ -89,7 +89,7 @@ export async function ensureWritable(path: string): Promise<void> {
 export function friendlyFfmpegError(message: string, outputPath: string): string {
   if (/Permission denied|being used by another process|Device or resource busy/i.test(message))
     return tr('Không ghi được "{path}": file đang được mở ở chương trình khác hoặc không có quyền ghi.', { path: outputPath })
-  if (/No space left on device|not enough space/i.test(message)) return tr('Ổ đĩa đã đầy — hãy giải phóng dung lượng hoặc chọn ổ khác để lưu video.')
+  if (/No space left on device|not enough space/i.test(message)) return tr('Ổ đĩa đã đầy. Hãy giải phóng dung lượng hoặc chọn ổ khác để lưu video.')
   return message
 }
 
@@ -225,7 +225,7 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
   if (missing.length) throw new Error(tr('Còn {n} bài chưa phân tích xong âm thanh', { n: missing.length }))
   const featurePaths: Record<string, string> = {}
   for (const t of project.tracks) {
-    if (!workspace.hasAudio(t.analysisKey!)) throw new Error(tr('Thiếu dữ liệu âm thanh của bài "{title}" — hãy mở lại project để phân tích lại', { title: t.title }))
+    if (!workspace.hasAudio(t.analysisKey!)) throw new Error(tr('Thiếu dữ liệu âm thanh của bài "{title}". Hãy mở lại project để phân tích lại.', { title: t.title }))
     featurePaths[t.analysisKey!] = workspace.featuresPath(t.analysisKey!)
   }
 

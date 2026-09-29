@@ -214,7 +214,7 @@ export function ExportDialog(): ReactNode {
             {(encoders ?? []).map((e) => (
               <option key={e.id} value={e.id} disabled={!e.available}>
                 {tr(e.label)}
-                {e.available ? '' : tr(' — không có trên máy này')}
+                {e.available ? '' : tr(' (không có trên máy này)')}
               </option>
             ))}
             {!encoders && <option value={ex.encoder}>{tr('Đang kiểm tra bộ mã hoá…')}</option>}
@@ -250,7 +250,7 @@ export function ExportDialog(): ReactNode {
         <span>{tr('Tắt máy khi xuất xong (không áp dụng cho xuất thử)')}</span>
       </label>
       {encoders && ex.encoder !== 'libx264' && !encoders.find((e) => e.id === ex.encoder)?.available && (
-        <p className="warn">{tr('Bộ mã hoá đã chọn không dùng được trên máy này, hãy chọn “CPU – x264”.')}</p>
+        <p className="warn">{tr('Bộ mã hoá đã chọn không dùng được trên máy này, hãy chọn “CPU (x264)”.')}</p>
       )}
       {pending > 0 && <p className="warn">{tr('Còn {n} bài đang phân tích âm thanh, vui lòng chờ…', { n: pending })}</p>}
 
@@ -293,7 +293,7 @@ export function ExportDialog(): ReactNode {
       {result && (
         <div className="success-box">
           <p>
-            {tr('✓ Đã xuất')} <strong>{fileName(result.outputPath)}</strong> {tr('({dur} video) trong {time} —', { dur: formatTime(result.duration), time: formatTime(result.seconds) })}
+            {tr('✓ Đã xuất')} <strong>{fileName(result.outputPath)}</strong> {tr('({dur} video) trong {time},', { dur: formatTime(result.duration), time: formatTime(result.seconds) })}
             {result.resumedFrames > 0
               ? tr(' tiếp tục từ bản xuất dở (đã có {p}%).', { p: percentOf(result.resumedFrames, result.totalFrames) })
               : tr(' nhanh {x}× thời gian thực.', { x: (result.duration / Math.max(0.1, result.seconds)).toFixed(1) })}

@@ -162,9 +162,9 @@ export function Stage({
       from: formatTimePrecise(r.start, wh),
       to: selected.timing.end === null ? tr('hết video') : formatTimePrecise(r.end, wh)
     })
-  } else if (!isMovable(selected)) hint = tr('“{name}” phủ cả khung hình — chỉnh ở bảng bên phải', { name: tr(LAYER_LABELS[selected.type]) })
-  else if (selected.locked) hint = tr('“{name}” đang khoá — mở khoá để kéo', { name: tr(selected.name) })
-  else hint = tr('Kéo để di chuyển · kéo ô vuông để đổi cỡ · ? xem phím tắt')
+  } else if (!isMovable(selected)) hint = tr('“{name}” phủ cả khung hình, chỉnh ở bảng bên phải', { name: tr(LAYER_LABELS[selected.type]) })
+  else if (selected.locked) hint = tr('“{name}” đang khoá, mở khoá để kéo', { name: tr(selected.name) })
+  else hint = tr('Kéo để di chuyển, kéo ô vuông để đổi cỡ. Bấm ? để xem phím tắt')
 
   return (
     <div className="stage" ref={wrapRef}>

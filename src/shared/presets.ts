@@ -84,7 +84,7 @@ export const EFFECT_GROUPS: PresetGroup[] = [
 export const TEXT_PRESETS: LayerPreset[] = [
   preset('txt-title', trKey('Tên bài hát (lớn)'), 'text', { template: '{title}', size: 80, y: 0.2 }),
   preset('txt-artist', trKey('Ca sĩ'), 'text', { template: '{artist}', size: 40, bold: false, y: 0.28, color: '#d0d8ff' }),
-  preset('txt-now', trKey('Đang phát: tên bài — ca sĩ'), 'text', { template: '♪ {title} — {artist}', size: 36, bold: false, align: 'left', x: 0.05, y: 0.9 }),
+  preset('txt-now', trKey('Đang phát: tên bài - ca sĩ'), 'text', { template: '♪ {title} - {artist}', size: 36, bold: false, align: 'left', x: 0.05, y: 0.9 }),
   preset('txt-next', trKey('Bài tiếp theo'), 'text', { template: trKey('Tiếp theo: {next}'), size: 30, bold: false, align: 'right', x: 0.95, y: 0.08, opacity: 0.85 }),
   preset('txt-count', trKey('Số thứ tự bài'), 'text', { template: '{index}/{count}', size: 34, align: 'left', x: 0.05, y: 0.08 }),
   preset('txt-time', trKey('Thời gian của bài'), 'text', { template: '{elapsed} / {duration}', size: 30, bold: false, y: 0.9 }),

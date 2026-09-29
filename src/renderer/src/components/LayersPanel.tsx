@@ -89,13 +89,13 @@ export function LayersPanel(): ReactNode {
               </span>
               {r && (
                 <span className="layer-range" title={tr('Khoảng thời gian của đoạn này')}>
-                  {formatTime(r.start, withHours)}–{l.timing.end === null ? tr('hết') : formatTime(r.end, withHours)}
+                  {formatTime(r.start, withHours)} → {l.timing.end === null ? tr('hết') : formatTime(r.end, withHours)}
                 </span>
               )}
               <span className="layer-actions" onClick={(e) => e.stopPropagation()}>
                 <IconButton
                   icon={l.locked ? 'lock' : 'lockOpen'}
-                  title={l.locked ? tr('Đang khoá — bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
+                  title={l.locked ? tr('Đang khoá. Bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
                   onClick={() => setLayersLocked([l.id], !l.locked)}
                   active={!!l.locked}
                   size={15}
@@ -103,7 +103,7 @@ export function LayersPanel(): ReactNode {
                 <IconButton icon="up" title={tr('Đưa lên trên')} onClick={() => moveLayer(l.id, 1)} disabled={i === 0} size={15} />
                 <IconButton icon="down" title={tr('Đưa xuống dưới')} onClick={() => moveLayer(l.id, -1)} disabled={i === ordered.length - 1} size={15} />
                 <IconButton icon="duplicate" title={tr('Nhân bản')} onClick={() => duplicateLayer(l.id)} size={15} />
-                <IconButton icon="delete" title={l.locked ? tr('Lớp đang khoá — mở khoá để xoá') : tr('Xoá lớp')} onClick={() => removeLayer(l.id)} disabled={!!l.locked} size={15} />
+                <IconButton icon="delete" title={l.locked ? tr('Lớp đang khoá, mở khoá rồi mới xoá được') : tr('Xoá lớp')} onClick={() => removeLayer(l.id)} disabled={!!l.locked} size={15} />
               </span>
             </li>
           )
@@ -142,7 +142,7 @@ function SplitResizer({ listRef }: { listRef: RefObject<HTMLUListElement | null>
       className="split-resize"
       onPointerDown={onPointerDown}
       onDoubleClick={() => useLayout.getState().setListH(null)}
-      title={tr('Kéo để chia chỗ cho danh sách lớp và bảng thuộc tính · nhấp đúp để về mặc định')}
+      title={tr('Kéo để chia chỗ cho danh sách lớp và bảng thuộc tính. Nhấp đúp để về mặc định.')}
       role="separator"
       aria-orientation="horizontal"
     />

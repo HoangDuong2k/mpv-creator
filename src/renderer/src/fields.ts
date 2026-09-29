@@ -24,15 +24,15 @@ const position: Field[] = [
 ]
 
 const ANCHORS: Array<[string, string]> = [
-  ['top-left', 'Trên – trái'],
-  ['top-center', 'Trên – giữa'],
-  ['top-right', 'Trên – phải'],
-  ['middle-left', 'Giữa – trái'],
+  ['top-left', 'Góc trên trái'],
+  ['top-center', 'Giữa cạnh trên'],
+  ['top-right', 'Góc trên phải'],
+  ['middle-left', 'Giữa cạnh trái'],
   ['center', 'Chính giữa'],
-  ['middle-right', 'Giữa – phải'],
-  ['bottom-left', 'Dưới – trái'],
-  ['bottom-center', 'Dưới – giữa'],
-  ['bottom-right', 'Dưới – phải']
+  ['middle-right', 'Giữa cạnh phải'],
+  ['bottom-left', 'Góc dưới trái'],
+  ['bottom-center', 'Giữa cạnh dưới'],
+  ['bottom-right', 'Góc dưới phải']
 ]
 
 export const FIELDS: { [K in LayerType]: Field[] } = {
@@ -68,7 +68,7 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
       label: 'Kiểu',
       options: [
         ['bars', 'Cột sóng'],
-        ['mirror', 'Cột đối xứng trên – dưới'],
+        ['mirror', 'Cột đối xứng trên dưới'],
         ['circle', 'Vòng tròn quanh ảnh'],
         ['area', 'Dải sóng mềm'],
         ['wave', 'Đường sóng âm (waveform)']
@@ -81,7 +81,7 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
     { kind: 'range', key: 'barCount', label: 'Số cột', min: 8, max: 180, step: 1, show: not('style', 'wave') },
     { kind: 'range', key: 'barGap', label: 'Khoảng cách cột', min: 0, max: 0.9, step: 0.01, show: is('style', 'bars', 'mirror', 'circle') },
     { kind: 'toggle', key: 'rounded', label: 'Bo tròn đầu cột', show: is('style', 'bars', 'mirror', 'circle') },
-    { kind: 'toggle', key: 'symmetric', label: 'Đối xứng trái – phải (bass ở giữa)', show: is('style', 'bars', 'mirror', 'area') },
+    { kind: 'toggle', key: 'symmetric', label: 'Đối xứng hai bên (bass ở giữa)', show: is('style', 'bars', 'mirror', 'area') },
     { kind: 'toggle', key: 'flip', label: 'Lật ngược (cột mọc xuống dưới)', show: is('style', 'bars') },
     { kind: 'toggle', key: 'flip', label: 'Lật ngược sóng', show: is('style', 'wave') },
     { kind: 'toggle', key: 'flip', label: 'Bass ở phía trên vòng', show: is('style', 'circle') },
@@ -147,7 +147,7 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
       kind: 'textarea',
       key: 'template',
       label: 'Nội dung',
-      hint: 'Biến tự đổi theo bài: {title} tên bài · {artist} ca sĩ · {album} · {index}/{count} số thứ tự · {next} bài kế tiếp · {elapsed} {duration} {remaining} thời gian · {playlist} tên project'
+      hint: 'Biến tự đổi theo bài: {title} tên bài, {artist} ca sĩ, {album}, {index}/{count} số thứ tự, {next} bài kế tiếp, {elapsed} {duration} {remaining} thời gian, {playlist} tên project'
     },
     { kind: 'select', key: 'font', label: 'Font', options: FONT_FAMILIES.map((f) => [f, f]) },
     { kind: 'toggle', key: 'bold', label: 'Chữ đậm (Be Vietnam Pro)' },

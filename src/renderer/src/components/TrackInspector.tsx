@@ -46,7 +46,7 @@ export function TrackInspector({ track }: { track: Track }): ReactNode {
       </div>
       {entry && (
         <p className="muted small">
-          {tr('Gốc {orig} · phát {len} · trong video từ {from} đến {to}', {
+          {tr('Gốc {orig}, phát {len}, trong video từ {from} đến {to}', {
             orig: formatTime(track.duration),
             len: formatTime(entry.length),
             from: formatTimePrecise(entry.start, withHours),
