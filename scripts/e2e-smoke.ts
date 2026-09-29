@@ -5,7 +5,7 @@
  *   (Windows: PVM_E2E_EXE="release/win-unpacked/Playlist Video Maker.exe")
  */
 import { spawnSync } from 'child_process'
-import { existsSync, mkdirSync, rmSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'fs'
 import { join, resolve } from 'path'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core'
 import { ffmpegPath } from '../src/main/ffmpeg'
@@ -726,6 +726,130 @@ async function main(): Promise<void> {
     await page.screenshot({ path: join(OUT, '8-english.png') })
     await page.locator('.lang-switch button', { hasText: 'VI' }).click()
     assert(await until(async () => (await exportBtn.textContent())?.includes('Xuất video') ?? false), 'bấm VI: trở lại tiếng Việt')
+
+    // Thư viện (cột trái): hiệu ứng, bộ lọc, chữ mẫu, ảnh/video — bấm để thêm, kéo vào timeline để đặt đúng chỗ
+    type L = { id: string; type: string; name: string; timing: { start: number; end: number | null }; props: Record<string, unknown> }
+    const layersNow = async (): Promise<L[]> => (await state()).layers as L[]
+    const undo = async (): Promise<void> => {
+      await page.evaluate('window.__pvm.store.getState().undo()')
+    }
+    // Cả video vừa khung timeline: các thanh đều nằm trong vùng nhìn thấy (không bị cột tên hàng che)
+    await page.getByRole('button', { name: 'Vừa khung' }).click()
+    await page.locator('.lib-tab[data-tab="effects"]').click()
+    assert(
+      await until(async () => (await page.locator('.lib-card img[src^="data:image/jpeg"]').count()) >= 20, 15000),
+      `thẻ Hiệu ứng: ảnh xem trước vẽ bằng engine (${await page.locator('.lib-card img[src^="data:image/jpeg"]').count()} mẫu)`
+    )
+    // Ảnh xem trước có nội dung (không phải ô trống một màu)
+    const thumbSpread = (await page.evaluate(`(() => new Promise((ok) => {
+      const img = document.querySelector('.lib-card[data-item="viz-rainbow"] img')
+      const c = document.createElement('canvas')
+      c.width = img.naturalWidth
+      c.height = img.naturalHeight
+      const g = c.getContext('2d')
+      g.drawImage(img, 0, 0)
+      const d = g.getImageData(0, 0, c.width, c.height).data
+      let lo = 255, hi = 0
+      for (let i = 0; i < d.length; i += 4 * 13) { lo = Math.min(lo, d[i + 1]); hi = Math.max(hi, d[i + 1]) }
+      ok(hi - lo)
+    }))()`)) as number
+    assert(thumbSpread > 60, `ảnh xem trước "Cột cầu vồng" có hình (độ tương phản ${thumbSpread})`)
+    const nLayers = (await layersNow()).length
+    await page.locator('.lib-card[data-item="pt-snow"]').click()
+    assert(
+      await until(async () => {
+        const top = (await layersNow()).at(-1)!
+        return top.type === 'particles' && top.props.style === 'snow' && top.timing.start === 0 && top.timing.end === null
+      }),
+      'bấm "Tuyết rơi": thêm lớp hạt tuyết cho cả video'
+    )
+    await undo()
+    assert(await until(async () => (await layersNow()).length === nLayers), 'Ctrl+Z bỏ lớp vừa thêm')
+    // Kéo chữ mẫu vào giữa bài thứ hai → hiện từ chỗ thả đến hết bài đó
+    await page.locator('.lib-tab[data-tab="text"]').click()
+    const neon = page.locator('.lib-card[data-item="txt-neon"]')
+    await neon.waitFor()
+    // Thả vào giữa clip nhạc thứ hai (cả thanh đang nằm trong vùng nhìn thấy)
+    await stableBox(audioClips.nth(1))
+    await neon.dragTo(audioClips.nth(1))
+    assert(
+      await until(async () => (await layersNow()).length === nLayers + 1),
+      'kéo "Chữ neon" từ thư viện thả vào timeline: thêm lớp chữ'
+    )
+    const neonLayer = (await layersNow()).at(-1)!
+    const t2 = (await state()).tracks
+    assert(
+      neonLayer.type === 'text' && neonLayer.props.font === 'Bungee' && neonLayer.timing.start > 30 && neonLayer.timing.end !== null && neonLayer.timing.end > neonLayer.timing.start && neonLayer.timing.end < 3 * 40 && t2.length === 3,
+      `chữ hiện từ chỗ thả đến hết bài thứ hai (${neonLayer.timing.start}s → ${neonLayer.timing.end}s)`
+    )
+    await undo()
+    // Bộ lọc: thả "Ấm áp" lên hàng của lớp bộ lọc đang có → đổi mẫu của lớp đó
+    await page.locator('.lib-tab[data-tab="filters"]').click()
+    const filterLayer = (await layersNow()).find((l) => l.type === 'filter')!
+    const filterBar = page.locator(`.tl-clip[data-hit="layer"][data-id="${filterLayer.id}"]`)
+    await filterBar.scrollIntoViewIfNeeded()
+    await stableBox(filterBar)
+    await page.locator('.lib-card[data-item="warm"]').dragTo(filterBar)
+    assert(
+      await until(async () => (await layersNow()).find((l) => l.id === filterLayer.id)?.props.preset === 'warm' && (await layersNow()).length === nLayers),
+      'thả bộ lọc "Ấm áp" lên hàng bộ lọc có sẵn: đổi mẫu, không thêm lớp'
+    )
+    await undo()
+    assert(await until(async () => (await layersNow()).find((l) => l.id === filterLayer.id)?.props.preset === 'bw'), 'Ctrl+Z trả lại bộ lọc đen trắng')
+    // Ảnh / video: nhập vào thư viện, kéo vào timeline → nền mới từ chỗ thả
+    await page.evaluate(`window.__pvm.store.getState().addLibraryMedia(${JSON.stringify([imgA])})`)
+    await page.locator('.lib-tab[data-tab="media"]').click()
+    const media = page.locator('.lib-card.media')
+    assert(await until(async () => (await media.count()) === 1 && ((await media.locator('img').getAttribute('src')) ?? '').startsWith('pvm://')), 'thẻ Ảnh/video: ảnh vừa nhập có ảnh thu nhỏ')
+    const bgN = (await layersNow()).filter((l) => l.type === 'background').length
+    await stableBox(audioClips.nth(0))
+    await media.dragTo(audioClips.nth(0))
+    assert(
+      await until(async () => {
+        const bgs = (await layersNow()).filter((l) => l.type === 'background')
+        return bgs.length === bgN + 1 && bgs.some((l) => l.props.src === imgA && l.timing.start > 0)
+      }),
+      'kéo ảnh từ thư viện vào timeline: thêm nền từ chỗ thả'
+    )
+    await undo()
+    await undo()
+    assert(await until(async () => (await layersNow()).filter((l) => l.type === 'background').length === bgN), 'Ctrl+Z bỏ nền vừa thêm')
+    await page.locator('.lib-tab[data-tab="music"]').click()
+    await page.screenshot({ path: join(OUT, '9-library.png') })
+
+    // Mẫu phong cách: áp EDM cho project (giữ nhạc) → Ctrl+Z; lưu phong cách thành mẫu riêng rồi xoá
+    const layersBefore = (await layersNow()).map((l) => l.id).join()
+    await page.getByRole('button', { name: 'Mẫu phong cách' }).click()
+    assert(await until(async () => (await page.locator('.tpl-card img[src^="data:image/jpeg"]').count()) >= 7, 15000), 'hộp Mẫu phong cách: 7 mẫu có ảnh xem trước')
+    await page.screenshot({ path: join(OUT, '10-styles.png') })
+    await page.locator('.tpl-card[data-template="edm"] .tpl-pick').click()
+    assert(
+      await until(async () => (await layersNow()).some((l) => l.type === 'visualizer' && l.props.style === 'mirror') && (await state()).tracks.length === 3),
+      'áp mẫu EDM: đổi cột sóng, giữ nguyên 3 bài nhạc'
+    )
+    await undo()
+    assert(await until(async () => (await layersNow()).map((l) => l.id).join() === layersBefore), 'Ctrl+Z trả lại phong cách cũ')
+    await page.getByRole('button', { name: 'Mẫu phong cách' }).click()
+    await page.getByRole('button', { name: 'Lưu phong cách hiện tại làm mẫu' }).click()
+    await page.locator('.tpl-save input').fill('Mẫu e2e')
+    await page.keyboard.press('Enter')
+    const customCards = page.locator('.tpl-custom .tpl-card')
+    assert(await until(async () => (await customCards.count()) === 1 && ((await customCards.textContent()) ?? '').includes('Mẫu e2e'), 5000), 'lưu phong cách hiện tại thành mẫu riêng')
+    const tplDir = join(OUT, 'userdata', 'templates')
+    assert(existsSync(tplDir) && readdirSync(tplDir).filter((f) => f.endsWith('.json')).length === 1, 'mẫu riêng được lưu thành file trong thư mục dữ liệu của app')
+    await customCards.hover()
+    await customCards.locator('.tpl-delete').click()
+    await customCards.locator('.tpl-delete').click()
+    assert(await until(async () => (await customCards.count()) === 0 && readdirSync(tplDir).length === 0), 'xoá mẫu riêng (bấm hai lần để xác nhận)')
+    await page.keyboard.press('Escape')
+    // Project mới: chọn mẫu Lofi → project trống với phong cách Lofi
+    page.once('dialog', (d) => void d.accept())
+    await page.getByRole('button', { name: 'Project mới' }).click()
+    await page.locator('.tpl-card[data-template="lofi"] .tpl-pick').click()
+    assert(
+      await until(async () => (await state()).tracks.length === 0 && (await layersNow()).some((l) => l.type === 'filter' && l.props.preset === 'lofi')),
+      'Project mới → chọn mẫu Lofi: project trống theo phong cách Lofi'
+    )
 
     // Lỡ thả một đường link vào cửa sổ: không chỗ nào nhận nên bị chặn, app không chuyển trang
     const dropBlocked = await page.evaluate(`(() => {

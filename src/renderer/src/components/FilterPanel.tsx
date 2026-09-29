@@ -76,7 +76,7 @@ export function FilterPanel({ layer }: { layer: Layer }): ReactNode {
             title={tr('Áp dụng mẫu "{name}"', { name: tr(p.name) })}
           >
             {thumbs[p.id] ? <img src={thumbs[p.id]} alt="" /> : <span className="filter-thumb-empty" />}
-            <span>{p.name}</span>
+            <span>{tr(p.name)}</span>
           </button>
         ))}
       </div>

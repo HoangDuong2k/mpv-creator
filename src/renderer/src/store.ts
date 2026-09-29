@@ -1,10 +1,15 @@
 import { produce } from 'immer'
 import { create } from 'zustand'
-import { createDefaultProject, createLayer, newId, normalizeProject } from '../../shared/defaults'
+import { createDefaultProject, createLayer, FULL_TIMING, newId, normalizeProject } from '../../shared/defaults'
 import { buildTimeline } from '../../shared/timeline'
 import type { BackgroundProps, Layer, LayerPropsMap, LayerTiming, LayerType, Project, ProjectSettings, Track } from '../../shared/types'
 import { dropSegments, insertionIndexAt, moveTracksOrder, pasteTimings, splitTiming } from './timelineModel'
 import { isLang, setLang, tr, type Lang } from '../../shared/i18n'
+import { mediaKind } from '../../shared/files'
+import { presetById } from '../../shared/filterPresets'
+import type { LayerPreset } from '../../shared/presets'
+import { applyTemplate, type StyleTemplate } from '../../shared/templates'
+import { formatTimePrecise } from '../../shared/time'
 
 /** Độ nét preview: giảm để phát mượt trên máy yếu (không ảnh hưởng video xuất) */
 export type PreviewQuality = 'high' | 'medium' | 'low'
@@ -52,7 +57,8 @@ export interface CtaSelection {
   index: number
 }
 
-export type DialogName = 'export' | 'settings' | 'chapters' | 'shortcuts' | null
+/** 'welcome': màn hình chào lúc mở app · 'new-project': chọn mẫu cho project mới · 'styles': áp / lưu mẫu phong cách */
+export type DialogName = 'export' | 'settings' | 'chapters' | 'shortcuts' | 'welcome' | 'new-project' | 'styles' | null
 
 export interface Toast {
   id: number
@@ -155,6 +161,20 @@ interface State {
   addDroppedBackgrounds(files: Array<{ path: string; kind: 'image' | 'video' }>, at: number): string[]
   /** Đổi ảnh / video của một lớp nền (thả file vào hàng của lớp đó) */
   setBackgroundSource(layerId: string, file: { path: string; kind: 'image' | 'video' }): void
+  /**
+   * Thêm lớp từ mẫu trong thư viện. Không có `at` (bấm +): hiện suốt video. Có `at` (kéo vào timeline):
+   * hiện từ chỗ thả đến hết bài đó; nút Đăng ký thì hiện một lần tại chỗ thả. Trả về id lớp mới.
+   */
+  addPresetLayer(preset: LayerPreset, at?: number): string
+  /** Thêm bộ lọc màu theo mẫu, ngay trên lớp nền (`at` như addPresetLayer); trả về id lớp mới */
+  addFilterLayer(presetId: string, at?: number): string | null
+  /** Đặt ảnh / video làm nền cho cả video (thay nguồn của lớp nền phủ cả video, chưa có thì thêm); trả về id lớp nền */
+  setMainBackground(file: { path: string; kind: 'image' | 'video' }): string
+  /** Nhập ảnh / video vào thư viện; trả về số file mới thêm */
+  addLibraryMedia(paths: string[]): number
+  removeLibraryMedia(path: string): void
+  /** Áp mẫu phong cách: thay các lớp, giữ nguyên nhạc — một bước hoàn tác */
+  applyStyle(template: StyleTemplate, keepBackground: boolean): void
   setLayersLocked(ids: string[], locked: boolean): void
   setLayersColor(ids: string[], color: string | undefined): void
   setLayersEnabled(ids: string[], enabled: boolean): void
@@ -635,6 +655,7 @@ export const useStore = create<State>((set, get) => ({
     get().update((p) => {
       // Ngay trên các lớp nền đang có (dưới bộ lọc, cột sóng, chữ…); đoạn sau nằm trên đoạn trước
       p.layers.splice(aboveBackground(p.layers), 0, ...layers)
+      addToLibrary(p, files.map((f) => f.path))
     })
     get().selectLayers(layers.map((l) => l.id))
     return layers.map((l) => l.id)
@@ -644,8 +665,82 @@ export const useStore = create<State>((set, get) => ({
     get().update((p) => {
       const l = p.layers.find((x) => x.id === layerId)
       if (l?.type === 'background') Object.assign(l.props, { mode: file.kind, src: file.path })
+      addToLibrary(p, [file.path])
     })
     get().selectLayer(layerId)
+  },
+
+  addPresetLayer(preset, at) {
+    const { project } = get()
+    const props = structuredClone(preset.props) as Record<string, unknown>
+    // Chữ viết sẵn trong mẫu ("Tiếp theo: {next}"…) theo ngôn ngữ giao diện
+    if (preset.type === 'text' && typeof props.template === 'string') props.template = tr(props.template)
+    let timing: LayerTiming = { ...FULL_TIMING }
+    if (at !== undefined && preset.type === 'cta') Object.assign(props, { schedule: 'times', times: formatTimePrecise(Math.max(0, at), at >= 3600) })
+    else if (at !== undefined) timing = dropTiming(project, at)
+    const layer = { ...createLayer(preset.type, props, preset.type === 'text' ? preset.name : undefined), timing } as Layer
+    get().update((p) => {
+      if (layer.type === 'background') p.layers.unshift(layer)
+      else if (layer.type === 'filter') p.layers.splice(aboveBackground(p.layers), 0, layer)
+      else p.layers.push(layer)
+    })
+    get().selectLayer(layer.id)
+    return layer.id
+  },
+
+  addFilterLayer(presetId, at) {
+    const preset = presetById(presetId)
+    if (!preset) return null
+    const layer = createLayer('filter', { ...preset.values, preset: preset.id, intensity: 1 })
+    layer.timing = at === undefined ? { ...FULL_TIMING } : dropTiming(get().project, at)
+    get().update((p) => {
+      p.layers.splice(aboveBackground(p.layers), 0, layer)
+    })
+    get().selectLayer(layer.id)
+    return layer.id
+  },
+
+  setMainBackground(file) {
+    const { project } = get()
+    // Lớp nền phủ cả video nằm dưới cùng (các đoạn nền theo bài giữ nguyên)
+    const main = project.layers.find((l) => l.type === 'background' && l.timing.start <= 0 && l.timing.end === null)
+    if (main) {
+      get().setBackgroundSource(main.id, file)
+      return main.id
+    }
+    const base = project.layers.find((l) => l.type === 'background')?.props as BackgroundProps | undefined
+    const layer = createLayer('background', { ...(base ? structuredClone(base) : {}), mode: file.kind, src: file.path })
+    get().update((p) => {
+      p.layers.unshift(layer)
+      addToLibrary(p, [file.path])
+    })
+    get().selectLayer(layer.id)
+    return layer.id
+  },
+
+  addLibraryMedia(paths) {
+    const have = new Set(get().project.library ?? [])
+    const fresh = [...new Set(paths)].filter((x) => !have.has(x) && (mediaKind(x) === 'image' || mediaKind(x) === 'video'))
+    if (fresh.length === 0) return 0
+    get().update((p) => {
+      addToLibrary(p, fresh)
+    })
+    return fresh.length
+  },
+
+  removeLibraryMedia(path) {
+    get().update((p) => {
+      p.library = (p.library ?? []).filter((x) => x !== path)
+    })
+  },
+
+  applyStyle(template, keepBackground) {
+    const next = applyTemplate(get().project, template, { keepBackground })
+    get().update((p) => {
+      p.layers = next.layers
+    })
+    const sel = defaultSelection(next)
+    get().setSelection(sel ? [sel] : [], [])
   },
 
   setLayersLocked(ids, locked) {
@@ -728,6 +823,19 @@ function prunedSelection(st: State, p: Project): Partial<State> {
     selectedTrackIds: st.selectedTrackIds.filter((id) => tracks.has(id)),
     selectedTrackId: st.selectedTrackId && tracks.has(st.selectedTrackId) ? st.selectedTrackId : null
   }
+}
+
+/** Ghi file vào thư viện ảnh / video của project (bỏ qua file đã có) */
+function addToLibrary(p: Project, paths: string[]): void {
+  const lib = p.library ?? (p.library = [])
+  for (const x of paths) if (!lib.includes(x)) lib.push(x)
+}
+
+/** Kéo mục thư viện vào timeline tại `at`: từ chỗ thả đến hết bài đó (chưa có nhạc: cả video) */
+function dropTiming(p: Project, at: number): LayerTiming {
+  const tl = buildTimeline(p.tracks, p.settings)
+  if (tl.entries.length === 0) return { ...FULL_TIMING }
+  return dropSegments(tl.entries, tl.total, at, 1)[0]
 }
 
 /** Tên file (không đuôi) làm tên lớp nền thả vào timeline */

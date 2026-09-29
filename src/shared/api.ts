@@ -1,8 +1,10 @@
 // Hợp đồng IPC giữa renderer (window.api) và main process.
 import type { EncoderId, Project, ProjectSettings, Track } from './types'
 import type { Lang } from './i18n'
+import type { StyleTemplate } from './templates'
 
-export type FileKind = 'audio' | 'image' | 'video' | 'project'
+/** 'media': ảnh hoặc video (nhập vào thư viện) */
+export type FileKind = 'audio' | 'image' | 'video' | 'media' | 'project'
 export type SaveKind = 'video' | 'project' | 'text'
 
 export interface AppInfo {
@@ -76,6 +78,10 @@ export interface PvmApi {
   shutdown(): Promise<void>
   /** Ngôn ngữ giao diện → main dùng cho hộp thoại, thông báo, lỗi */
   setLanguage(lang: Lang): Promise<void>
+  /** Mẫu phong cách người dùng đã lưu (mới nhất trước) */
+  listTemplates(): Promise<StyleTemplate[]>
+  saveTemplate(template: StyleTemplate): Promise<void>
+  deleteTemplate(id: string): Promise<void>
   readProject(path: string): Promise<Project>
   writeProject(path: string, project: Project): Promise<void>
   writeText(path: string, text: string): Promise<void>

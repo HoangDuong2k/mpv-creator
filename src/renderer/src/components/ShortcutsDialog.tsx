@@ -35,7 +35,8 @@ const GROUPS: Array<[string, Array<[string, string]>]> = [
       [trKey('Ctrl + lăn chuột'), trKey('Phóng to / thu nhỏ timeline')],
       [trKey('Giữ Shift khi kéo'), trKey('Tạm tắt bắt dính')],
       [trKey('Nhấp đúp hàng Đăng ký'), trKey('Thêm một lần hiện nút Đăng ký')],
-      [trKey('Thả file vào timeline'), trKey('Chèn nhạc, ảnh, video đúng chỗ thả')]
+      [trKey('Thả file vào timeline'), trKey('Chèn nhạc, ảnh, video đúng chỗ thả')],
+      [trKey('Kéo mục thư viện vào timeline'), trKey('Thêm hiệu ứng, bộ lọc, chữ mẫu, ảnh nền từ chỗ thả đến hết bài')]
     ]
   ],
   [

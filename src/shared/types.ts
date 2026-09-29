@@ -274,4 +274,6 @@ export interface Project {
   tracks: Track[]
   layers: Layer[]
   export: ExportSettings
+  /** Ảnh / video đã nhập vào thư viện (cột trái), kể cả chưa dùng — không ảnh hưởng hình video */
+  library?: string[]
 }

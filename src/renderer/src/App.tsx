@@ -2,7 +2,10 @@ import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { ChaptersDialog } from './components/ChaptersDialog'
 import { ExportDialog, ShutdownCountdown, useExportStore } from './components/ExportDialog'
 import { LayersPanel } from './components/LayersPanel'
-import { PlaylistPanel, importPaths } from './components/PlaylistPanel'
+import { LibraryPanel } from './components/LibraryPanel'
+import { importPaths } from './components/MusicTab'
+import { TemplatesDialog, welcomeEnabled } from './components/TemplatesDialog'
+import { previewFontsLoaded } from './previewRender'
 import { PreviewPanel, togglePreviewMax } from './components/PreviewPanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Timeline } from './components/Timeline'
@@ -52,14 +55,8 @@ async function openProject(path?: string): Promise<void> {
 }
 
 function setBackgroundFile(path: string, mode: 'image' | 'video'): void {
-  const { project, setLayerProps, addLayer, toast } = useStore.getState()
-  let bg = project.layers.find((l) => l.type === 'background')
-  if (!bg) {
-    addLayer('background')
-    bg = useStore.getState().project.layers.find((l) => l.type === 'background')!
-  }
-  setLayerProps(bg.id, { mode, src: path })
-  useStore.getState().selectLayer(bg.id)
+  const { setMainBackground, toast } = useStore.getState()
+  setMainBackground({ path, kind: mode })
   toast('info', mode === 'image' ? tr('Đã đặt ảnh nền: {file}', { file: fileName(path) }) : tr('Đã đặt video nền: {file}', { file: fileName(path) }))
 }
 
@@ -77,7 +74,7 @@ function TopBar(): ReactNode {
   const canRedo = useStore((s) => s.future.length > 0)
   const exporting = useExportStore((s) => s.running)
   const exportPct = useExportStore((s) => Math.round((s.progress?.progress ?? 0) * 100))
-  const { undo, redo, openDialog, newProject } = useStore.getState()
+  const { undo, redo, openDialog } = useStore.getState()
 
   return (
     <header className="topbar">
@@ -91,8 +88,7 @@ function TopBar(): ReactNode {
           title={tr('Project mới')}
           onClick={() => {
             if (!confirmDiscard()) return
-            player.pause()
-            newProject()
+            openDialog('new-project')
           }}
         />
         <IconButton icon="folder" title={tr('Mở project (Ctrl+O)')} onClick={() => openProject()} />
@@ -103,6 +99,10 @@ function TopBar(): ReactNode {
         <span className="sep" />
         <IconButton icon="tune" title={tr('Cài đặt project')} onClick={() => openDialog('settings')} />
         <IconButton icon="help" title={tr('Phím tắt và thao tác chuột (?)')} onClick={() => openDialog('shortcuts')} />
+        <span className="sep" />
+        <button type="button" className="btn small styles-btn" onClick={() => openDialog('styles')} title={tr('Mẫu phong cách: áp cho project này (giữ nhạc) hoặc lưu phong cách đang làm')}>
+          <Icon name="palette" size={16} /> {tr('Mẫu phong cách')}
+        </button>
       </div>
       <div className="project-name" title={tr('Nhấn để đổi tên')} onClick={() => openDialog('settings')}>
         {tr(name)}
@@ -155,7 +155,7 @@ function Workspace(): ReactNode {
       className={`workspace${leftOpen ? '' : ' left-collapsed'}`}
       style={{ gridTemplateColumns: `${leftOpen ? leftW : RAIL_W}px minmax(0, 1fr) ${rightOpen ? rightW : RAIL_W}px`, ['--left-w' as string]: `${leftW}px` }}
     >
-      {leftOpen ? <PlaylistPanel /> : <CollapsedRail side="left" title="Playlist" icon="music" />}
+      {leftOpen ? <LibraryPanel /> : <CollapsedRail side="left" title={tr('Thư viện')} icon="music" />}
       <PreviewPanel />
       {rightOpen ? <LayersPanel /> : <CollapsedRail side="right" title={tr('Lớp hiệu ứng')} icon="tune" />}
       {/* Thông báo ở góc dưới bên trái vùng làm việc: không che preview hay timeline */}
@@ -206,6 +206,7 @@ export function App(): ReactNode {
     void (async () => {
       const info = await api.info()
       await loadFonts(info.fontsDir)
+      previewFontsLoaded()
       assets.onChange()
       useStore.getState().bumpFeatures()
       const files = await api.initialFiles()
@@ -215,7 +216,7 @@ export function App(): ReactNode {
         if (saved && saved.tracks.length > 0) {
           useStore.getState().loadProject(saved, null, true)
           useStore.getState().toast('info', tr('Đã khôi phục phiên làm việc trước'))
-        }
+        } else if (welcomeEnabled() && !useStore.getState().dialog) useStore.getState().openDialog('welcome')
       }
     })()
   }, [])
@@ -293,8 +294,8 @@ export function App(): ReactNode {
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes('Files')) return
         e.preventDefault()
-        // Trên timeline: timeline tự hiện vạch vị trí thả, không phủ cả cửa sổ
-        setDragging(!(e.target as HTMLElement).closest?.('.timeline'))
+        // Trên timeline: timeline tự hiện vạch vị trí thả; thẻ Ảnh/video của thư viện: nhập vào thư viện — không phủ cả cửa sổ
+        setDragging(!(e.target as HTMLElement).closest?.('.timeline, .media-drop'))
       }}
       onDragLeave={(e) => {
         if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false)
@@ -318,6 +319,7 @@ export function App(): ReactNode {
         {dialog === 'settings' && <SettingsDialog />}
         {dialog === 'chapters' && <ChaptersDialog />}
         {dialog === 'shortcuts' && <ShortcutsDialog />}
+        {(dialog === 'welcome' || dialog === 'new-project' || dialog === 'styles') && <TemplatesDialog mode={dialog} onOpenProject={() => void openProject()} />}
       </Fragment>
       {/* Ngoài Fragment: đổi ngôn ngữ không làm đếm ngược tắt máy bắt đầu lại */}
       <ShutdownCountdown />

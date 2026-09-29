@@ -17,7 +17,14 @@ export function thumbSource(layer: Layer): { path: string; video: boolean } | nu
 
 /** URL ảnh thu nhỏ (pvm://…) cho thanh của lớp; video thì có sau khi trích xong dải khung hình */
 export function useThumbUrl(layer: Layer): string | null {
-  const source = thumbSource(layer)
+  return useMediaThumbUrl(thumbSource(layer))
+}
+
+/**
+ * URL ảnh thu nhỏ của một file ảnh / video (thư viện, thanh timeline). Video: dải 8 khung hình liền nhau,
+ * khung đầu nằm ở mép trái.
+ */
+export function useMediaThumbUrl(source: { path: string; video: boolean } | null): string | null {
   const key = source ? `${source.video ? 'v' : 'i'}|${source.path}` : ''
   const [strip, setStrip] = useState<{ key: string; url: string | null } | null>(null)
   useEffect(() => {
@@ -34,4 +41,18 @@ export function useThumbUrl(layer: Layer): string | null {
   if (!source) return null
   if (!source.video) return window.api.fileUrl(source.path)
   return strip?.key === key ? strip.url : null
+}
+
+/** Các file ảnh / video mà lớp đang dùng (để liệt kê trong thư viện) */
+export function layerMediaPaths(layer: Layer): string[] {
+  const p = layer.props as unknown as Record<string, unknown>
+  const out: string[] = []
+  const add = (v: unknown): void => {
+    if (typeof v === 'string' && v) out.push(v)
+  }
+  if (layer.type === 'background' && (p.mode === 'image' || p.mode === 'video')) add(p.src)
+  if (layer.type === 'image' && p.source === 'file') add(p.src)
+  if (layer.type === 'visualizer' && p.centerImage === 'custom') add(p.centerSrc)
+  if (layer.type === 'cta' && p.preset === 'image') add(p.src)
+  return out
 }

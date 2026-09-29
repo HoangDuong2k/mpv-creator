@@ -6,7 +6,6 @@ import { errorText, useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { Icon, IconButton, NumberInput } from './ui'
 import { tr } from '../../../shared/i18n'
-import { CollapseButton, ColumnResizer } from './PanelFrame'
 
 const api = window.api
 
@@ -22,7 +21,8 @@ export async function importPaths(paths: string[]): Promise<void> {
   }
 }
 
-export function PlaylistPanel(): ReactNode {
+/** Thẻ Nhạc của cột Thư viện: danh sách bài (kéo để đổi thứ tự), thêm nhạc, timestamp YouTube */
+export function MusicTab(): ReactNode {
   const tracks = useStore((s) => s.project.tracks)
   const status = useStore((s) => s.trackStatus)
   const currentTime = useStore((s) => s.currentTime)
@@ -37,16 +37,12 @@ export function PlaylistPanel(): ReactNode {
   const current = timeline.entries.find((e) => currentTime >= e.displayStart && currentTime < e.displayEnd)
 
   return (
-    <aside className="panel left">
-      <ColumnResizer side="left" />
-      <div className="panel-head">
-        <h3>Playlist</h3>
-        <span className="panel-head-tools">
-          <button type="button" className="btn small primary" onClick={async () => importPaths(await api.openFiles('audio', true))}>
-            <Icon name="add" size={16} /> {tr('Thêm nhạc')}
-          </button>
-          <CollapseButton side="left" />
-        </span>
+    <>
+      <div className="lib-bar">
+        <span className="lib-bar-title">Playlist</span>
+        <button type="button" className="btn small primary" onClick={async () => importPaths(await api.openFiles('audio', true))}>
+          <Icon name="add" size={16} /> {tr('Thêm nhạc')}
+        </button>
       </div>
       {tracks.length === 0 ? (
         <div className="empty-drop">
@@ -120,7 +116,7 @@ export function PlaylistPanel(): ReactNode {
           <Icon name="list" size={16} /> {tr('Timestamp YouTube')}
         </button>
       </div>
-    </aside>
+    </>
   )
 }
 

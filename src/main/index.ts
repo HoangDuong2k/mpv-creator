@@ -17,6 +17,8 @@ import { asarUnpacked, defaultCacheDir } from './paths'
 import { registerFileProtocol, registerSchemePrivileges } from './protocol'
 import { shutdownCommand, type ShellCommand } from './shutdown'
 import { Workspace } from './workspace'
+import { TemplateStore } from './templates'
+import type { StyleTemplate } from '../shared/templates'
 import { isLang, setLang, tr, trKey } from '../shared/i18n'
 
 registerSchemePrivileges()
@@ -30,6 +32,7 @@ const cacheDir = process.env.PVM_USER_DATA ? join(app.getPath('userData'), 'cach
 const workspace = new Workspace(cacheDir)
 const fontsDir = app.isPackaged ? join(process.resourcesPath, 'fonts') : join(app.getAppPath(), 'resources', 'fonts')
 const autosavePath = join(app.getPath('userData'), 'autosave.pvm.json')
+const templates = new TemplateStore(join(app.getPath('userData'), 'templates'))
 let mainWindow: BrowserWindow | null = null
 /** Thoát để tắt máy: không hỏi "Project chưa lưu" (phiên làm việc đã được tự lưu) */
 let quittingForShutdown = false
@@ -85,6 +88,11 @@ const FILTERS: Record<FileKind, Electron.FileFilter[]> = {
   audio: [{ name: trKey('Âm thanh'), extensions: AUDIO_EXTENSIONS }],
   image: [{ name: trKey('Ảnh'), extensions: IMAGE_EXTENSIONS }],
   video: [{ name: 'Video', extensions: VIDEO_EXTENSIONS }],
+  media: [
+    { name: trKey('Ảnh và video'), extensions: [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS] },
+    { name: trKey('Ảnh'), extensions: IMAGE_EXTENSIONS },
+    { name: 'Video', extensions: VIDEO_EXTENSIONS }
+  ],
   project: [{ name: 'Project Playlist Video', extensions: ['json'] }]
 }
 
@@ -307,6 +315,10 @@ function registerIpc(): void {
   })
 
   handle('shell:show-item', (path: string) => shell.showItemInFolder(path))
+
+  handle('templates:list', () => templates.list())
+  handle('templates:save', (template: StyleTemplate) => templates.save(template))
+  handle('templates:delete', (id: string) => templates.remove(id))
 }
 
 function createWindow(): void {

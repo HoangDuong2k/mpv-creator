@@ -205,7 +205,8 @@ export function createDefaultProject(): Project {
       quality: 'balanced',
       audioBitrate: 256,
       outputPath: ''
-    }
+    },
+    library: []
   }
 }
 
@@ -218,6 +219,7 @@ export function normalizeProject(p: Project): Project {
     settings: { ...def.settings, ...p.settings, transition: { ...def.settings.transition, ...p.settings?.transition } },
     export: { ...def.export, ...p.export },
     tracks: (p.tracks ?? []).map((t) => ({ ...t, trimStart: t.trimStart ?? 0, trimEnd: t.trimEnd ?? 0, album: t.album ?? '', artist: t.artist ?? '' })),
+    library: Array.isArray(p.library) ? p.library.filter((x): x is string => typeof x === 'string' && x.length > 0) : [],
     layers: (p.layers ?? [])
       .filter((l) => l && l.type in LAYER_DEFAULTS)
       .map((l) => ({ ...l, timing: { ...FULL_TIMING, ...l.timing }, props: { ...structuredClone(LAYER_DEFAULTS[l.type]), ...l.props } }) as Layer)

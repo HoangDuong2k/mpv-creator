@@ -57,6 +57,7 @@ import {
 } from '../timelineModel'
 import { mediaKind } from '../../../shared/files'
 import { deleteSelection, dropFiles, splitAtPlayhead } from '../timelineActions'
+import { dropLibraryItem, endLibraryDrag, libraryDropTip, libraryItemOf } from '../libraryActions'
 import { ctaMenu, laneMenu, layerMenu, trackMenu } from '../contextMenus'
 import { ContextMenu, type MenuState } from './ContextMenu'
 import { useThumbUrl } from '../thumbs'
@@ -632,10 +633,20 @@ export function Timeline(): ReactNode {
   const lastDropTip = useRef('')
 
   const onDragOver = (e: DragEvent<HTMLElement>): void => {
-    if (!e.dataTransfer.types.includes('Files')) return
+    // Mục kéo từ thư viện (hiệu ứng, bộ lọc, chữ mẫu, ảnh / video) hoặc file kéo từ ngoài vào
+    const lib = libraryItemOf(e)
+    if (!lib && !e.dataTransfer.types.includes('Files')) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
     const { t, snapped, targetLayerId } = dropInfo(e)
+    if (lib) {
+      const text = libraryDropTip(lib, t, targetLayerId)
+      const key = `lib|${t}|${snapped}|${text}`
+      if (key === lastDropTip.current) return
+      lastDropTip.current = key
+      setVisual({ snapT: snapped, tip: { t, text }, dropT: t })
+      return
+    }
     // Loại file theo MIME (tên file chưa đọc được khi đang kéo)
     const items = [...e.dataTransfer.items].filter((it) => it.kind === 'file')
     const audio = items.filter((it) => it.type.startsWith('audio/')).length
@@ -670,6 +681,16 @@ export function Timeline(): ReactNode {
   const onDrop = (e: DragEvent<HTMLElement>): void => {
     lastDropTip.current = ''
     setVisual(null)
+    const lib = libraryItemOf(e)
+    if (lib) {
+      e.preventDefault()
+      e.stopPropagation()
+      const { t, targetLayerId } = dropInfo(e)
+      endLibraryDrag()
+      dropLibraryItem(lib, t, targetLayerId)
+      rootRef.current?.focus({ preventScroll: true })
+      return
+    }
     if (!e.dataTransfer.files.length) return
     const paths = [...e.dataTransfer.files].map((f) => window.api.pathForFile(f)).filter(Boolean)
     // Một file project (.json): để cửa sổ mở project như khi thả vào chỗ khác

@@ -7,6 +7,8 @@
 | Nhóm | Có gì |
 |---|---|
 | **Playlist** | Kéo thả file/thư mục nhạc (MP3, WAV, FLAC, M4A, OGG…), đọc tên bài/ca sĩ/ảnh bìa từ tag, sắp xếp bằng kéo thả, sửa tên, cắt đầu/cuối bài |
+| **Thư viện** (cột trái) | 5 thẻ như CapCut: **Nhạc** (playlist), **Ảnh/video** (nhập hoặc kéo thả vào, ảnh thu nhỏ, đánh dấu file đang dùng; chuột phải: đặt làm nền cả video, làm nền từ đầu phát, làm logo, xoá khỏi thư viện), **Hiệu ứng** (24 mẫu: cột sóng, hạt bay, nháy sáng, lớp phủ, nút Đăng ký), **Bộ lọc** (12 mẫu), **Chữ** (11 mẫu: tên bài, ca sĩ, bài tiếp theo, tên kênh, chữ neon…). Ảnh xem trước do chính engine xuất video vẽ trên cảnh mẫu với nhạc giả lập, **rê chuột để xem chuyển động**. **Bấm** để thêm cho cả video; **kéo vào timeline** để đặt từ chỗ thả đến hết bài đó (nút Đăng ký: hiện một lần tại chỗ thả; bộ lọc thả lên hàng bộ lọc có sẵn thì đổi mẫu của lớp đó) |
+| **Mẫu phong cách** | 7 mẫu có sẵn — Mặc định, Lofi, EDM, Ballad, Bolero, Thư giãn, Tối giản — gồm nền, bộ lọc, cột sóng, chữ, hiệu ứng phối sẵn. Áp cho project đang làm mà **giữ nguyên nhạc** (tuỳ chọn giữ ảnh / video nền của mình, Ctrl+Z để hoàn tác); **lưu phong cách đang làm thành mẫu riêng** để dùng lại cho video sau. **Màn hình chào** khi mở app và nút *Project mới* cho chọn mẫu để bắt đầu |
 | **Timeline kiểu CapCut** | Thước thời gian, đầu phát kéo để tua, Ctrl + lăn chuột để zoom, "Vừa khung"; **hàng nhạc** có sóng âm (kéo clip đổi thứ tự, kéo mép để cắt đầu/cuối, crossfade hiện giữa các clip); **mỗi lớp một hàng**: kéo thân thanh để dời (thanh kéo dài đến hết video thì dời điểm bắt đầu), kéo mép để chọn khoảng thời gian hiện, núm hiện dần/ẩn dần; các lần hiện nút Đăng ký kéo thả được, nhấp đúp để thêm, Delete để xoá; bắt dính vào đầu phát, mép clip, ranh giới bài (Shift để tắt). **Ctrl+B tách thanh** tại đầu phát (các đoạn nằm chung một hàng), **khoá lớp** để không kéo / tách / xoá nhầm, đổi **màu hàng**. Thao tác như CapCut: **thả nhạc, ảnh, video thẳng vào timeline** đúng chỗ muốn (nhạc chèn vào vị trí đó; ảnh / video thành nền từ điểm thả, nhiều ảnh thì mỗi ảnh một bài, chuyển cảnh mờ dần; thả vào hàng của một lớp nền thì thay ảnh của lớp đó), **kéo khung trên vùng trống** hoặc **Ctrl/Shift + nhấp** để chọn nhiều thanh và clip nhạc, kéo cả nhóm, **Ctrl+C / Ctrl+V** chép – dán cả lớp lẫn bài (bài chèn vào ranh giới gần đầu phát, lớp đi theo bài), **Delete** xoá cả nhóm; **chuột phải** mở menu thao tác (tách, chép / dán, nhân bản, khoá, ẩn, đổi màu, lên / xuống lớp, xoá); thanh nền ảnh / video và logo hiện **ảnh thu nhỏ** như cuộn phim |
 | **Âm thanh** | Crossfade / khoảng lặng / nối liền giữa các bài, fade đầu–cuối video; preview phát theo từng đoạn nên đổi thứ tự, cắt bài là nghe được ngay |
 | **Nền** | Gradient, màu đơn, ảnh (làm mờ được), video lặp, ảnh bìa bài hát tự đổi theo bài; zoom đập theo bass, rung theo beat, Ken Burns |
@@ -59,7 +61,7 @@ Bộ cài và ảnh chụp các bước kiểm thử nằm trong mục *Artifact
 - **Bộ cài:** giao diện tiếng Việt, cài cho người dùng hiện tại (không cần quyền Administrator), tạo lối tắt ở Desktop và Start Menu. Bản **Portable** chạy thẳng không cần cài.
 - **Cảnh báo SmartScreen:** lần đầu mở, Windows có thể báo *"Windows protected your PC"* vì app chưa được ký số. Bấm *More info → Run anyway*. Muốn hết cảnh báo cần chứng chỉ ký số code (OV/EV hoặc Azure Trusted Signing), cấu hình trong `electron-builder.yml`.
 - **Dữ liệu:**
-  - Project tự lưu ở `%APPDATA%\Playlist Video Maker`.
+  - Project tự lưu và các mẫu phong cách bạn lưu (thư mục `templates`) ở `%APPDATA%\Playlist Video Maker`.
   - Bộ nhớ đệm âm thanh ở `%LOCALAPPDATA%\PlaylistVideoMaker\Cache`, không nằm trong Roaming. Xem dung lượng, mở thư mục hoặc xoá ở *Cài đặt project → Bộ nhớ đệm âm thanh*. Gỡ app sẽ xoá luôn thư mục này (cập nhật phiên bản thì giữ lại).
 - **Card đồ hoạ:** app tự dò và cho chọn NVIDIA (NVENC), Intel (Quick Sync), AMD (AMF) khi xuất video; máy không có thì dùng CPU (x264).
 - **File đang mở ở chương trình khác:** nếu file MP4 định ghi đè đang mở trong trình xem video (Windows khoá file), app báo ngay trước khi render thay vì báo lỗi sau khi render xong.
@@ -68,23 +70,27 @@ Bộ cài và ảnh chụp các bước kiểm thử nằm trong mục *Artifact
 
 1. Kéo thả file nhạc (hoặc cả thư mục) vào cửa sổ. App phân tích âm thanh và ghép bản mix trong nền.
 2. Dùng **timeline** ở dưới: thả thêm nhạc, ảnh, video thẳng vào đúng chỗ trên timeline; kéo clip nhạc để đổi thứ tự, kéo mép để cắt; kéo thanh của từng lớp (flicker, cột sóng, chữ…) để chọn lúc nó xuất hiện; kéo các ô đỏ ở hàng "Đăng ký / Like" để đặt thời điểm hiện nút.
-3. Nhấp vào cột sóng, chữ, nút Đăng ký… ngay trên khung preview (hoặc chọn trong danh sách **Lớp hiệu ứng**) rồi kéo để di chuyển, kéo ô vuông ở góc/cạnh để đổi kích thước; màu sắc và các thông số khác chỉnh ở bảng bên phải. Khi đang dừng, lớp đang chọn luôn hiện (kể cả nút Đăng ký ngoài giờ xuất hiện) để dễ canh. Nút **Thêm lớp** để thêm hiệu ứng (mỗi loại thêm được nhiều lần, mỗi lớp một khoảng thời gian riêng); thả một ảnh/video vào cửa sổ để đặt làm nền.
-4. Chỉnh màu như app ảnh: **Thêm lớp → Bộ lọc màu**, bấm một ảnh mẫu, kéo *Cường độ*, rồi chọn *Chỉ lọc ảnh nền* hoặc *Lọc cả khung hình*.
+3. Chọn nhanh cả bộ nền, cột sóng, chữ, hiệu ứng bằng **Mẫu phong cách** (thanh trên cùng) — nhạc giữ nguyên. Thêm từng thứ từ **Thư viện** bên trái: bấm một mẫu để thêm cho cả video, hoặc kéo thẳng vào timeline để đặt đúng đoạn; ảnh / video nhập vào thẻ *Ảnh/video* rồi kéo vào timeline làm nền cho từng đoạn.
+4. Nhấp vào cột sóng, chữ, nút Đăng ký… ngay trên khung preview (hoặc chọn trong danh sách **Lớp hiệu ứng**) rồi kéo để di chuyển, kéo ô vuông ở góc/cạnh để đổi kích thước; màu sắc và các thông số khác chỉnh ở bảng bên phải. Khi đang dừng, lớp đang chọn luôn hiện (kể cả nút Đăng ký ngoài giờ xuất hiện) để dễ canh. Nút **Thêm lớp** cũng thêm được mọi loại hiệu ứng (mỗi loại thêm được nhiều lần, mỗi lớp một khoảng thời gian riêng); thả một ảnh/video vào cửa sổ để đặt làm nền. Chỉnh màu như app ảnh: thẻ **Bộ lọc** của thư viện (hoặc *Thêm lớp → Bộ lọc màu*), kéo *Cường độ*, rồi chọn *Chỉ lọc ảnh nền* hoặc *Lọc cả khung hình*.
 5. **Space** (hoặc nhấp đúp lên preview) phát/dừng, **← →** tua 5 giây (Shift: 30 giây), **Home / End** về đầu/cuối, **Ctrl+Z / Ctrl+Y** hoàn tác/làm lại, **Ctrl+S** lưu, **Ctrl+E** xuất; trên timeline: **Ctrl+B** tách thanh tại đầu phát, **Ctrl/Shift + nhấp** hoặc **kéo khung** trên vùng trống để chọn nhiều thanh và clip nhạc, **Ctrl+A** chọn hết, **Esc** bỏ chọn, **Ctrl+C / Ctrl+V** chép – dán, **Ctrl + lăn chuột** để zoom, **Delete** xoá mục đang chọn; **F** tập trung preview, **?** xem toàn bộ phím tắt.
 6. **Xuất video** → chọn nơi lưu → *Xuất thử 15 giây* để kiểm tra, rồi *Xuất video*. Để máy xuất video dài qua đêm thì tích *Tắt máy khi xuất xong*. Nếu việc xuất bị ngắt giữa chừng, cứ xuất lại vào đúng file đó: app tự tiếp tục từ chỗ đã dừng (miễn là chưa sửa project).
-7. **Timestamp YouTube** (dưới playlist) → Copy → dán vào mô tả video.
+7. **Timestamp YouTube** (dưới playlist, thẻ *Nhạc*) → Copy → dán vào mô tả video.
 
 ## Kiến trúc
 
 ```
 src/
-  shared/     Kiểu dữ liệu project, timeline (vị trí từng bài), định dạng file phân tích, font
-  engine/     Engine vẽ một frame từ (project, thời điểm t) — dùng chung cho preview và export
-  main/       Electron main: phân tích âm thanh (FFT, beat), trộn âm thanh theo đoạn, export song song, IPC
+  shared/     Kiểu dữ liệu project, timeline (vị trí từng bài), định dạng file phân tích, font,
+              mẫu hiệu ứng / chữ của thư viện (presets.ts), mẫu phong cách (templates.ts)
+  engine/     Engine vẽ một frame từ (project, thời điểm t) — dùng chung cho preview và export;
+              demoAudio.ts: nhạc giả lập để vẽ ảnh xem trước trong thư viện
+  main/       Electron main: phân tích âm thanh (FFT, beat), trộn âm thanh theo đoạn, export song song, IPC,
+              templates.ts (mẫu phong cách người dùng lưu trong thư mục dữ liệu của app)
     audio/      analyze.ts (phổ 64 dải, waveform, beat — 60 frame/giây + PCM đã giải mã), mix.ts (đọc đoạn bất kỳ của bản mix)
     export/     exporter.ts (chia đoạn, ghép), worker.ts (render bằng Skia + FFmpeg), encoders.ts
   preload/    Cầu nối an toàn window.api
-  renderer/   Giao diện React: playlist, preview, timeline, lớp hiệu ứng, hộp thoại xuất
+  renderer/   Giao diện React: thư viện (nhạc, ảnh/video, hiệu ứng, bộ lọc, chữ), preview, timeline,
+              lớp hiệu ứng, mẫu phong cách, hộp thoại xuất
 scripts/      cli.ts (render không cần giao diện), e2e-smoke.ts, make-test-audio.sh
 tests/        Unit test (vitest)
 ```
@@ -101,9 +107,9 @@ tests/        Unit test (vitest)
 Các lệnh dưới đây chạy được trên Windows, macOS và Linux; chỉ cần Node.js, không cần cài FFmpeg hay bash.
 
 ```bash
-npm test                       # unit test: timeline (tách, chọn nhiều, chép/dán, khoá), FFT, beat, lịch CTA, ghép âm thanh bằng FFmpeg thật, bộ lọc màu, xuất tiếp khi bị ngắt, bản dịch tiếng Anh, đường dẫn Windows
+npm test                       # unit test: timeline (tách, chọn nhiều, chép/dán, khoá), FFT, beat, lịch CTA, ghép âm thanh bằng FFmpeg thật, bộ lọc màu, xuất tiếp khi bị ngắt, mẫu thư viện / mẫu phong cách, bản dịch tiếng Anh, đường dẫn Windows
 npm run typecheck
-npm run build && npm run e2e   # mở app thật, nhập nhạc, phát, tua, kéo thả timeline, tách / chọn nhiều / chép dán / khoá, undo, bộ lọc màu, đổi ngôn ngữ, xuất thử video
+npm run build && npm run e2e   # mở app thật, nhập nhạc, phát, tua, kéo thả timeline, tách / chọn nhiều / chép dán / khoá, undo, bộ lọc màu, kéo mục thư viện vào timeline, áp / lưu mẫu phong cách, đổi ngôn ngữ, xuất thử video
 npm run test-audio             # tạo 3 bài nhạc tổng hợp để thử (test-output/audio)
 npm run cli -- render --audio a.mp3 b.mp3 --out video.mp4 [--start 0 --duration 20]
 npm run cli -- frame --audio a.mp3 --time 12.5 --out frame.png
