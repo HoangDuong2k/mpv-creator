@@ -10,6 +10,20 @@ import { fileFingerprint } from './media'
 /** Giới hạn dung lượng cache âm thanh đã giải mã (PCM) — xoá bài lâu không dùng khi vượt */
 const CACHE_LIMIT_BYTES = 10 * 1024 ** 3
 
+/** Thư mục con mà các bản cũ tạo trong userData/cache */
+const LEGACY_CACHE_SUBDIRS = ['pcm', 'analysis', 'mix', 'covers', 'thumbs']
+
+/**
+ * Xoá cache âm thanh ở vị trí cũ (userData/cache). Chỉ xoá các thư mục con của app, không xoá cả thư mục:
+ * Windows (và macOS) không phân biệt hoa/thường nên "cache" chính là thư mục "Cache" — bộ nhớ đệm HTTP
+ * mà Chromium đang dùng.
+ */
+export async function removeLegacyCache(userData: string): Promise<void> {
+  for (const sub of LEGACY_CACHE_SUBDIRS) {
+    await rm(join(userData, 'cache', sub), { recursive: true, force: true, maxRetries: 3 }).catch(() => undefined)
+  }
+}
+
 /** Quản lý thư mục cache: dữ liệu phân tích, âm thanh đã giải mã, ảnh bìa. */
 export class Workspace {
   constructor(readonly cacheDir: string) {}

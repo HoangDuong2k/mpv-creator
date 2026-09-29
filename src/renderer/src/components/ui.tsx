@@ -250,12 +250,3 @@ export function ColorInput({ value, onChange }: { value: string; onChange: (v: s
 export function fileName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path
 }
-
-/** Rút gọn đường dẫn dài: giữ phần cuối (tên file) — "…/Videos/playlist.mp4" */
-export function shortPath(path: string, max = 48): string {
-  if (path.length <= max) return path
-  const parts = path.split(/[\\/]/)
-  let out = parts.pop() ?? ''
-  while (parts.length && out.length + parts[parts.length - 1].length + 1 < max - 2) out = `${parts.pop()}/${out}`
-  return `…/${out}`
-}

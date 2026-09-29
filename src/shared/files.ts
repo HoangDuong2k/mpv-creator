@@ -16,6 +16,16 @@ export function safeFileName(name: string, fallback = 'playlist'): string {
   return s
 }
 
+/** Rút gọn đường dẫn dài: giữ phần cuối (tên file) — "…/Videos/playlist.mp4", trên Windows "…\Videos\playlist.mp4" */
+export function shortPath(path: string, max = 48): string {
+  if (path.length <= max) return path
+  const sep = path.includes('\\') ? '\\' : '/'
+  const parts = path.split(/[\\/]/)
+  let out = parts.pop() ?? ''
+  while (parts.length && out.length + parts[parts.length - 1].length + 1 < max - 2) out = `${parts.pop()}${sep}${out}`
+  return `…${sep}${out}`
+}
+
 /** Đảm bảo file có đúng đuôi mong muốn: "video.final" → "video.final.mp4" */
 export function withExtension(path: string, ext: string): string {
   const want = ext.startsWith('.') ? ext : `.${ext}`

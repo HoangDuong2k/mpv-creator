@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import type { EncoderOption, ExportProgressEvent, ExportResultInfo } from '../../../shared/api'
-import { safeFileName } from '../../../shared/files'
+import { safeFileName, shortPath } from '../../../shared/files'
 import { formatTime } from '../../../shared/time'
 import type { ExportSettings } from '../../../shared/types'
 import { player } from '../engineHost'
 import { errorText, useTimeline } from '../hooks'
 import { useStore } from '../store'
-import { Icon, Modal, Row, fileName, shortPath } from './ui'
+import { Icon, Modal, Row, fileName } from './ui'
 import { getLang, tr, trKey } from '../../../shared/i18n'
 
 const api = window.api

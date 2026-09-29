@@ -1,6 +1,6 @@
 import { spawn } from 'child_process'
 import { existsSync, statSync } from 'fs'
-import { mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
+import { mkdir, readFile, readdir, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, powerSaveBlocker, shell, type IpcMainInvokeEvent } from 'electron'
 import type { AppInfo, AudioSpec, EncoderOption, EventMap, FileKind, SaveKind } from '../shared/api'
@@ -16,7 +16,7 @@ import { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, isAudioFile, read
 import { asarUnpacked, defaultCacheDir } from './paths'
 import { registerFileProtocol, registerSchemePrivileges } from './protocol'
 import { shutdownCommand, type ShellCommand } from './shutdown'
-import { Workspace } from './workspace'
+import { Workspace, removeLegacyCache } from './workspace'
 import { TemplateStore } from './templates'
 import type { StyleTemplate } from '../shared/templates'
 import { isLang, setLang, tr, trKey } from '../shared/i18n'
@@ -27,8 +27,9 @@ registerSchemePrivileges()
 if (process.env.PVM_USER_DATA) app.setPath('userData', process.env.PVM_USER_DATA)
 
 // Cache lớn (âm thanh đã giải mã) để ở thư mục cache của hệ điều hành — trên Windows là %LOCALAPPDATA%,
-// không nằm trong AppData\Roaming. Khi kiểm thử (PVM_USER_DATA) dùng thư mục riêng.
-const cacheDir = process.env.PVM_USER_DATA ? join(app.getPath('userData'), 'cache') : defaultCacheDir()
+// không nằm trong AppData\Roaming. Khi kiểm thử (PVM_USER_DATA) dùng thư mục riêng, không đặt tên "cache":
+// Windows không phân biệt hoa/thường nên sẽ trùng thư mục "Cache" (bộ nhớ đệm HTTP) của Chromium trong userData.
+const cacheDir = process.env.PVM_USER_DATA ? join(app.getPath('userData'), 'audio-cache') : defaultCacheDir()
 const workspace = new Workspace(cacheDir)
 const fontsDir = app.isPackaged ? join(process.resourcesPath, 'fonts') : join(app.getAppPath(), 'resources', 'fonts')
 const autosavePath = join(app.getPath('userData'), 'autosave.pvm.json')
@@ -413,8 +414,7 @@ else {
     // Dọn cache ở nền, không chặn việc mở app (kể cả cache ở vị trí cũ trong thư mục userData)
     setTimeout(() => {
       void workspace.pruneCache()
-      const legacy = join(app.getPath('userData'), 'cache')
-      if (legacy !== cacheDir) void rm(legacy, { recursive: true, force: true, maxRetries: 3 }).catch(() => undefined)
+      void removeLegacyCache(app.getPath('userData'))
     }, 5000)
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -1,11 +1,13 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { spawn } from 'child_process'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { escapeConcatPath, ensureWritable, friendlyFfmpegError } from '../src/main/export/exporter'
 import { filePathFromUrl, fileUrl } from '../src/main/fileUrl'
 import { asarUnpacked, defaultCacheDir } from '../src/main/paths'
-import { safeFileName, withExtension } from '../src/shared/files'
+import { removeLegacyCache } from '../src/main/workspace'
+import { safeFileName, shortPath, withExtension } from '../src/shared/files'
 
 describe('đường dẫn Windows qua pvm://', () => {
   const paths = [
@@ -52,6 +54,23 @@ describe('bản đóng gói trên Windows', () => {
   it('danh sách nối video dùng "/" và thoát dấu nháy', () => {
     expect(escapeConcatPath("C:\\Users\\O'Brien\\.video.parts-1\\part000.mp4")).toBe("C:/Users/O'\\''Brien/.video.parts-1/part000.mp4")
   })
+
+  it('dọn cache kiểu cũ (userData/cache) không xoá bộ nhớ đệm HTTP "Cache" của Chromium', async () => {
+    // Windows không phân biệt hoa/thường: "cache" của bản cũ và "Cache" của Chromium là cùng một thư mục
+    const userData = mkdtempSync(join(tmpdir(), 'pvm-ud-'))
+    const chromium = join(userData, 'Cache', 'Cache_Data', 'index')
+    mkdirSync(dirname(chromium), { recursive: true })
+    writeFileSync(chromium, 'x')
+    const legacy = ['pcm', 'analysis', 'covers'].map((sub) => join(userData, 'cache', sub, 'a.bin'))
+    for (const f of legacy) {
+      mkdirSync(dirname(f), { recursive: true })
+      writeFileSync(f, 'x')
+    }
+    await removeLegacyCache(userData)
+    expect(existsSync(chromium)).toBe(true)
+    for (const f of legacy) expect(existsSync(dirname(f))).toBe(false)
+    rmSync(userData, { recursive: true, force: true })
+  })
 })
 
 describe('tên file hợp lệ trên Windows', () => {
@@ -68,6 +87,12 @@ describe('tên file hợp lệ trên Windows', () => {
     expect(withExtension('C:\\v\\video.final', 'mp4')).toBe('C:\\v\\video.final.mp4')
     expect(withExtension('C:\\v\\VIDEO.MP4', 'mp4')).toBe('C:\\v\\VIDEO.MP4')
     expect(withExtension('/a/p.pvm.json', 'json')).toBe('/a/p.pvm.json')
+  })
+
+  it('đường dẫn rút gọn giữ dấu phân cách của hệ điều hành', () => {
+    expect(shortPath('C:\\Users\\Nguyễn Văn A\\Videos\\Playlist nhạc\\bản cuối cùng.mp4', 40)).toBe('…\\Playlist nhạc\\bản cuối cùng.mp4')
+    expect(shortPath('/home/a/Videos/Playlist nhạc/bản cuối cùng.mp4', 40)).toBe('…/Playlist nhạc/bản cuối cùng.mp4')
+    expect(shortPath('C:\\v\\a.mp4')).toBe('C:\\v\\a.mp4')
   })
 })
 
@@ -92,6 +117,32 @@ describe('báo lỗi khi không ghi được video', () => {
     await expect(ensureWritable(join(ro, 'y.mp4'))).rejects.toThrow(/Không ghi được/)
     chmodSync(ro, 0o755)
   })
+
+  it('Windows: file video đang mở ở trình xem video (bị khoá) → báo ngay trước khi render', async () => {
+    if (process.platform !== 'win32') return
+    const p = join(dir, 'đang mở.mp4')
+    writeFileSync(p, Buffer.alloc(2000, 1))
+    // Giữ file như trình xem video: cho đọc chung nhưng không cho ghi
+    const ps = spawn(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-Command', `$f = [IO.File]::Open('${p.replace(/'/g, "''")}', 'Open', 'Read', 'Read'); 'LOCKED'; Start-Sleep 30; $f.Close()`],
+      { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }
+    )
+    const exited = new Promise((r) => ps.once('exit', r))
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ps.stdout.once('data', () => resolve())
+        ps.once('error', reject)
+        ps.once('exit', () => reject(new Error('PowerShell dừng trước khi khoá được file')))
+      })
+      await expect(ensureWritable(p)).rejects.toThrow(/đang được mở ở chương trình khác/)
+    } finally {
+      ps.kill()
+      await exited
+    }
+    // Đóng file ở chương trình kia → ghi được bình thường
+    await expect(ensureWritable(p)).resolves.toBeUndefined()
+  }, 30000)
 
   it('đổi lỗi FFmpeg sang tiếng Việt', () => {
     expect(friendlyFfmpegError('out.mp4: Permission denied', 'C:\\v\\out.mp4')).toMatch(/đang được mở ở chương trình khác/)

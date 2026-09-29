@@ -161,6 +161,11 @@ async function main(): Promise<void> {
     assert((await page.locator('.track').count()) === 3, 'nhập 3 bài từ dòng lệnh')
     await page.locator('.chip.ok').waitFor({ timeout: 60000 })
     assert(true, 'phân tích + ghép âm thanh xong')
+    // Windows không phân biệt hoa/thường: thư mục tên "cache" sẽ trùng bộ nhớ đệm HTTP "Cache" của Chromium
+    assert(
+      existsSync(join(OUT, 'userdata', 'audio-cache', 'pcm')) && !existsSync(join(OUT, 'userdata', 'Cache', 'pcm')),
+      'cache âm thanh nằm riêng, không lẫn vào bộ nhớ đệm "Cache" của Chromium'
+    )
     assert((await page.locator('.track-title').first().textContent()) === 'Nắng Ấm Xa Dần', 'đọc tag tiếng Việt')
     await page.screenshot({ path: join(OUT, '1-loaded.png') })
 
@@ -872,6 +877,8 @@ async function main(): Promise<void> {
     await new Promise((r) => setTimeout(r, 1000))
     assert(page.url() === appUrl && (await page.locator('section.timeline').count()) === 1, 'không bị chuyển sang trang web lạ')
     console.log('\nTẤT CẢ KIỂM THỬ ĐỀU QUA')
+    // Lỗi / cảnh báo không làm bước nào thất bại vẫn cần thấy (vd. lỗi chỉ xảy ra trên một hệ điều hành)
+    if (problems.length) console.log(`\nLỗi / cảnh báo ghi nhận trong lúc chạy (${problems.length}):\n${problems.map((p) => `  ${p}`).join('\n')}`)
     annotate('notice', `E2E ${process.platform}: qua ${passed.length} bước`, `${await diagnostics()}\n${passed.join('\n')}`)
   } catch (err) {
     // Thu thập chẩn đoán khi app còn mở
