@@ -158,7 +158,7 @@ async function main(): Promise<void> {
     })
     await page.waitForSelector('.track', { timeout: 20000 })
     assert((await page.locator('.track').count()) === 3, 'nhập 3 bài từ dòng lệnh')
-    await page.getByText('Âm thanh sẵn sàng').waitFor({ timeout: 60000 })
+    await page.locator('.chip.ok').waitFor({ timeout: 60000 })
     assert(true, 'phân tích + ghép âm thanh xong')
     assert((await page.locator('.track-title').first().textContent()) === 'Nắng Ấm Xa Dần', 'đọc tag tiếng Việt')
     await page.screenshot({ path: join(OUT, '1-loaded.png') })
@@ -197,16 +197,16 @@ async function main(): Promise<void> {
     await page.mouse.down()
     await page.mouse.move(r.x + r.width / 2 + 60, r.y + r.height / 2 - 40, { steps: 8 })
     await page.mouse.up()
-    await until(async () => Number(await num('Vị trí ngang').inputValue()) > x0 + 0.02)
+    await until(async () => Number(await num('Vị trí ngang').inputValue()) > x0 + 2)
     const x1 = Number(await num('Vị trí ngang').inputValue())
-    assert(x1 > x0 + 0.02, `kéo cột sóng sang phải: x ${x0} → ${x1}`)
+    assert(x1 > x0 + 2, `kéo cột sóng sang phải: x ${x0}% → ${x1}%`)
     // Kéo gần giữa khung → bắt dính đúng 0.5
     r = (await stableBox(selBox))
     await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2)
     await page.mouse.down()
     await page.mouse.move(r.x + r.width / 2 - 60 + 3, r.y + r.height / 2, { steps: 8 })
     await page.mouse.up()
-    assert(await until(async () => Number(await num('Vị trí ngang').inputValue()) === 0.5), 'bắt dính vào giữa khung hình')
+    assert(await until(async () => Number(await num('Vị trí ngang').inputValue()) === 50), 'bắt dính vào giữa khung hình (50%)')
     // Kéo ô vuông cạnh phải để rộng ra
     const handle = page.locator('.handle[data-handle="e"]')
     const hb = (await stableBox(handle))
@@ -214,9 +214,9 @@ async function main(): Promise<void> {
     await page.mouse.down()
     await page.mouse.move(hb.x + hb.width / 2 + 50, hb.y + hb.height / 2, { steps: 8 })
     await page.mouse.up()
-    await until(async () => Number(await num('Chiều rộng').inputValue()) > w0 + 0.03)
+    await until(async () => Number(await num('Chiều rộng').inputValue()) > w0 + 3)
     const w1 = Number(await num('Chiều rộng').inputValue())
-    assert(w1 > w0 + 0.03, `kéo ô vuông đổi chiều rộng: ${w0} → ${w1}`)
+    assert(w1 > w0 + 3, `kéo ô vuông đổi chiều rộng: ${w0}% → ${w1}%`)
     await page.screenshot({ path: join(OUT, '2a-drag.png') })
     // Mỗi lần kéo là một bước hoàn tác
     await page.locator('.panel.right .panel-head h3').click()
@@ -379,10 +379,57 @@ async function main(): Promise<void> {
     await page.screenshot({ path: join(OUT, '5b-timeline-split.png') })
     // Preview nhẹ cho máy yếu
     const canvasW = (): Promise<number> => page.locator('.stage-canvas').evaluate((c) => (c as HTMLCanvasElement).width)
-    await page.locator('select.chip-select').selectOption('low')
+    const pickQuality = async (q: string): Promise<void> => {
+      await page.locator('.preview-menu-btn').click()
+      await page.locator(`.preview-menu button[data-q="${q}"]`).click()
+    }
+    await pickQuality('low')
     assert(await until(async () => (await canvasW()) === 480), 'preview nhẹ (¼): canvas 480px')
-    await page.locator('select.chip-select').selectOption('high')
+    await pickQuality('high')
     assert(await until(async () => (await canvasW()) === 1920), 'preview nét trở lại 1920px')
+
+    // ---------- Bố cục cho màn hình laptop ----------
+    const stageW = async (): Promise<number> => (await boxOf(page.locator('.stage-inner'))).width
+    const w0Stage = await stageW()
+    await page.locator('.panel-head h3').first().click() // bỏ focus khỏi ô nhập
+    await page.keyboard.press('f')
+    assert(
+      // Ẩn hai cột bên và thu gọn timeline: preview to ra dù bị giới hạn bởi chiều ngang hay chiều cao
+      await until(async () => (await page.locator('.panel-rail').count()) === 2 && (await stageW()) > w0Stage * 1.1),
+      `phím F: tập trung preview (${Math.round(w0Stage)} → ${Math.round(await stageW())}px)`
+    )
+    await page.keyboard.press('f')
+    assert(await until(async () => (await page.locator('.panel-rail').count()) === 0), 'phím F lần nữa: hiện lại hai cột')
+    // Thu gọn cột trái bằng nút, mở lại bằng dải dọc
+    await page.locator('.panel.left .collapse-btn').click()
+    assert(await until(async () => (await page.locator('.panel-rail.left').count()) === 1), 'thu gọn cột playlist')
+    await page.locator('.panel-rail.left').click()
+    assert(await until(async () => (await page.locator('.panel.left').count()) === 1), 'mở lại cột playlist')
+    // Kéo mép cột phải để đổi độ rộng
+    const rightW0 = (await boxOf(page.locator('.panel.right'))).width
+    const rz = await boxOf(page.locator('.col-resize.right'))
+    await page.mouse.move(rz.x + rz.width / 2, rz.y + 120)
+    await page.mouse.down()
+    await page.mouse.move(rz.x + rz.width / 2 - 70, rz.y + 120, { steps: 6 })
+    await page.mouse.up()
+    const rightW1 = (await boxOf(page.locator('.panel.right'))).width
+    assert(rightW1 > rightW0 + 40, `kéo mép cột lớp hiệu ứng: ${Math.round(rightW0)} → ${Math.round(rightW1)}px`)
+    // Nhóm thuộc tính đóng / mở; số hiện theo %
+    await page.locator('.layer', { hasText: 'Cột sóng nhạc' }).click()
+    const colorTitle = page.locator('button.section-title', { hasText: /Màu sắc/ })
+    await colorTitle.click()
+    assert(await until(async () => (await page.locator('label.field', { hasText: 'Màu chính' }).count()) === 0), 'đóng nhóm "Màu sắc" trong bảng thuộc tính')
+    await colorTitle.click()
+    assert(await until(async () => (await page.locator('label.field', { hasText: 'Màu chính' }).count()) === 1), 'mở lại nhóm "Màu sắc"')
+    const opacityRow = page.locator('label.field', { hasText: 'Độ trong suốt' }).first()
+    assert((await opacityRow.locator('.range-unit').textContent()) === '%' && Number(await opacityRow.locator('input.num').inputValue()) > 1, 'thông số tỉ lệ hiện theo %')
+    // Bảng phím tắt
+    await page.locator('.panel-head h3').first().click()
+    await page.keyboard.press('?')
+    assert(await until(async () => (await page.locator('.modal .shortcuts').count()) === 1), 'phím ? mở bảng phím tắt')
+    await page.screenshot({ path: join(OUT, '9-shortcuts.png') })
+    await page.keyboard.press('Escape')
+    assert(await until(async () => (await page.locator('.modal').count()) === 0), 'Esc đóng bảng phím tắt')
 
     // ---------- Kéo thả, chọn hàng loạt như CapCut ----------
     const trackIds = async (): Promise<string[]> => (await page.evaluate('window.__pvm.store.getState().project.tracks.map((t) => t.id)')) as string[]
@@ -465,26 +512,22 @@ async function main(): Promise<void> {
     // Kéo khung trên vùng trống (sau cuối video) để khoanh nhiều thanh + clip nhạc
     const endX = (await boxOf(audioClips.nth(2))).x + (await boxOf(audioClips.nth(2))).width
     const audioRowBox = await boxOf(page.locator('.tl-row.audio'))
-    // Hàng lớp đầu tiên đang nhìn thấy (không bị thước thời gian ghim ở trên che)
+    // Bắt đầu ở giữa dải các hàng lớp đang nhìn thấy (giữa thước thời gian ghim ở trên và hàng nhạc ghim ở dưới)
     const rulerBottom = (await boxOf(page.locator('.tl-ruler'))).y + RULER_BAR_H
-    let firstRow = await boxOf(page.locator('.tl-row').first())
-    for (let i = 0; i < (await page.locator('.tl-row:not(.audio)').count()); i++) {
-      const b = await boxOf(page.locator('.tl-row:not(.audio)').nth(i))
-      if (b.y >= rulerBottom && b.y + b.height <= audioRowBox.y) {
-        firstRow = b
-        break
-      }
-    }
-    await page.mouse.move(endX + 15, firstRow.y + firstRow.height / 2)
+    const firstRow = { y: rulerBottom, height: Math.max(2, audioRowBox.y - rulerBottom) }
+    const mx = endX + 15
+    const my = firstRow.y + firstRow.height / 2
+    const under = (await page.evaluate(`(() => { const el = document.elementFromPoint(${mx}, ${my}); const h = el && el.closest('[data-hit]'); return (el ? el.className : 'null') + ' / ' + (h ? h.dataset.hit : '-') })()`)) as string
+    await page.mouse.move(mx, my)
     await page.mouse.down()
     await page.mouse.move(endX - 40, audioRowBox.y + audioRowBox.height / 2, { steps: 8 })
-    const marqueeBox = await page.locator('.tl-marquee').boundingBox()
+    const marqueeBox = (await page.locator('.tl-marquee').count()) ? await page.locator('.tl-marquee').boundingBox() : null
     await page.screenshot({ path: join(OUT, '5c-marquee.png') })
     await page.mouse.up()
     const selL = (await page.evaluate('window.__pvm.store.getState().selectedLayerIds.length')) as number
     assert(
       !!marqueeBox && selL >= 2 && (await selTracks()).length >= 1,
-      `kéo khung chọn ${selL} thanh và ${(await selTracks()).length} clip nhạc (khung ${JSON.stringify(marqueeBox)}, hàng đầu ${JSON.stringify(firstRow)}, hàng nhạc ${JSON.stringify(audioRowBox)}, cuối video x=${endX})`
+      `kéo khung chọn ${selL} thanh và ${(await selTracks()).length} clip nhạc (điểm bắt đầu ${Math.round(mx)},${Math.round(my)} trên "${under}", khung ${JSON.stringify(marqueeBox)}, dải hàng ${JSON.stringify(firstRow)}, hàng nhạc ${JSON.stringify(audioRowBox)}, cuối video x=${endX})`
     )
     await page.locator('.timeline').focus()
     await page.keyboard.press('Escape')
@@ -569,7 +612,7 @@ async function main(): Promise<void> {
     await page.getByRole('button', { name: 'Xoá bộ nhớ đệm' }).click()
     assert(await until(async () => /KB/.test((await cacheInfo.textContent()) ?? ''), 10000), 'xoá bộ nhớ đệm')
     await page.keyboard.press('Escape')
-    await page.getByText('Âm thanh sẵn sàng').waitFor({ timeout: 60000 })
+    await page.locator('.chip.ok').waitFor({ timeout: 60000 })
     assert(true, 'các bài được phân tích lại, âm thanh sẵn sàng trở lại')
 
     // Xuất thử 15 giây (giả lập hộp thoại chọn nơi lưu)
@@ -608,7 +651,7 @@ async function main(): Promise<void> {
     await page.locator('.lang-switch button', { hasText: 'EN' }).click()
     assert(await until(async () => (await exportBtn.textContent())?.includes('Export video') ?? false), 'bấm EN: giao diện chuyển sang tiếng Anh')
     assert(
-      (await page.locator('.layer', { hasText: 'Visualizer' }).count()) > 0 && ((await page.locator('.tl-hint').textContent()) ?? '').includes('split at playhead'),
+      (await page.locator('.layer', { hasText: 'Visualizer' }).count()) > 0 && ((await page.locator('.tl-hint').textContent()) ?? '').includes('shortcuts'),
       'tên lớp và gợi ý trên timeline cũng bằng tiếng Anh'
     )
     await page.screenshot({ path: join(OUT, '8-english.png') })

@@ -52,7 +52,7 @@ export interface CtaSelection {
   index: number
 }
 
-export type DialogName = 'export' | 'settings' | 'chapters' | null
+export type DialogName = 'export' | 'settings' | 'chapters' | 'shortcuts' | null
 
 export interface Toast {
   id: number
@@ -674,7 +674,7 @@ export const useStore = create<State>((set, get) => ({
     const id = ++toastId
     // Chỉ giữ 3 thông báo mới nhất: thao tác liên tiếp không phủ kín khung preview
     set((s) => ({ toasts: [...s.toasts, { id, kind, text }].slice(-3) }))
-    setTimeout(() => get().dismissToast(id), kind === 'error' ? 8000 : 4000)
+    setTimeout(() => get().dismissToast(id), kind === 'error' ? 8000 : 3000)
   },
 
   dismissToast(id) {

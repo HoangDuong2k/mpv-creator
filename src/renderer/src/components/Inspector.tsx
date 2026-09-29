@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { FULL_TIMING, LAYER_LABELS } from '../../../shared/defaults'
+import { FULL_TIMING, LAYER_DEFAULTS, LAYER_LABELS } from '../../../shared/defaults'
 import { isFullLength } from '../../../shared/timing'
 import type { Layer } from '../../../shared/types'
 import { FILTER_KEYS } from '../../../shared/filterPresets'
@@ -8,7 +8,8 @@ import { FilterPanel } from './FilterPanel'
 import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { dragRange, layerRange } from '../timelineModel'
-import { ColorInput, NumberInput, RangeInput, Row, TimeInput, fileName } from './ui'
+import { ColorInput, Icon, NumberInput, RangeInput, Row, TimeInput, fileName } from './ui'
+import { useLayout } from '../layout'
 import { tr } from '../../../shared/i18n'
 
 const api = window.api
@@ -38,22 +39,77 @@ export function Inspector({ layer }: { layer: Layer }): ReactNode {
         <TimingSection layer={layer} />
       )}
       {layer.type === 'filter' && <FilterPanel layer={layer} />}
-      {FIELDS[layer.type].map((f, i) => (f.show && !f.show(props) ? null : <FieldView key={`${f.kind}-${'key' in f ? f.key : f.label}-${i}`} field={f} props={props} set={set} />))}
+      <FieldList layer={layer} props={props} set={set} />
     </div>
   )
 }
 
-function FieldView({ field: f, props, set }: { field: Field; props: Record<string, unknown>; set: (k: string, v: unknown, coalesce?: boolean) => void }): ReactNode {
-  if (f.kind === 'section') return <div className="section-title">{tr(f.label)}</div>
+/** Tiêu đề nhóm thuộc tính: bấm để đóng / mở (nhớ cho lần sau) */
+function SectionTitle({ id, label }: { id: string; label: string }): ReactNode {
+  const closed = useLayout((s) => s.closed.includes(id))
+  return (
+    <button type="button" className={`section-title collapsible${closed ? ' closed' : ''}`} onClick={() => useLayout.getState().toggleSection(id)} aria-expanded={!closed}>
+      <Icon name="expand" size={16} />
+      {label}
+    </button>
+  )
+}
+
+/** Các thuộc tính của lớp, chia theo nhóm; nhóm đang đóng thì ẩn các ô bên trong */
+function FieldList({ layer, props, set }: { layer: Layer; props: Record<string, unknown>; set: (k: string, v: unknown, coalesce?: boolean) => void }): ReactNode {
+  const closed = useLayout((s) => s.closed)
+  const fields = FIELDS[layer.type]
+  const defaults = LAYER_DEFAULTS[layer.type] as unknown as Record<string, unknown>
+  let group = `${layer.type}:props`
+  const out: ReactNode[] = []
+  if (fields[0]?.kind !== 'section') out.push(<SectionTitle key="props" id={group} label={tr('Thuộc tính')} />)
+  fields.forEach((f, i) => {
+    if (f.show && !f.show(props)) return
+    if (f.kind === 'section') {
+      group = `${layer.type}:${f.label}`
+      out.push(<SectionTitle key={`s-${f.label}-${i}`} id={group} label={tr(f.label)} />)
+      return
+    }
+    if (closed.includes(group)) return
+    out.push(<FieldView key={`${f.kind}-${f.key}-${i}`} field={f} props={props} set={set} def={defaults[f.key]} />)
+  })
+  return <>{out}</>
+}
+
+/** Thông số tỉ lệ (0…1): hiện theo %; hệ số (cỡ, độ nhạy, tốc độ…): hiện "×" */
+const TIMES_KEYS = ['scale', 'sensitivity', 'speed', 'beatReact']
+
+function FieldView({
+  field: f,
+  props,
+  set,
+  def
+}: {
+  field: Exclude<Field, { kind: 'section' }>
+  props: Record<string, unknown>
+  set: (k: string, v: unknown, coalesce?: boolean) => void
+  def: unknown
+}): ReactNode {
   const label = tr(f.label)
   const value = props[f.key]
   switch (f.kind) {
-    case 'range':
+    case 'range': {
+      const percent = !f.unit && f.min >= -1 && f.max <= 1
       return (
         <Row label={f.unit ? `${label} (${tr(f.unit)})` : label}>
-          <RangeInput value={Number(value)} min={f.min} max={f.max} step={f.step} onChange={(v) => set(f.key, v, true)} />
+          <RangeInput
+            value={Number(value)}
+            min={f.min}
+            max={f.max}
+            step={f.step}
+            onChange={(v) => set(f.key, v, true)}
+            percent={percent}
+            suffix={!percent && TIMES_KEYS.includes(f.key) ? '×' : undefined}
+            resetTo={typeof def === 'number' ? def : undefined}
+          />
         </Row>
       )
+    }
     case 'number':
       return (
         <Row label={f.unit ? `${label} (${tr(f.unit)})` : label}>
@@ -124,13 +180,22 @@ function FieldView({ field: f, props, set }: { field: Field; props: Record<strin
 function TimingSection({ layer }: { layer: Layer }): ReactNode {
   const total = useTimeline().total
   const setLayerTiming = useStore((s) => s.setLayerTiming)
-  const t = layer.timing
   const withHours = total >= 3600
-  const range = layerRange(t, total)
   const set = (patch: Partial<Layer['timing']>): void => setLayerTiming(layer.id, patch)
+  const closed = useLayout((s) => s.closed.includes('timing'))
   return (
     <>
-      <div className="section-title">{tr('Thời gian hiển thị')}</div>
+      <SectionTitle id="timing" label={tr('Thời gian hiển thị')} />
+      {!closed && <TimingFields layer={layer} set={set} total={total} withHours={withHours} />}
+    </>
+  )
+}
+
+function TimingFields({ layer, set, total, withHours }: { layer: Layer; set: (patch: Partial<Layer['timing']>) => void; total: number; withHours: boolean }): ReactNode {
+  const t = layer.timing
+  const range = layerRange(t, total)
+  return (
+    <>
       <div className="two">
         <Row label={tr('Bắt đầu')}>
           <TimeInput value={t.start} withHours={withHours} onChange={(v) => set(dragRange('start', t, total, v))} />
@@ -164,7 +229,6 @@ function TimingSection({ layer }: { layer: Layer }): ReactNode {
           {tr('Hiện suốt video')}
         </button>
       )}
-      <div className="section-title">{tr('Thuộc tính')}</div>
     </>
   )
 }

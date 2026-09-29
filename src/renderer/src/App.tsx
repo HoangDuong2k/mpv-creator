@@ -12,6 +12,9 @@ import { mediaKind, safeFileName } from '../../shared/files'
 import { errorText, useAnalysis, useAudioSpec, useAutosave } from './hooks'
 import { useStore } from './store'
 import { copySelection, pasteAtPlayhead, splitAtPlayhead } from './timelineActions'
+import { RAIL_W, useLayout } from './layout'
+import { CollapsedRail } from './components/PanelFrame'
+import { ShortcutsDialog } from './components/ShortcutsDialog'
 import { LANGS, tr } from '../../shared/i18n'
 
 const api = window.api
@@ -99,6 +102,7 @@ function TopBar(): ReactNode {
         <IconButton icon="redo" title={tr('Làm lại (Ctrl+Y)')} onClick={redo} disabled={!canRedo} />
         <span className="sep" />
         <IconButton icon="tune" title={tr('Cài đặt project')} onClick={() => openDialog('settings')} />
+        <IconButton icon="help" title={tr('Phím tắt và thao tác chuột (?)')} onClick={() => openDialog('shortcuts')} />
       </div>
       <div className="project-name" title={tr('Nhấn để đổi tên')} onClick={() => openDialog('settings')}>
         {tr(name)}
@@ -124,6 +128,20 @@ function LangSwitch(): ReactNode {
         </button>
       ))}
     </div>
+  )
+}
+
+/** Vùng làm việc: playlist | preview | lớp hiệu ứng — hai cột bên kéo đổi độ rộng, thu gọn được */
+function Workspace(): ReactNode {
+  const { leftW, rightW, leftOpen, rightOpen } = useLayout()
+  return (
+    <main className="workspace" style={{ gridTemplateColumns: `${leftOpen ? leftW : RAIL_W}px minmax(0, 1fr) ${rightOpen ? rightW : RAIL_W}px` }}>
+      {leftOpen ? <PlaylistPanel /> : <CollapsedRail side="left" title="Playlist" icon="music" />}
+      <PreviewPanel />
+      {rightOpen ? <LayersPanel /> : <CollapsedRail side="right" title={tr('Lớp hiệu ứng')} icon="tune" />}
+      {/* Thông báo ở góc dưới bên trái vùng làm việc: không che preview hay timeline */}
+      <Toasts />
+    </main>
   )
 }
 
@@ -216,6 +234,12 @@ export function App(): ReactNode {
       } else if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         st.undo()
+      } else if ((e.key === '?' || e.key === 'F1') && !st.dialog) {
+        e.preventDefault()
+        st.openDialog('shortcuts')
+      } else if (e.key.toLowerCase() === 'f' && !mod && !st.dialog) {
+        e.preventDefault()
+        useLayout.getState().toggleFocus()
       } else if (e.key === ' ' && !st.dialog) {
         e.preventDefault()
         if (player.playing) {
@@ -263,15 +287,12 @@ export function App(): ReactNode {
       {/* Đổi ngôn ngữ → dựng lại toàn bộ giao diện với chữ mới */}
       <Fragment key={lang}>
         <TopBar />
-        <main className="workspace">
-          <PlaylistPanel />
-          <PreviewPanel />
-          <LayersPanel />
-        </main>
+        <Workspace />
         <Timeline />
         {dialog === 'export' && <ExportDialog />}
         {dialog === 'settings' && <SettingsDialog />}
         {dialog === 'chapters' && <ChaptersDialog />}
+        {dialog === 'shortcuts' && <ShortcutsDialog />}
       </Fragment>
       {/* Ngoài Fragment: đổi ngôn ngữ không làm đếm ngược tắt máy bắt đầu lại */}
       <ShutdownCountdown />
@@ -285,7 +306,6 @@ export function App(): ReactNode {
           </div>
         </div>
       )}
-      <Toasts />
     </div>
   )
 }

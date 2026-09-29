@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AudioSampler, Renderer } from '../../../engine'
 import { entryAt } from '../../../shared/timeline'
 import { formatTime } from '../../../shared/time'
@@ -7,7 +7,8 @@ import { useTimeline } from '../hooks'
 import { PREVIEW_QUALITY_SCALE, useStore, type PreviewQuality } from '../store'
 import { Stage } from './Stage'
 import { Icon, IconButton } from './ui'
-import { tr } from '../../../shared/i18n'
+import { tr, trKey } from '../../../shared/i18n'
+import { useLayout } from '../layout'
 
 /** Kích thước tối đa của canvas preview (cạnh dài) — dự án 4K được xem trước ở 1080p */
 const PREVIEW_MAX = 1920
@@ -114,42 +115,139 @@ export function PreviewPanel(): ReactNode {
         <span className="time">
           {formatTime(currentTime, withHours)} / {formatTime(timeline.total, withHours)}
         </span>
-        {/* Tua bằng đầu phát trên timeline bên dưới */}
-        <span className="spacer" />
-        <span className="volume">
-          <Icon name="volume" size={16} />
-          <input type="range" min={0} max={1} step={0.01} defaultValue={1} onChange={(e) => player.setVolume(parseFloat(e.target.value))} aria-label={tr('Âm lượng')} />
-        </span>
-      </div>
-      <div className="status-line">
+        {/* Một dòng điều khiển (tiết kiệm chiều cao cho preview trên màn hình laptop); tua bằng timeline bên dưới */}
         {cur ? (
-          <span className="now-playing">
+          <span className="now-playing" title={`${cur.track.title}${cur.track.artist ? ` — ${cur.track.artist}` : ''}`}>
             ♪ {cur.track.title}
             {cur.track.artist ? ` — ${cur.track.artist}` : ''}
           </span>
         ) : (
-          <span className="muted">{tr('Thêm nhạc để bắt đầu')}</span>
+          <span className="now-playing muted">{tr('Thêm nhạc để bắt đầu')}</span>
         )}
         <span className="status-chips">
           {analyzing > 0 && <span className="chip">{tr('Đang phân tích {n} bài…', { n: analyzing })}</span>}
           {failed > 0 && <span className="chip error">{tr('{n} bài lỗi đọc file', { n: failed })}</span>}
-          {audioReady && <span className="chip ok">{tr('Âm thanh sẵn sàng')}</span>}
-          <span className="chip">
-            {W}×{H} · {project.settings.fps}fps
-          </span>
-          <select
-            className="chip chip-select"
-            value={quality}
-            onChange={(e) => useStore.getState().setPreviewQuality(e.target.value as PreviewQuality)}
-            title={tr('Độ nét preview — giảm để phát mượt trên máy yếu; không ảnh hưởng video xuất ra')}
-            aria-label={tr('Độ nét preview')}
-          >
-            <option value="high">{tr('Preview nét')}</option>
-            <option value="medium">Preview ½</option>
-            <option value="low">Preview ¼</option>
-          </select>
+          {audioReady && (
+            <span className="chip ok" title={tr('Âm thanh sẵn sàng')}>
+              <span className="chip-text">{tr('Âm thanh sẵn sàng')}</span>
+            </span>
+          )}
+          <PreviewMenu info={`${W}×${H} · ${project.settings.fps}fps`} />
         </span>
+        <VolumeControl />
+        <FocusButton />
       </div>
     </section>
+  )
+}
+
+/** Âm lượng: bấm biểu tượng loa để tắt / mở tiếng; thanh trượt tự ẩn khi khung preview hẹp */
+function VolumeControl(): ReactNode {
+  const [volume, setVolume] = useState(1)
+  const [muted, setMuted] = useState(false)
+  const apply = (v: number, m: boolean): void => player.setVolume(m ? 0 : v)
+  return (
+    <span className="volume">
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={() => {
+          setMuted(!muted)
+          apply(volume, !muted)
+        }}
+        title={muted ? tr('Bật tiếng') : tr('Tắt tiếng')}
+        aria-label={muted ? tr('Bật tiếng') : tr('Tắt tiếng')}
+      >
+        <Icon name={muted || volume === 0 ? 'volumeOff' : 'volume'} size={16} />
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={muted ? 0 : volume}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value)
+          setVolume(v)
+          setMuted(false)
+          apply(v, false)
+        }}
+        aria-label={tr('Âm lượng')}
+      />
+    </span>
+  )
+}
+
+/** Tập trung preview: ẩn / hiện hai cột bên (phím F) */
+function FocusButton(): ReactNode {
+  const focused = useLayout((s) => !s.leftOpen && !s.rightOpen)
+  return (
+    <IconButton
+      icon={focused ? 'focusExit' : 'focus'}
+      title={focused ? tr('Hiện lại hai cột bên (F)') : tr('Tập trung preview: ẩn hai cột bên (F)')}
+      onClick={() => useLayout.getState().toggleFocus()}
+      active={focused}
+    />
+  )
+}
+
+const QUALITY_LABELS: Array<[PreviewQuality, string]> = [
+  ['high', trKey('Nét (đầy đủ)')],
+  ['medium', trKey('Vừa (½) — mượt hơn')],
+  ['low', trKey('Nhẹ (¼) — cho máy yếu')]
+]
+
+/** Menu nhỏ: độ nét preview + khung hình của project (thay cho các chip dễ bị tràn) */
+function PreviewMenu({ info }: { info: string }): ReactNode {
+  const quality = useStore((s) => s.previewQuality)
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: globalThis.PointerEvent): void => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener('pointerdown', onDown)
+    return () => window.removeEventListener('pointerdown', onDown)
+  }, [open])
+  return (
+    <span className="preview-menu-wrap" ref={ref}>
+      <button type="button" className="chip chip-btn preview-menu-btn" onClick={() => setOpen(!open)} title={tr('Độ nét preview, khung hình')} aria-expanded={open}>
+        <Icon name="tune" size={13} />
+        <span className="chip-text">{quality === 'high' ? info : `${info} · ${quality === 'medium' ? '½' : '¼'}`}</span>
+        <Icon name="expand" size={14} />
+      </button>
+      {open && (
+        <div className="preview-menu" role="menu">
+          <div className="menu-title">{tr('Độ nét preview')}</div>
+          {QUALITY_LABELS.map(([q, label]) => (
+            <button
+              type="button"
+              key={q}
+              data-q={q}
+              className={quality === q ? 'on' : ''}
+              role="menuitemradio"
+              aria-checked={quality === q}
+              onClick={() => {
+                useStore.getState().setPreviewQuality(q)
+                setOpen(false)
+              }}
+            >
+              {tr(label)}
+            </button>
+          ))}
+          <p className="menu-note">{tr('Chỉ ảnh hưởng khung xem trước, video xuất ra luôn đủ nét.')}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              useStore.getState().openDialog('settings')
+            }}
+          >
+            {tr('Khung hình {info} — đổi trong Cài đặt…', { info })}
+          </button>
+        </div>
+      )}
+    </span>
   )
 }

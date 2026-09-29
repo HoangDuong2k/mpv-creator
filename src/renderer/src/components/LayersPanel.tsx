@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { LAYER_LABELS } from '../../../shared/defaults'
 import { formatTime } from '../../../shared/time'
 import type { LayerType } from '../../../shared/types'
@@ -9,6 +9,8 @@ import { Inspector } from './Inspector'
 import { TrackInspector } from './TrackInspector'
 import { Icon, IconButton } from './ui'
 import { tr } from '../../../shared/i18n'
+import { useLayout } from '../layout'
+import { CollapseButton, ColumnResizer } from './PanelFrame'
 
 const ADDABLE: LayerType[] = ['visualizer', 'text', 'image', 'cta', 'filter', 'particles', 'flicker', 'vignette', 'progress', 'background']
 
@@ -21,6 +23,8 @@ export function LayersPanel(): ReactNode {
   const tl = useTimeline()
   const [menu, setMenu] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  const listH = useLayout((s) => s.listH)
   // Đổi mục đang chọn → cuộn bảng thuộc tính về đầu
   useEffect(() => {
     if (wrapRef.current) wrapRef.current.scrollTop = 0
@@ -32,8 +36,10 @@ export function LayersPanel(): ReactNode {
 
   return (
     <aside className="panel right">
+      <ColumnResizer side="right" />
       <div className="panel-head">
         <h3>{tr('Lớp hiệu ứng')}</h3>
+        <span className="panel-head-tools">
         <div className="add-menu">
           <button type="button" className="btn small primary" onClick={() => setMenu(!menu)}>
             <Icon name="add" size={16} /> {tr('Thêm lớp')}
@@ -55,8 +61,10 @@ export function LayersPanel(): ReactNode {
             </div>
           )}
         </div>
+        <CollapseButton side="right" />
+        </span>
       </div>
-      <ul className="layer-list">
+      <ul className="layer-list" ref={listRef} style={listH ? { height: listH, maxHeight: 'none' } : undefined}>
         {ordered.map((l, i) => {
           // Các đoạn sau khi tách thanh: ghi kèm khoảng thời gian để phân biệt
           const r = l.row ? layerRange(l.timing, tl.total) : null
@@ -93,7 +101,41 @@ export function LayersPanel(): ReactNode {
           )
         })}
       </ul>
+      <SplitResizer listRef={listRef} />
       <div className="inspector-wrap" ref={wrapRef}>{selectedTrack ? <TrackInspector track={selectedTrack} /> : selected ? <Inspector layer={selected} /> : <p className="muted pad">{tr('Chọn một lớp ở danh sách trên, hoặc nhấp thẳng vào nó trên khung hình để chỉnh vị trí, kích thước, màu sắc.')}</p>}</div>
     </aside>
+  )
+}
+
+/** Vạch kéo chia chỗ giữa danh sách lớp và bảng thuộc tính; nhấp đúp để về mặc định */
+function SplitResizer({ listRef }: { listRef: RefObject<HTMLUListElement | null> }): ReactNode {
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>): void => {
+    const list = listRef.current
+    if (e.button !== 0 || !list) return
+    e.preventDefault()
+    const el = e.currentTarget
+    const y0 = e.clientY
+    const h0 = list.getBoundingClientRect().height
+    const panelH = list.parentElement?.getBoundingClientRect().height ?? 600
+    el.setPointerCapture(e.pointerId)
+    el.classList.add('active')
+    const move = (ev: globalThis.PointerEvent): void => useLayout.getState().setListH(Math.min(panelH - 180, Math.max(64, h0 + ev.clientY - y0)))
+    const up = (): void => {
+      el.classList.remove('active')
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+  }
+  return (
+    <div
+      className="split-resize"
+      onPointerDown={onPointerDown}
+      onDoubleClick={() => useLayout.getState().setListH(null)}
+      title={tr('Kéo để chia chỗ cho danh sách lớp và bảng thuộc tính · nhấp đúp để về mặc định')}
+      role="separator"
+      aria-orientation="horizontal"
+    />
   )
 }

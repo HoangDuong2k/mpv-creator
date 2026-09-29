@@ -150,18 +150,18 @@ export function Stage({
 
   const visibleNow = !selected || selected.type === 'cta' || layerFade(selected.timing, currentTime, timeline.total) > 0
   let hint: string
-  if (!selected) hint = tr('Nhấp vào chữ, cột sóng, nút Đăng ký… trên khung hình để chọn rồi kéo để di chuyển')
+  if (!selected) hint = tr('Nhấp vào chữ, cột sóng, nút Đăng ký… để chọn và kéo')
   else if (!visibleNow) {
     const r = layerRange(selected.timing, timeline.total)
     const wh = timeline.total >= 3600
-    hint = tr('“{name}” chỉ hiện từ {from} đến {to} — kéo đầu phát vào khoảng đó để chỉnh trên khung hình', {
+    hint = tr('“{name}” chỉ hiện từ {from} đến {to}', {
       name: tr(selected.name),
       from: formatTimePrecise(r.start, wh),
       to: selected.timing.end === null ? tr('hết video') : formatTimePrecise(r.end, wh)
     })
-  } else if (!isMovable(selected)) hint = tr('“{name}” phủ toàn khung hình — chỉnh màu, độ mạnh… ở bảng bên phải', { name: tr(LAYER_LABELS[selected.type]) })
-  else if (selected.locked) hint = tr('“{name}” đang khoá — bấm biểu tượng ổ khoá ở timeline hoặc danh sách lớp để mở khoá rồi kéo', { name: tr(selected.name) })
-  else hint = tr('Kéo để di chuyển · kéo ô vuông để đổi kích thước · giữ Shift để không bắt dính · nhấp đúp để phát / dừng')
+  } else if (!isMovable(selected)) hint = tr('“{name}” phủ cả khung hình — chỉnh ở bảng bên phải', { name: tr(LAYER_LABELS[selected.type]) })
+  else if (selected.locked) hint = tr('“{name}” đang khoá — mở khoá để kéo', { name: tr(selected.name) })
+  else hint = tr('Kéo để di chuyển · kéo ô vuông để đổi cỡ · ? xem phím tắt')
 
   return (
     <div className="stage" ref={wrapRef}>

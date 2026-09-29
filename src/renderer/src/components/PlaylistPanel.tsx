@@ -6,6 +6,7 @@ import { errorText, useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { Icon, IconButton, NumberInput } from './ui'
 import { tr } from '../../../shared/i18n'
+import { CollapseButton, ColumnResizer } from './PanelFrame'
 
 const api = window.api
 
@@ -37,11 +38,15 @@ export function PlaylistPanel(): ReactNode {
 
   return (
     <aside className="panel left">
+      <ColumnResizer side="left" />
       <div className="panel-head">
         <h3>Playlist</h3>
-        <button type="button" className="btn small primary" onClick={async () => importPaths(await api.openFiles('audio', true))}>
-          <Icon name="add" size={16} /> {tr('Thêm nhạc')}
-        </button>
+        <span className="panel-head-tools">
+          <button type="button" className="btn small primary" onClick={async () => importPaths(await api.openFiles('audio', true))}>
+            <Icon name="add" size={16} /> {tr('Thêm nhạc')}
+          </button>
+          <CollapseButton side="left" />
+        </span>
       </div>
       {tracks.length === 0 ? (
         <div className="empty-drop">

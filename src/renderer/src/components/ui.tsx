@@ -38,6 +38,15 @@ const ICONS = {
   lock: 'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z',
   lockOpen:
     'M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z',
+  chevronLeft: 'M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z',
+  chevronRight: 'M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z',
+  expand: 'M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z',
+  focus: 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z',
+  focusExit: 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z',
+  help: 'M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z',
+  volumeOff:
+    'M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z',
+  more: 'M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
   split:
     'M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm0 12c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3z'
 } as const
@@ -159,11 +168,45 @@ export function TimeInput({ value, onChange, withHours }: { value: number; onCha
   )
 }
 
-export function RangeInput({ value, onChange, min, max, step }: { value: number; onChange: (v: number) => void; min: number; max: number; step?: number }): ReactNode {
+/**
+ * Thanh trượt + ô số. `percent`: giá trị 0…1 hiện thành 0…100 %; `suffix`: đơn vị hiện sau ô số (×…);
+ * `resetTo`: nhấp đúp thanh trượt để về giá trị mặc định.
+ */
+export function RangeInput({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  percent,
+  suffix,
+  resetTo
+}: {
+  value: number
+  onChange: (v: number) => void
+  min: number
+  max: number
+  step?: number
+  percent?: boolean
+  suffix?: string
+  resetTo?: number
+}): ReactNode {
+  const k = percent ? 100 : 1
+  const unit = percent ? '%' : suffix
   return (
     <div className="range">
-      <input type="range" min={min} max={max} step={step ?? 0.01} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} />
-      <NumberInput value={value} onChange={onChange} min={min} max={max} step={step} />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step ?? 0.01}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onDoubleClick={resetTo !== undefined ? () => onChange(resetTo) : undefined}
+        title={resetTo !== undefined ? tr('Nhấp đúp để về mặc định') : undefined}
+      />
+      <NumberInput value={round(value * k)} onChange={(v) => onChange(v / k)} min={min * k} max={max * k} step={(step ?? 0.01) * k} />
+      {unit && <span className="range-unit">{unit}</span>}
     </div>
   )
 }

@@ -56,10 +56,13 @@ import {
 } from '../timelineModel'
 import { mediaKind } from '../../../shared/files'
 import { deleteSelection, dropFiles, splitAtPlayhead } from '../timelineActions'
+import { useLayout } from '../layout'
 import { Icon, IconButton } from './ui'
 import { tr } from '../../../shared/i18n'
 
 const SNAP_PX = 8
+/** Chiều cao timeline khi đang tập trung preview (thước + vài hàng + hàng nhạc) */
+const FOCUS_TL_H = 170
 const HEIGHT_KEY = 'pvm.timelineHeight'
 
 /** Màu chọn cho hàng / thanh trên timeline */
@@ -90,14 +93,20 @@ interface Visual {
   dropInsertT?: number
 }
 
+/** Timeline không cao quá 60% cửa sổ: luôn còn chỗ cho preview */
+function maxHeight(): number {
+  return Math.max(160, Math.round(window.innerHeight * 0.6))
+}
+
 function loadHeight(): number {
   try {
     const v = Number(localStorage.getItem(HEIGHT_KEY))
-    if (v >= 140) return v
+    if (v >= 140) return Math.min(v, maxHeight())
   } catch {
     // bộ nhớ trình duyệt không dùng được
   }
-  return 270
+  // Mặc định: khoảng 1/3 chiều cao cửa sổ (170–270px)
+  return Math.round(clamp(window.innerHeight * 0.32, 170, 270))
 }
 
 function seekTo(t: number): void {
@@ -135,6 +144,14 @@ export function Timeline(): ReactNode {
   const [snapOn, setSnapOn] = useState(true)
   const [visual, setVisual] = useState<Visual | null>(null)
   const [height, setHeight] = useState(loadHeight)
+  // Chế độ tập trung preview (hai cột bên đã ẩn): timeline thu gọn tạm thời để preview cao hơn
+  const focused = useLayout((s) => !s.leftOpen && !s.rightOpen)
+  // Cửa sổ thấp lại (thu nhỏ, đổi màn hình): timeline thấp theo
+  useEffect(() => {
+    const onResize = (): void => setHeight((h) => Math.min(h, maxHeight()))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
   const session = useRef<Session | null>(null)
   const pendingScroll = useRef<number | null>(null)
   const laneViewW = Math.max(100, view.w - HEAD_W)
@@ -642,7 +659,7 @@ export function Timeline(): ReactNode {
     const h0 = height
     const el = e.currentTarget
     el.setPointerCapture(e.pointerId)
-    const move = (ev: globalThis.PointerEvent): void => setHeight(Math.round(clamp(h0 - (ev.clientY - y0), 140, window.innerHeight * 0.7)))
+    const move = (ev: globalThis.PointerEvent): void => setHeight(Math.round(clamp(h0 - (ev.clientY - y0), 140, maxHeight())))
     const up = (): void => {
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerup', up)
@@ -665,7 +682,7 @@ export function Timeline(): ReactNode {
   return (
     <section
       className="timeline"
-      style={{ height }}
+      style={{ height: focused ? Math.min(height, FOCUS_TL_H) : height }}
       ref={rootRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -682,16 +699,15 @@ export function Timeline(): ReactNode {
         </span>
         {selectedLayerIds.length + selectedTrackIds.length > 1 ? (
           <span className="tl-hint tl-multi">
-            {tr('Đang chọn {n} mục · kéo một mục để dời cả nhóm · Ctrl+C chép · Delete xoá · Esc bỏ chọn', { n: selectedLayerIds.length + selectedTrackIds.length })}
+            {tr('Đang chọn {n} mục · kéo để dời cả nhóm · Delete xoá · Esc bỏ chọn', { n: selectedLayerIds.length + selectedTrackIds.length })}
           </span>
         ) : (
           <span className="tl-hint muted">
-            {tr(
-              'Kéo khối để dời · kéo mép để đổi thời gian · kéo vùng trống để khoanh chọn · Ctrl+B tách tại đầu phát · Ctrl+C / Ctrl+V chép, dán · thả nhạc, ảnh, video vào đúng chỗ · Ctrl + lăn chuột để zoom'
-            )}
+            {tr('Kéo để dời · kéo mép để đổi thời gian · kéo vùng trống để chọn nhiều · ? xem phím tắt')}
           </span>
         )}
         <span className="tl-tools">
+          <IconButton icon="help" title={tr('Phím tắt và thao tác chuột (?)')} onClick={() => useStore.getState().openDialog('shortcuts')} size={16} />
           <IconButton icon="split" title={tr('Tách thanh đang chọn tại đầu phát (Ctrl+B)')} onClick={splitAtPlayhead} size={16} />
           <span className="sep" />
           <IconButton icon="magnet" title={snapOn ? tr('Bắt dính: bật (giữ Shift để tạm tắt)') : tr('Bắt dính: tắt')} onClick={() => setSnapOn(!snapOn)} active={snapOn} size={16} />
@@ -879,7 +895,8 @@ const LayerRow = memo(function LayerRow({
           {tr(layer.name)}
           {parts > 1 && <small className="muted"> ×{parts}</small>}
         </span>
-        <span className="tl-head-tools" onClick={(e) => e.stopPropagation()}>
+        {/* Nút khoá / ẩn hiện khi di chuột qua hàng (luôn hiện khi đang khoá / đang ẩn): nhường chỗ cho tên */}
+        <span className={`tl-head-tools${locked || !enabled ? ' on' : ''}`} onClick={(e) => e.stopPropagation()}>
           <IconButton
             icon={locked ? 'lock' : 'lockOpen'}
             title={locked ? tr('Đang khoá — bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
