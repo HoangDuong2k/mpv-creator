@@ -6,7 +6,7 @@ import { buildTimeline } from '../../shared/timeline'
 import type { Project } from '../../shared/types'
 import type { EngineAssets, OffscreenSurface } from '../../engine/env'
 import { collectAssets } from '../../engine'
-import { runFfmpeg, type FfmpegRun } from '../ffmpeg'
+import { probeDuration, runFfmpeg, type FfmpegRun } from '../ffmpeg'
 import { tr } from '../../shared/i18n'
 
 let fontsRegistered = false
@@ -31,14 +31,6 @@ function fitImage(img: Image, maxSide: number): Image | Canvas {
   return c
 }
 
-/** Thời lượng file media (giây), đọc từ log của FFmpeg */
-export async function probeDuration(path: string): Promise<number> {
-  let text = ''
-  const run = runFfmpeg(['-i', path], { onStderr: (l) => (text += l + '\n') })
-  await run.done.catch(() => undefined) // ffmpeg -i không có output luôn trả mã lỗi
-  const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(text)
-  return m ? +m[1] * 3600 + +m[2] * 60 + parseFloat(m[3]) : 0
-}
 
 /**
  * Đọc lần lượt từng frame của video nền (lặp vô hạn) đã được FFmpeg co giãn

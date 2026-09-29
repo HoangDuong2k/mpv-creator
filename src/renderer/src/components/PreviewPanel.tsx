@@ -22,6 +22,7 @@ export function PreviewPanel(): ReactNode {
   const trackStatus = useStore((s) => s.trackStatus)
   const timeline = useTimeline()
   const { width: W, height: H } = project.settings
+  const maximized = useLayout((s) => s.previewMax)
   const quality = useStore((s) => s.previewQuality)
   // Độ nét preview: máy yếu chọn Vừa / Thấp để phát mượt (video xuất ra luôn đủ nét)
   const scale = Math.min(1, PREVIEW_MAX / Math.max(W, H)) * PREVIEW_QUALITY_SCALE[quality]
@@ -104,7 +105,7 @@ export function PreviewPanel(): ReactNode {
   const audioReady = project.tracks.length > 0 && project.tracks.every((t) => t.analysisKey && trackStatus[t.path]?.state === 'ready')
 
   return (
-    <section className="preview">
+    <section className={`preview${maximized ? ' maximized' : ''}`}>
       <Stage canvasRef={canvasRef} renderer={renderer} W={W} H={H} onTogglePlay={togglePlay} />
       <div className="transport">
         <IconButton icon="prev" title={tr('Bài trước')} onClick={() => jump(-1)} disabled={!cur} />
@@ -136,6 +137,11 @@ export function PreviewPanel(): ReactNode {
         </span>
         <VolumeControl />
         <FocusButton />
+        <IconButton
+          icon={maximized ? 'minimize' : 'maximize'}
+          title={maximized ? tr('Thoát toàn màn hình (Esc)') : tr('Xem toàn màn hình (F11)')}
+          onClick={() => togglePreviewMax()}
+        />
       </div>
     </section>
   )
@@ -200,6 +206,7 @@ const QUALITY_LABELS: Array<[PreviewQuality, string]> = [
 /** Menu nhỏ: độ nét preview + khung hình của project (thay cho các chip dễ bị tràn) */
 function PreviewMenu({ info }: { info: string }): ReactNode {
   const quality = useStore((s) => s.previewQuality)
+  const safeArea = useLayout((s) => s.safeArea)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -207,8 +214,15 @@ function PreviewMenu({ info }: { info: string }): ReactNode {
     const onDown = (e: globalThis.PointerEvent): void => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false)
+    }
     window.addEventListener('pointerdown', onDown)
-    return () => window.removeEventListener('pointerdown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
   }, [open])
   return (
     <span className="preview-menu-wrap" ref={ref}>
@@ -239,6 +253,17 @@ function PreviewMenu({ info }: { info: string }): ReactNode {
           <p className="menu-note">{tr('Chỉ ảnh hưởng khung xem trước, video xuất ra luôn đủ nét.')}</p>
           <button
             type="button"
+            className={`check${safeArea ? ' on' : ''}`}
+            data-safe
+            role="menuitemcheckbox"
+            aria-checked={safeArea}
+            onClick={() => useLayout.getState().toggleSafeArea()}
+            title={tr('Những chỗ giao diện YouTube thường che mất — tránh đặt chữ, nút Đăng ký ở đó. Không có trong video xuất ra.')}
+          >
+            {safeArea ? '☑' : '☐'} {tr('Hiện vùng an toàn YouTube')}
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setOpen(false)
               useStore.getState().openDialog('settings')
@@ -251,3 +276,15 @@ function PreviewMenu({ info }: { info: string }): ReactNode {
     </span>
   )
 }
+
+/** Xem preview toàn màn hình: preview phủ kín cửa sổ, và cả màn hình nếu hệ điều hành cho phép */
+export function togglePreviewMax(on = !useLayout.getState().previewMax): void {
+  useLayout.getState().setPreviewMax(on)
+  if (on) void document.documentElement.requestFullscreen?.().catch(() => undefined)
+  else if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+}
+
+// Thoát toàn màn hình bằng phím của hệ điều hành (Esc…) → preview trở lại bình thường
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && useLayout.getState().previewMax) useLayout.getState().setPreviewMax(false)
+})

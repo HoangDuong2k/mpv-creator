@@ -106,6 +106,8 @@ interface State {
   moveTrack(from: number, to: number): void
   /** Dời cả nhóm bài tới vị trí `to` (tính trong các bài còn lại) — một bước hoàn tác */
   moveTracks(ids: string[], to: number): void
+  /** Nhân bản các bài (bản sao nằm ngay sau bài gốc, dùng lại dữ liệu âm thanh) — một bước hoàn tác */
+  duplicateTracks(ids: string[]): void
   updateTrack(id: string, patch: Partial<Track>, opts?: UpdateOptions): void
   setTrackStatus(path: string, status: TrackStatus): void
   setSettings(patch: Partial<ProjectSettings>): void
@@ -113,6 +115,8 @@ interface State {
   addLayer(type: LayerType): void
   removeLayer(id: string): void
   duplicateLayer(id: string): void
+  /** Nhân bản nhiều lớp (bản sao ngay trên lớp gốc) — một bước hoàn tác */
+  duplicateLayers(ids: string[]): void
   moveLayer(id: string, dir: 1 | -1): void
   /** Đưa layer tới vị trí `index` (0 = dưới cùng) */
   moveLayerTo(id: string, index: number): void
@@ -294,6 +298,19 @@ export const useStore = create<State>((set, get) => ({
     })
   },
 
+  duplicateTracks(ids) {
+    const copies = new Map<string, Track>()
+    for (const t of get().project.tracks) if (ids.includes(t.id)) copies.set(t.id, { ...structuredClone(t), id: newId('track') })
+    if (copies.size === 0) return
+    get().update((p) => {
+      for (const [src, copy] of copies) {
+        const i = p.tracks.findIndex((t) => t.id === src)
+        p.tracks.splice(i + 1, 0, copy)
+      }
+    })
+    get().setSelection([], [...copies.values()].map((t) => t.id))
+  },
+
   moveTracks(ids, to) {
     const set0 = new Set(ids)
     const next = moveTracksOrder(get().project.tracks, set0, to)
@@ -361,6 +378,20 @@ export const useStore = create<State>((set, get) => ({
       p.layers.splice(i + 1, 0, copy)
     })
     get().selectLayer(copy.id)
+  },
+
+  duplicateLayers(ids) {
+    const copies = new Map<string, Layer>()
+    for (const l of get().project.layers)
+      if (ids.includes(l.id)) copies.set(l.id, { ...structuredClone(l), id: createLayer(l.type).id, name: `${tr(l.name)} ${tr('(bản sao)')}`, row: undefined, locked: undefined } as Layer)
+    if (copies.size === 0) return
+    get().update((p) => {
+      for (const [src, copy] of copies) {
+        const i = p.layers.findIndex((l) => l.id === src)
+        p.layers.splice(i + 1, 0, copy)
+      }
+    })
+    get().selectLayers([...copies.values()].map((l) => l.id))
   },
 
   moveLayer(id, dir) {
@@ -681,6 +712,11 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
   }
 }))
+
+/** Có gì đã chép (Ctrl+C) để dán không */
+export function hasClipboard(): boolean {
+  return clipboard.layers.length + clipboard.tracks.length > 0
+}
 
 /** Sau hoàn tác / làm lại: bỏ khỏi vùng chọn các lớp, bài không còn trong project */
 function prunedSelection(st: State, p: Project): Partial<State> {

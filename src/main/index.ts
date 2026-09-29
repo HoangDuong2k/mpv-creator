@@ -12,7 +12,7 @@ import { MixSource, toS16 } from './audio/mix'
 import { CancelledError } from './ffmpeg'
 import { ENCODERS, detectEncoders } from './export/encoders'
 import { exportVideo } from './export/exporter'
-import { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, isAudioFile, readTrackInfo } from './media'
+import { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, isAudioFile, readTrackInfo, videoThumbStrip } from './media'
 import { asarUnpacked, defaultCacheDir } from './paths'
 import { registerFileProtocol, registerSchemePrivileges } from './protocol'
 import { shutdownCommand, type ShellCommand } from './shutdown'
@@ -157,6 +157,8 @@ function registerIpc(): void {
     // Luôn đúng đuôi (vd. gõ "video.final" → "video.final.mp4"), FFmpeg dựa vào đuôi để chọn định dạng
     return withExtension(r.filePath, SAVE_FILTERS[kind][0].extensions[0])
   })
+
+  handle('media:thumbStrip', (path: string) => videoThumbStrip(path, workspace.thumbDir))
 
   handle('media:import', async (paths: string[]) => {
     const files = await expandAudioPaths(paths)

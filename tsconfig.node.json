@@ -23,6 +23,7 @@
     "src/renderer/src/fields.ts",
     "src/renderer/src/timelineModel.ts",
     "src/renderer/src/store.ts",
+    "src/renderer/src/safeArea.ts",
     "scripts/**/*",
     "tests/**/*"
   ]

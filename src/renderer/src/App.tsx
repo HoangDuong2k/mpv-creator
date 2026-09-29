@@ -3,7 +3,7 @@ import { ChaptersDialog } from './components/ChaptersDialog'
 import { ExportDialog, ShutdownCountdown, useExportStore } from './components/ExportDialog'
 import { LayersPanel } from './components/LayersPanel'
 import { PlaylistPanel, importPaths } from './components/PlaylistPanel'
-import { PreviewPanel } from './components/PreviewPanel'
+import { PreviewPanel, togglePreviewMax } from './components/PreviewPanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Timeline } from './components/Timeline'
 import { Icon, IconButton, fileName } from './components/ui'
@@ -131,11 +131,30 @@ function LangSwitch(): ReactNode {
   )
 }
 
+/** Bề ngang tối thiểu của cột preview */
+const MIN_PREVIEW = 380
+
 /** Vùng làm việc: playlist | preview | lớp hiệu ứng — hai cột bên kéo đổi độ rộng, thu gọn được */
 function Workspace(): ReactNode {
-  const { leftW, rightW, leftOpen, rightOpen } = useLayout()
+  const { leftW: lw0, rightW: rw0, leftOpen, rightOpen } = useLayout()
+  const [vw, setVw] = useState(window.innerWidth)
+  useEffect(() => {
+    const onResize = (): void => setVw(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  // Preview luôn còn ít nhất MIN_PREVIEW px: hai cột bên quá rộng so với cửa sổ thì thu nhỏ theo tỉ lệ
+  // (không đổi độ rộng đã chọn — cửa sổ rộng ra lại thì trở về như cũ)
+  const room = Math.max(0, vw - MIN_PREVIEW)
+  const want = (leftOpen ? lw0 : 0) + (rightOpen ? rw0 : 0)
+  const k = want > room && want > 0 ? room / want : 1
+  const leftW = Math.max(180, Math.round(lw0 * k))
+  const rightW = Math.max(220, Math.round(rw0 * k))
   return (
-    <main className="workspace" style={{ gridTemplateColumns: `${leftOpen ? leftW : RAIL_W}px minmax(0, 1fr) ${rightOpen ? rightW : RAIL_W}px` }}>
+    <main
+      className={`workspace${leftOpen ? '' : ' left-collapsed'}`}
+      style={{ gridTemplateColumns: `${leftOpen ? leftW : RAIL_W}px minmax(0, 1fr) ${rightOpen ? rightW : RAIL_W}px`, ['--left-w' as string]: `${leftW}px` }}
+    >
       {leftOpen ? <PlaylistPanel /> : <CollapsedRail side="left" title="Playlist" icon="music" />}
       <PreviewPanel />
       {rightOpen ? <LayersPanel /> : <CollapsedRail side="right" title={tr('Lớp hiệu ứng')} icon="tune" />}
@@ -234,6 +253,12 @@ export function App(): ReactNode {
       } else if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         st.undo()
+      } else if (e.key === 'F11' && !st.dialog) {
+        e.preventDefault()
+        togglePreviewMax()
+      } else if (e.key === 'Escape' && useLayout.getState().previewMax && !st.dialog) {
+        e.preventDefault()
+        togglePreviewMax(false)
       } else if ((e.key === '?' || e.key === 'F1') && !st.dialog) {
         e.preventDefault()
         st.openDialog('shortcuts')

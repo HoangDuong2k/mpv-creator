@@ -413,7 +413,8 @@ async function main(): Promise<void> {
     await page.mouse.move(rz.x + rz.width / 2 - 70, rz.y + 120, { steps: 6 })
     await page.mouse.up()
     const rightW1 = (await boxOf(page.locator('.panel.right'))).width
-    assert(rightW1 > rightW0 + 40, `kéo mép cột lớp hiệu ứng: ${Math.round(rightW0)} → ${Math.round(rightW1)}px`)
+    // Cửa sổ hẹp: cột không rộng hết mức kéo vì preview luôn giữ tối thiểu 380px
+    assert(rightW1 > rightW0 + 20, `kéo mép cột lớp hiệu ứng: ${Math.round(rightW0)} → ${Math.round(rightW1)}px`)
     // Nhóm thuộc tính đóng / mở; số hiện theo %
     await page.locator('.layer', { hasText: 'Cột sóng nhạc' }).click()
     const colorTitle = page.locator('button.section-title', { hasText: /Màu sắc/ })
@@ -464,6 +465,10 @@ async function main(): Promise<void> {
       d1.props.src === imgA && d2.props.src === imgB && !!d1.row && d1.row === d2.row && d1.timing.start === 40 && d2.timing.start > 40 && (await page.locator('.tl-clip.t-background').count()) === 3,
       `ảnh xếp theo tên, chung một hàng, ảnh đầu từ điểm thả (${d1.timing.start}s → ${d2.timing.start}s)`
     )
+    assert(
+      await until(async () => (await page.locator('.tl-clip.t-background.has-thumb .tl-thumbs').evaluateAll((els) => els.filter((e) => (e as HTMLElement).style.backgroundImage.includes('pvm://')).length)) >= 2),
+      'thanh nền ảnh hiện ảnh thu nhỏ'
+    )
     await page.evaluate('window.__pvm.player.seek(45); window.__pvm.store.getState().setTime(45)')
     const bluish = async (): Promise<boolean> =>
       (await page.evaluate(`(() => {
@@ -475,6 +480,20 @@ async function main(): Promise<void> {
     await page.locator('.timeline').focus()
     await page.keyboard.press('Control+z')
     assert(await until(async () => (await dropped()).length === 0), 'Ctrl+Z bỏ các nền vừa thả')
+    // Video nền: thanh hiện dải khung hình trích bằng FFmpeg
+    const vid = join(OUT, 'nen.mp4')
+    spawnSync(ffmpegPath(), ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=duration=3:size=320x180:rate=10', '-pix_fmt', 'yuv420p', vid], { windowsHide: true })
+    await page.evaluate(`window.__pvm.dropFiles(${JSON.stringify([vid])}, 40, null)`)
+    assert(
+      await until(
+        async () => (await page.locator('.tl-clip.t-background .tl-thumbs').evaluateAll((els) => els.filter((e) => /\.jpg/.test((e as HTMLElement).style.backgroundImage)).length)) === 1,
+        15000
+      ),
+      'thanh nền video hiện dải khung hình'
+    )
+    await page.locator('.timeline').focus()
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await dropped()).length === 0), 'Ctrl+Z bỏ video nền vừa thả')
     // Thả 1 bài nhạc vào đầu timeline → chèn vào vị trí 1
     const ids0 = await trackIds()
     await page.evaluate(`window.__pvm.dropFiles(${JSON.stringify([files[2]])}, 1, null)`)
@@ -534,6 +553,54 @@ async function main(): Promise<void> {
     await page.locator('.timeline').focus()
     await page.keyboard.press('Escape')
     assert(await until(async () => ((await page.evaluate('window.__pvm.store.getState().selectedLayerIds.length')) as number) + (await selTracks()).length === 1), 'Esc bỏ chọn nhóm')
+
+    // ---------- Menu chuột phải ----------
+    const ctxItem = (label: RegExp) => page.locator('.ctx-menu .ctx-item', { has: page.locator('.ctx-label', { hasText: label }) })
+    const vizLocked = async (): Promise<boolean> => !!(await state()).layers.find((l) => l.type === 'visualizer')!.locked
+    await page.locator('.tl-clip.t-visualizer').click({ button: 'right' })
+    await page.locator('.ctx-menu').waitFor()
+    await page.screenshot({ path: join(OUT, '5d-context-menu.png') })
+    await ctxItem(/^Khoá$/).click()
+    assert(await until(vizLocked), 'chuột phải thanh cột sóng → Khoá')
+    await page.locator('.tl-clip.t-visualizer').click({ button: 'right' })
+    await ctxItem(/^Mở khoá$/).click()
+    assert(await until(async () => !(await vizLocked())), 'chuột phải → Mở khoá')
+    const ids1 = await trackIds()
+    await audioClips.nth(1).click({ button: 'right' })
+    await ctxItem(/^Nhân bản bài$/).click()
+    assert(await until(async () => (await trackIds()).length === 4 && (await trackIds())[1] === ids1[1] && !ids1.includes((await trackIds())[2])), 'chuột phải clip nhạc → Nhân bản bài (bản sao ngay sau bài gốc)')
+    await page.locator('.timeline').focus()
+    await page.keyboard.press('Control+z')
+    assert(await until(async () => (await trackIds()).length === 3), 'Ctrl+Z bỏ bài nhân bản')
+    const endBox = await stableBox(audioClips.nth(2))
+    const band = (await boxOf(page.locator('.tl-ruler'))).y + RULER_BAR_H
+    await page.mouse.click(endBox.x + endBox.width + 15, band + (audioRowBox.y - band) / 2, { button: 'right' })
+    await ctxItem(/^Chọn tất cả$/).click()
+    const allCount = ((await state()).layers.filter((l) => l.type !== 'cta').length + (await state()).tracks.length) as number
+    assert(
+      await until(async () => ((await page.evaluate('window.__pvm.store.getState().selectedLayerIds.length + window.__pvm.store.getState().selectedTrackIds.length')) as number) === allCount),
+      `chuột phải vùng trống → Chọn tất cả (${allCount} mục)`
+    )
+    await page.keyboard.press('Escape')
+
+    // ---------- Xem toàn màn hình, vùng an toàn YouTube ----------
+    const stageW0 = (await boxOf(page.locator('.stage-inner'))).width
+    await page.locator('.transport').getByRole('button', { name: /Xem toàn màn hình/ }).click()
+    assert(
+      await until(async () => (await page.locator('.preview.maximized').count()) === 1 && (await boxOf(page.locator('.stage-inner'))).width > stageW0 * 1.2),
+      `xem preview toàn màn hình (${Math.round(stageW0)} → ${Math.round((await boxOf(page.locator('.stage-inner'))).width)}px)`
+    )
+    await page.keyboard.press('Escape')
+    assert(await until(async () => (await page.locator('.preview.maximized').count()) === 0, 5000), 'Esc thoát toàn màn hình')
+    await page.locator('.preview-menu-btn').click()
+    await page.locator('.preview-menu button[data-safe]').click()
+    assert(await until(async () => (await page.locator('.safe-zone').count()) === 2), 'bật vùng an toàn YouTube: 2 vùng (tiêu đề, thanh điều khiển)')
+    await page.keyboard.press('Escape')
+    await page.screenshot({ path: join(OUT, '9b-safe-area.png') })
+    await page.locator('.preview-menu-btn').click()
+    await page.locator('.preview-menu button[data-safe]').click()
+    assert(await until(async () => (await page.locator('.safe-zone').count()) === 0), 'tắt vùng an toàn')
+    await page.locator('.panel-head h3').first().click() // đóng menu
 
     // Nút Đăng ký: kéo lần hiện tự động → thành mốc tự chỉnh
     await page.locator('.layer', { hasText: 'Đăng ký / Like' }).click()

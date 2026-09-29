@@ -8,6 +8,7 @@ const api: PvmApi = {
   openFiles: (kind, multi) => invoke('dialog:open', kind, multi),
   saveFile: (kind, defaultName) => invoke('dialog:save', kind, defaultName),
   importMedia: (paths) => invoke('media:import', paths),
+  thumbStrip: (path) => invoke('media:thumbStrip', path),
   ensureAnalysis: (path, duration) => invoke('analysis:ensure', path, duration),
   loadAnalysis: (key) => invoke('analysis:load', key),
   audioChunk: (spec, fromFrame, frames) => invoke('audio:chunk', spec, fromFrame, frames),

@@ -18,6 +18,11 @@ export class Workspace {
     return join(this.cacheDir, 'covers')
   }
 
+  /** Dải khung hình của video nền (ảnh thu nhỏ trên timeline) */
+  get thumbDir(): string {
+    return join(this.cacheDir, 'thumbs')
+  }
+
   featuresPath(key: string): string {
     return join(this.cacheDir, 'analysis', `${key}.pvmf`)
   }

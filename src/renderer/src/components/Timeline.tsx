@@ -45,6 +45,7 @@ import {
   layerRange,
   moveAppearance,
   removeAppearance,
+  ROW_COLORS,
   rowBounds,
   snapCandidates,
   snapTime,
@@ -56,6 +57,9 @@ import {
 } from '../timelineModel'
 import { mediaKind } from '../../../shared/files'
 import { deleteSelection, dropFiles, splitAtPlayhead } from '../timelineActions'
+import { ctaMenu, laneMenu, layerMenu, trackMenu } from '../contextMenus'
+import { ContextMenu, type MenuState } from './ContextMenu'
+import { useThumbUrl } from '../thumbs'
 import { useLayout } from '../layout'
 import { Icon, IconButton } from './ui'
 import { tr } from '../../../shared/i18n'
@@ -65,8 +69,6 @@ const SNAP_PX = 8
 const FOCUS_TL_H = 170
 const HEIGHT_KEY = 'pvm.timelineHeight'
 
-/** Màu chọn cho hàng / thanh trên timeline */
-export const ROW_COLORS = ['#4fc3f7', '#81c784', '#ffb74d', '#e57373', '#ba68c8', '#f06292', '#fff176', '#90a4ae']
 
 type Session =
   | { kind: 'seek' }
@@ -143,6 +145,8 @@ export function Timeline(): ReactNode {
   const [view, setView] = useState({ w: 900, left: 0 })
   const [snapOn, setSnapOn] = useState(true)
   const [visual, setVisual] = useState<Visual | null>(null)
+  const [menu, setMenu] = useState<MenuState | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
   const [height, setHeight] = useState(loadHeight)
   // Chế độ tập trung preview (hai cột bên đã ẩn): timeline thu gọn tạm thời để preview cao hơn
   const focused = useLayout((s) => !s.leftOpen && !s.rightOpen)
@@ -594,6 +598,28 @@ export function Timeline(): ReactNode {
     e.preventDefault()
   }
 
+  /** Chuột phải: menu theo đối tượng dưới con trỏ (thanh, clip nhạc, lần hiện nút Đăng ký, vùng trống) */
+  const onContextMenu = (e: MouseEvent<HTMLDivElement>): void => {
+    e.preventDefault()
+    if (session.current) return
+    const hit = (e.target as HTMLElement).closest<HTMLElement>('[data-hit]')
+    if (!hit) return
+    rootRef.current?.focus({ preventScroll: true })
+    const d = hit.dataset
+    const t = timeAt(e.clientX)
+    const items =
+      d.hit === 'layer' && d.id
+        ? layerMenu(d.id)
+        : d.hit === 'track' && d.id
+          ? trackMenu(d.id)
+          : d.hit === 'cta' && d.id
+            ? ctaMenu(d.id, Number(d.index))
+            : d.hit === 'lane' || d.hit === 'ruler'
+              ? laneMenu(t, d.row ?? null)
+              : []
+    if (items.length) setMenu({ x: e.clientX, y: e.clientY, items })
+  }
+
   /** Kéo file từ ngoài vào: thời điểm thả (đã bắt dính) và lớp nằm dưới con trỏ */
   const dropInfo = (e: DragEvent<HTMLElement>): { t: number; snapped: number | null; targetLayerId: string | null } => {
     const st = useStore.getState()
@@ -746,6 +772,7 @@ export function Timeline(): ReactNode {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           onDoubleClick={onDoubleClick}
+          onContextMenu={onContextMenu}
         >
           <div className="tl-ruler-row" style={{ height: RULER_H }}>
             <div className="tl-corner" style={{ width: HEAD_W }}>
@@ -786,6 +813,7 @@ export function Timeline(): ReactNode {
           {visual?.marquee && <div className="tl-marquee" style={{ left: visual.marquee.x, top: visual.marquee.y, width: visual.marquee.w, height: visual.marquee.h }} />}
         </div>
       </div>
+      {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </section>
   )
 }
@@ -975,13 +1003,16 @@ function LayerClip({ layer, zoom, total, selected, primary }: { layer: Layer; zo
   const fo = Math.min(w, layer.timing.fadeOut * zoom)
   const part = (p: RangePart): { 'data-hit': string; 'data-id': string; 'data-part': string } => ({ 'data-hit': 'layer', 'data-id': layer.id, 'data-part': p })
   const locked = !!layer.locked
+  const thumb = useThumbUrl(layer)
   return (
     <div
-      className={`tl-clip t-${layer.type}${selected ? ' selected' : ''}${locked ? ' locked' : ''}${layer.enabled ? '' : ' off'}`}
+      className={`tl-clip t-${layer.type}${selected ? ' selected' : ''}${locked ? ' locked' : ''}${layer.enabled ? '' : ' off'}${thumb ? ' has-thumb' : ''}`}
       style={{ left: start * zoom, width: w, ...colorStyle(layer.color) }}
       {...part('move')}
       title={locked ? tr('{name} — đang khoá', { name: tr(layer.name) }) : undefined}
     >
+      {/* Ảnh nền / video nền / logo: dải ảnh thu nhỏ lặp dọc thanh (như cuộn phim) */}
+      {thumb && <div className="tl-thumbs" style={{ backgroundImage: `url("${thumb}")` }} />}
       {fi > 0 && <div className="tl-fade in" style={{ width: fi }} />}
       {fo > 0 && <div className="tl-fade out" style={{ width: fo }} />}
       <span className="tl-label">

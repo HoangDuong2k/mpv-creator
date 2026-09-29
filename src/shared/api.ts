@@ -63,6 +63,8 @@ export interface PvmApi {
   openFiles(kind: FileKind, multi: boolean): Promise<string[]>
   saveFile(kind: SaveKind, defaultName: string): Promise<string | null>
   importMedia(paths: string[]): Promise<Track[]>
+  /** Dải khung hình của video (ảnh thu nhỏ trên timeline); null nếu không đọc được */
+  thumbStrip(path: string): Promise<string | null>
   ensureAnalysis(path: string, duration: number): Promise<{ analysisKey: string; duration: number }>
   loadAnalysis(key: string): Promise<Uint8Array>
   /** Đoạn âm thanh [fromFrame, fromFrame + frames) của bản mix — PCM stereo 16-bit 48kHz */

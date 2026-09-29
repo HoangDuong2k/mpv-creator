@@ -7,6 +7,13 @@ import { buildTimeline } from '../../shared/timeline'
 import { formatTimePrecise } from '../../shared/time'
 import { insertionIndexAt } from './timelineModel'
 
+/** Tua tới thời điểm t (đồng bộ đầu phát và store) */
+export function seekTo(t: number): void {
+  const v = Math.max(0, Math.min(t, player.total || t))
+  player.seek(v)
+  useStore.getState().setTime(v)
+}
+
 /** Ctrl+B: tách các thanh đang chọn tại đầu phát */
 export function splitAtPlayhead(): void {
   const st = useStore.getState()

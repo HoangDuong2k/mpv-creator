@@ -76,3 +76,12 @@ export function parseFfmpegTime(line: string): number | null {
   if (!m) return null
   return +m[1] * 3600 + +m[2] * 60 + parseFloat(m[3])
 }
+
+/** Thời lượng file media (giây), đọc từ log của FFmpeg */
+export async function probeDuration(path: string): Promise<number> {
+  let text = ''
+  const run = runFfmpeg(['-i', path], { onStderr: (l) => (text += l + '\n') })
+  await run.done.catch(() => undefined) // ffmpeg -i không có output luôn trả mã lỗi
+  const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(text)
+  return m ? +m[1] * 3600 + +m[2] * 60 + parseFloat(m[3]) : 0
+}

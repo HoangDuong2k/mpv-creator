@@ -8,6 +8,8 @@ import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { layerRange } from '../timelineModel'
 import { tr } from '../../../shared/i18n'
+import { useLayout } from '../layout'
+import { youtubeSafeZones } from '../safeArea'
 
 const HANDLE_HIT = 8 // px màn hình
 const SNAP = 8 // px màn hình
@@ -49,6 +51,7 @@ export function Stage({
   const selected = layers.find((l) => l.id === selectedId) ?? null
   const currentTime = useStore((s) => s.currentTime)
   const timeline = useTimeline()
+  const safeArea = useLayout((st) => st.safeArea)
 
   // Canvas luôn vừa khung, giữ đúng tỉ lệ khung hình của project
   useEffect(() => {
@@ -167,6 +170,7 @@ export function Stage({
     <div className="stage" ref={wrapRef}>
       <div className="stage-inner" style={{ width: view.w, height: view.h }}>
         <canvas ref={canvasRef} className="stage-canvas" />
+        {safeArea && <SafeZones W={W} H={H} />}
         <div
           className="stage-overlay"
           style={{ cursor }}
@@ -191,6 +195,19 @@ export function Stage({
         </div>
       </div>
       <div className="stage-hint">{hint}</div>
+    </div>
+  )
+}
+
+/** Vùng an toàn YouTube vẽ đè lên preview (chỉ để canh, không có trong video xuất ra) */
+function SafeZones({ W, H }: { W: number; H: number }): ReactNode {
+  return (
+    <div className="safe-zones" aria-hidden="true">
+      {youtubeSafeZones(W, H).map((z) => (
+        <div key={z.label} className="safe-zone" style={{ left: `${z.x * 100}%`, top: `${z.y * 100}%`, width: `${z.w * 100}%`, height: `${z.h * 100}%` }}>
+          <span>{tr(z.label)}</span>
+        </div>
+      ))}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { LAYER_LABELS } from '../../../shared/defaults'
 import { formatTime } from '../../../shared/time'
 import type { LayerType } from '../../../shared/types'
@@ -11,6 +11,8 @@ import { Icon, IconButton } from './ui'
 import { tr } from '../../../shared/i18n'
 import { useLayout } from '../layout'
 import { CollapseButton, ColumnResizer } from './PanelFrame'
+import { layerMenu } from '../contextMenus'
+import { ContextMenu, type MenuState } from './ContextMenu'
 
 const ADDABLE: LayerType[] = ['visualizer', 'text', 'image', 'cta', 'filter', 'particles', 'flicker', 'vignette', 'progress', 'background']
 
@@ -22,6 +24,8 @@ export function LayersPanel(): ReactNode {
   const { selectLayer, toggleLayerSelection, toggleLayer, moveLayer, removeLayer, duplicateLayer, addLayer, setLayersLocked } = useStore.getState()
   const tl = useTimeline()
   const [menu, setMenu] = useState(false)
+  const [ctx, setCtx] = useState<MenuState | null>(null)
+  const closeCtx = useCallback(() => setCtx(null), [])
   const wrapRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const listH = useLayout((s) => s.listH)
@@ -73,6 +77,10 @@ export function LayersPanel(): ReactNode {
               key={l.id}
               className={`layer${selectedIds.includes(l.id) ? ' selected' : ''}${l.enabled ? '' : ' disabled'}`}
               onClick={(e) => (e.ctrlKey || e.metaKey || e.shiftKey ? toggleLayerSelection(l.id) : selectLayer(l.id))}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setCtx({ x: e.clientX, y: e.clientY, items: layerMenu(l.id) })
+              }}
             >
               <IconButton icon={l.enabled ? 'eye' : 'eyeOff'} title={l.enabled ? tr('Ẩn lớp') : tr('Hiện lớp')} onClick={() => toggleLayer(l.id)} size={16} />
               <span className="layer-title">
@@ -101,6 +109,7 @@ export function LayersPanel(): ReactNode {
           )
         })}
       </ul>
+      {ctx && <ContextMenu menu={ctx} onClose={closeCtx} />}
       <SplitResizer listRef={listRef} />
       <div className="inspector-wrap" ref={wrapRef}>{selectedTrack ? <TrackInspector track={selectedTrack} /> : selected ? <Inspector layer={selected} /> : <p className="muted pad">{tr('Chọn một lớp ở danh sách trên, hoặc nhấp thẳng vào nó trên khung hình để chỉnh vị trí, kích thước, màu sắc.')}</p>}</div>
     </aside>

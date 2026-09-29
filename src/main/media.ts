@@ -1,10 +1,11 @@
 import { createHash } from 'crypto'
 import { existsSync } from 'fs'
-import { mkdir, stat, writeFile } from 'fs/promises'
+import { mkdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, extname, join } from 'path'
 import { parseFile } from 'music-metadata'
 import { newId } from '../shared/defaults'
 import type { Track } from '../shared/types'
+import { probeDuration, runFfmpeg } from './ffmpeg'
 
 import { AUDIO_EXTENSIONS } from '../shared/files'
 export { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../shared/files'
@@ -61,4 +62,34 @@ export async function readTrackInfo(path: string, coverDir: string): Promise<Tra
     // File không đọc được tag: giữ thông tin đoán từ tên file; thời lượng sẽ có sau khi phân tích
   }
   return track
+}
+
+const stripJobs = new Map<string, Promise<string | null>>()
+
+/**
+ * Dải `frames` khung hình (cao 54px, ghép ngang) lấy đều trong video — hiện trên thanh nền ở timeline.
+ * Lưu trong cache theo dấu vân tay file (đổi file → làm lại); null nếu không đọc được video.
+ */
+export function videoThumbStrip(path: string, dir: string, frames = 8): Promise<string | null> {
+  const job = stripJobs.get(path) ?? makeStrip(path, dir, frames).finally(() => stripJobs.delete(path))
+  stripJobs.set(path, job)
+  return job
+}
+
+async function makeStrip(path: string, dir: string, frames: number): Promise<string | null> {
+  if (!existsSync(path)) return null
+  const out = join(dir, `${await fileFingerprint(path)}.jpg`)
+  if (existsSync(out)) return out
+  const dur = await probeDuration(path)
+  if (!(dur > 0)) return null
+  await mkdir(dir, { recursive: true })
+  const tmp = `${out}.tmp.jpg`
+  try {
+    await runFfmpeg(['-v', 'error', '-y', '-i', path, '-vf', `fps=${frames}/${dur.toFixed(3)},scale=-2:54,tile=${frames}x1`, '-frames:v', '1', '-q:v', '5', tmp]).done
+    await rename(tmp, out)
+    return out
+  } catch {
+    await rm(tmp, { force: true }).catch(() => undefined)
+    return null
+  }
 }

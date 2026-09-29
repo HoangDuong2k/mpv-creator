@@ -16,12 +16,14 @@ const GROUPS: Array<[string, Array<[string, string]>]> = [
       ['Ctrl+O', trKey('Mở project')],
       ['Ctrl+E', trKey('Xuất video')],
       ['F', trKey('Tập trung preview (ẩn / hiện hai cột bên)')],
+      ['F11 · Esc', trKey('Xem preview toàn màn hình / thoát')],
       ['? · F1', trKey('Bảng phím tắt này')]
     ]
   ],
   [
     'Timeline',
     [
+      [trKey('Chuột phải'), trKey('Menu thao tác: tách, chép, nhân bản, khoá, đổi màu, xoá…')],
       [trKey('Kéo thanh · kéo mép'), trKey('Dời thời gian · đổi lúc bắt đầu / kết thúc')],
       [trKey('Kéo núm tròn'), trKey('Hiện dần / ẩn dần')],
       [trKey('Ctrl/Shift + nhấp'), trKey('Chọn thêm thanh hiệu ứng, clip nhạc')],
