@@ -510,7 +510,9 @@ async function main(): Promise<void> {
     await page.keyboard.press('Control+z')
     assert(await until(async () => (await trackIds()).length === 3), 'Ctrl+Z bỏ bài vừa dán')
     // Kéo khung trên vùng trống (sau cuối video) để khoanh nhiều thanh + clip nhạc
-    const endX = (await boxOf(audioClips.nth(2))).x + (await boxOf(audioClips.nth(2))).width
+    // Đo khi bố cục đã đứng yên: sau Ctrl+Z video ngắn lại, timeline tự chỉnh mức zoom "vừa khung" ở khung hình kế tiếp
+    const lastClip = await stableBox(audioClips.nth(2))
+    const endX = lastClip.x + lastClip.width
     const audioRowBox = await boxOf(page.locator('.tl-row.audio'))
     // Bắt đầu ở giữa dải các hàng lớp đang nhìn thấy (giữa thước thời gian ghim ở trên và hàng nhạc ghim ở dưới)
     const rulerBottom = (await boxOf(page.locator('.tl-ruler'))).y + RULER_BAR_H
