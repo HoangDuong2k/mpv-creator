@@ -1,6 +1,6 @@
 // Âm thanh mẫu tổng hợp (không cần file nhạc): dữ liệu phân tích giả lập một đoạn nhạc 118 BPM,
 // dùng để vẽ ảnh xem trước (cột sóng, mẫu phong cách…) trông như đang có nhạc. Tất định: lần nào cũng như nhau.
-import { ANALYSIS_VERSION, BAND_COUNT, FEATURE_RATE, OFF_BASS, OFF_BEAT, OFF_RMS, OFF_WAVE, SAMPLE_RATE, STRIDE, WAVE_POINTS } from '../shared/featureFormat'
+import { ANALYSIS_VERSION, BAND_COUNT, FEATURE_RATE, OFF_BAL, OFF_BASS, OFF_BEAT, OFF_RMS, OFF_WAVE, SAMPLE_RATE, STRIDE, WAVE_POINTS } from '../shared/featureFormat'
 import { TrackFeatures } from './audio'
 
 /** Khoá phân tích của bài nhạc mẫu */
@@ -36,6 +36,8 @@ export function createDemoFeatures(seconds = 12): TrackFeatures {
     data[base + OFF_BASS] = byte((0.35 + 0.6 * kick) * 255)
     // Beat ở frame đầu của mỗi phách
     data[base + OFF_BEAT] = inBeat < 1 / FEATURE_RATE ? 220 : 0
+    // Tiếng lệch nhẹ qua lại hai bên (hai kim đồng hồ VU không nhảy giống hệt nhau)
+    data[base + OFF_BAL] = byte(128 + 26 * Math.sin(t * 1.7) + 12 * Math.sin(t * 6.1 + 1))
   }
   return new TrackFeatures(
     {

@@ -23,7 +23,7 @@ export interface DragResult {
   guides: { x?: number; y?: number }
 }
 
-const MOVABLE: LayerType[] = ['visualizer', 'text', 'image', 'progress', 'cta', 'particles', 'timer']
+const MOVABLE: LayerType[] = ['visualizer', 'text', 'image', 'progress', 'cta', 'particles', 'timer', 'vinyl', 'nowplaying', 'tracklist', 'vumeter']
 
 export function isMovable(layer: Layer): boolean {
   return MOVABLE.includes(layer.type)
@@ -44,7 +44,12 @@ export function handlesFor(layer: Layer): Handle[] {
     case 'image':
     case 'cta':
     case 'timer':
+    case 'vinyl':
+    case 'vumeter':
       return CORNERS
+    case 'nowplaying':
+    case 'tracklist':
+      return [...CORNERS, 'e', 'w']
     default:
       return []
   }
@@ -147,6 +152,19 @@ export function applyDrag(layer: Layer, s: DragSession, px: number, py: number, 
       break
     case 'cta':
       set(patch, 'scale', num('scale') * k)
+      break
+    case 'vinyl':
+    case 'vumeter':
+      set(patch, 'size', num('size') * k)
+      break
+    case 'nowplaying':
+      // Kéo cạnh: đổi bề ngang; kéo góc: phóng to cả thẻ
+      if (vert) set(patch, 'size', num('size') * k)
+      set(patch, 'width', num('width') * (vert ? k : kx))
+      break
+    case 'tracklist':
+      if (vert) set(patch, 'fontSize', num('fontSize') * k)
+      set(patch, 'width', num('width') * (vert ? k : kx))
       break
   }
   return { patch, guides }

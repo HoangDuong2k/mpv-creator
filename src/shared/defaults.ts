@@ -42,9 +42,14 @@ export const LAYER_DEFAULTS: LayerPropsMap = {
     centerImage: 'cover',
     centerSrc: '',
     centerBeat: 0.06,
-    rotateSpeed: 0
+    rotateSpeed: 0,
+    ledSegments: 18,
+    ledPalette: 'hifi',
+    peakHold: true
   },
   progress: {
+    style: 'bar',
+    waveHeight: 40,
     scope: 'track',
     x: 0.5,
     y: 0.84,
@@ -74,7 +79,8 @@ export const LAYER_DEFAULTS: LayerPropsMap = {
     uppercase: false,
     animation: 'fade',
     opacity: 1,
-    beatScale: 0
+    beatScale: 0,
+    flicker: 0
   },
   image: {
     source: 'file',
@@ -167,6 +173,108 @@ export const LAYER_DEFAULTS: LayerPropsMap = {
     labelPos: 'above',
     opacity: 1,
     beatScale: 0
+  },
+  vinyl: {
+    x: 0.5,
+    y: 0.5,
+    size: 0.62,
+    rpm: 33.3,
+    label: 'cover',
+    src: '',
+    labelSize: 0.36,
+    discColor: '#111111',
+    labelColor: '#b5412f',
+    sheen: 0.6,
+    tonearm: true,
+    slowOnChange: true,
+    beatScale: 0,
+    shadow: 0.5,
+    opacity: 1
+  },
+  nowplaying: {
+    x: 0.5,
+    y: 0.84,
+    width: 620,
+    size: 112,
+    style: 'glass',
+    bgColor: '#000000',
+    bgOpacity: 0.35,
+    blur: 18,
+    radius: 22,
+    showCover: true,
+    showProgress: true,
+    showTime: true,
+    label: '',
+    font: 'Be Vietnam Pro',
+    titleColor: '#ffffff',
+    textColor: '#cfc9bf',
+    accent: '#ffffff',
+    opacity: 1
+  },
+  tracklist: {
+    x: 0.97,
+    y: 0.5,
+    align: 'right',
+    width: 0.28,
+    rows: 8,
+    fontSize: 26,
+    font: 'Be Vietnam Pro',
+    style: 'glass',
+    bgColor: '#000000',
+    bgOpacity: 0.35,
+    blur: 16,
+    title: '',
+    showNumber: true,
+    showTime: true,
+    showArtist: true,
+    color: '#ffffff',
+    activeColor: '#ffcf7a',
+    dimPlayed: true,
+    opacity: 1
+  },
+  vumeter: {
+    x: 0.5,
+    y: 0.78,
+    size: 380,
+    layout: 'stereo',
+    style: 'classic',
+    faceColor: '#f1dfae',
+    needleColor: '#1b1b1b',
+    accent: '#d8312b',
+    textColor: '#2b2118',
+    sensitivity: 1,
+    backlight: 0.6,
+    label: 'VU',
+    opacity: 1
+  },
+  vhs: {
+    intensity: 1,
+    chroma: 4,
+    scanlines: 0.35,
+    noise: 0.35,
+    tracking: 0.5,
+    soft: 0.5,
+    osd: true,
+    osdText: 'PLAY',
+    dateText: 'SEP. 30 1997',
+    showTime: true
+  },
+  glitch: {
+    trigger: 'beat',
+    amount: 0.7,
+    rgbSplit: 14,
+    slices: 10,
+    threshold: 0.35,
+    blocks: true
+  },
+  crt: {
+    curvature: 0.5,
+    scanlines: 0.5,
+    mask: 0.35,
+    flicker: 0.3,
+    vignette: 0.6,
+    glow: 0.4,
+    bezel: true
   }
 }
 
@@ -181,7 +289,14 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   particles: 'Hạt bay (bụi/tuyết)',
   vignette: 'Viền tối (vignette)',
   filter: 'Bộ lọc màu',
-  timer: 'Đồng hồ đếm giờ'
+  timer: 'Đồng hồ đếm giờ',
+  vinyl: 'Đĩa than xoay',
+  nowplaying: 'Thẻ đang phát',
+  tracklist: 'Danh sách bài',
+  vumeter: 'Đồng hồ VU',
+  vhs: 'VHS / băng từ',
+  glitch: 'Glitch theo beat',
+  crt: 'Màn hình CRT'
 }
 
 let idCounter = 0

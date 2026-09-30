@@ -31,6 +31,10 @@ export function PreviewPanel(): ReactNode {
   const selectedLayerId = useStore((s) => s.selectedLayerId)
   const live = useRef({ project, timeline, sampler, scale, dirty: true, lastT: -1, lastPlaying: false })
   const renderer = useMemo(() => new Renderer(assets), [])
+  // Kiểm thử tự động đọc lỗi vẽ của từng lớp trên preview
+  useEffect(() => {
+    ;(window as unknown as { __pvm: Record<string, unknown> }).__pvm.preview = renderer
+  }, [renderer])
 
   useEffect(() => {
     live.current = { ...live.current, project, timeline, sampler, scale, dirty: true }

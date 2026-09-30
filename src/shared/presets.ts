@@ -31,7 +31,19 @@ export const EFFECT_GROUPS: PresetGroup[] = [
       preset('viz-area', trKey('Dải sóng mềm'), 'visualizer', { style: 'area', colorMode: 'solid', color: '#ffffff', opacity: 0.8, glow: 20 }),
       preset('viz-wave', trKey('Đường sóng âm'), 'visualizer', { style: 'wave', colorMode: 'solid', color: '#7cf2ff', lineWidth: 3, glow: 18 }),
       preset('viz-rainbow', trKey('Cột cầu vồng'), 'visualizer', { style: 'bars', colorMode: 'rainbow', barCount: 48 }),
-      preset('viz-neon', trKey('Neon đối xứng'), 'visualizer', { style: 'mirror', color: '#ff2bd6', color2: '#00f0ff', glow: 40, barCount: 80, barGap: 0.5 })
+      preset('viz-neon', trKey('Neon đối xứng'), 'visualizer', { style: 'mirror', color: '#ff2bd6', color2: '#00f0ff', glow: 40, barCount: 80, barGap: 0.5 }),
+      preset('viz-led', trKey('Equalizer LED hi-fi'), 'visualizer', { style: 'led', barCount: 32, barGap: 0.25, ledSegments: 18, height: 0.34, glow: 8 }),
+      preset('viz-led-mono', trKey('Equalizer LED một màu'), 'visualizer', {
+        style: 'led',
+        ledPalette: 'theme',
+        colorMode: 'solid',
+        color: '#5fe0ff',
+        barCount: 48,
+        barGap: 0.3,
+        ledSegments: 24,
+        height: 0.3,
+        glow: 14
+      })
     ]
   },
   {
@@ -42,7 +54,8 @@ export const EFFECT_GROUPS: PresetGroup[] = [
       preset('pt-snow', trKey('Tuyết rơi'), 'particles', { style: 'snow', count: 140 }),
       preset('pt-bokeh', trKey('Bokeh (đốm sáng mờ)'), 'particles', { style: 'bokeh', count: 36, size: 8, opacity: 0.45 }),
       preset('pt-rain', trKey('Mưa'), 'particles', { style: 'rain', count: 220, opacity: 0.5 }),
-      preset('pt-stars', trKey('Sao lấp lánh'), 'particles', { style: 'stars', count: 120 })
+      preset('pt-stars', trKey('Sao lấp lánh'), 'particles', { style: 'stars', count: 120 }),
+      preset('pt-orbit', trKey('Vòng hạt quanh ảnh bìa'), 'particles', { style: 'orbit', x: 0.5, y: 0.5, width: 0.42, height: 0.75, count: 110, size: 3, color: '#ffd9a0', beatReact: 1.2 })
     ]
   },
   {
@@ -62,7 +75,24 @@ export const EFFECT_GROUPS: PresetGroup[] = [
       preset('ov-vignette', trKey('Viền tối (vignette)'), 'vignette'),
       preset('ov-progress', trKey('Thanh tiến trình'), 'progress'),
       preset('ov-progress-thin', trKey('Thanh tiến trình mảnh'), 'progress', { thickness: 3, showDot: false, showTime: false, y: 0.95, width: 0.9 }),
+      preset('ov-progress-wave', trKey('Thanh tiến trình sóng âm'), 'progress', { style: 'wave', waveHeight: 44, y: 0.86, width: 0.7, trackColor: 'rgba(255,255,255,0.3)' }),
       preset('ov-logo', trKey('Ảnh / Logo'), 'image')
+    ]
+  },
+  {
+    id: 'music',
+    name: trKey('Đĩa than và thông tin bài'),
+    items: [
+      preset('vn-cover', trKey('Đĩa than xoay'), 'vinyl'),
+      preset('vn-label', trKey('Đĩa than nhãn in tên bài'), 'vinyl', { label: 'text', labelColor: '#b5412f', size: 0.66 }),
+      preset('vn-corner', trKey('Đĩa than nhỏ góc màn hình'), 'vinyl', { x: 0.14, y: 0.76, size: 0.34, tonearm: false, shadow: 0.35 }),
+      preset('np-glass', trKey('Thẻ đang phát kính mờ'), 'nowplaying'),
+      preset('np-solid', trKey('Thẻ đang phát nền tối'), 'nowplaying', { style: 'solid', bgColor: '#121212', bgOpacity: 0.85, accent: '#1ed760', label: trKey('Đang phát') }),
+      preset('np-minimal', trKey('Tên bài kèm ảnh bìa'), 'nowplaying', { style: 'minimal', x: 0.24, y: 0.88, showProgress: false, size: 96 }),
+      preset('tl-glass', trKey('Danh sách bài bên phải'), 'tracklist', { title: trKey('Danh sách phát') }),
+      preset('tl-plain', trKey('Danh sách bài không nền'), 'tracklist', { style: 'plain', x: 0.04, align: 'left', showTime: false, activeColor: '#ffffff', rows: 6 }),
+      preset('vu-classic', trKey('Đồng hồ VU cổ điển'), 'vumeter'),
+      preset('vu-dark', trKey('Đồng hồ VU mặt tối'), 'vumeter', { style: 'dark', backlight: 0.8 })
     ]
   },
   {
@@ -115,6 +145,17 @@ export const EFFECT_GROUPS: PresetGroup[] = [
     ]
   },
   {
+    id: 'retro',
+    name: trKey('Retro và glitch'),
+    items: [
+      preset('fx-vhs', trKey('VHS / băng từ'), 'vhs'),
+      preset('fx-vhs-soft', trKey('VHS nhẹ, không chữ'), 'vhs', { intensity: 0.7, chroma: 3, tracking: 0.25, osd: false }),
+      preset('fx-glitch', trKey('Glitch theo beat'), 'glitch'),
+      preset('fx-glitch-hard', trKey('Glitch mạnh (EDM)'), 'glitch', { amount: 1, rgbSplit: 26, slices: 18, threshold: 0.2 }),
+      preset('fx-crt', trKey('Màn hình CRT cũ'), 'crt')
+    ]
+  },
+  {
     id: 'cta',
     name: trKey('Đăng ký / Like'),
     items: [
@@ -141,6 +182,18 @@ export const TEXT_PRESETS: LayerPreset[] = [
   preset('txt-script', trKey('Chữ viết tay'), 'text', { template: '{title}', font: 'Pacifico', bold: false, size: 84, y: 0.22 }),
   preset('txt-serif', trKey('Chữ cổ điển'), 'text', { template: '{title}', font: 'Playfair Display', size: 76, y: 0.2 }),
   preset('txt-neon', trKey('Chữ neon'), 'text', { template: '{title}', font: 'Bungee', size: 72, shadowColor: '#ff2bd6', shadowBlur: 40, y: 0.2 }),
+  preset('txt-neon-flicker', trKey('Chữ neon chập chờn'), 'text', {
+    template: '{title}',
+    font: 'Pacifico',
+    bold: false,
+    size: 84,
+    color: '#ffe3fb',
+    shadowColor: '#ff2bd6',
+    shadowBlur: 45,
+    flicker: 0.6,
+    animation: 'none',
+    y: 0.2
+  }),
   preset('txt-outline', trKey('Chữ viền đậm'), 'text', { template: '{title}', size: 80, color: '#ffe066', strokeWidth: 6, strokeColor: '#000000', y: 0.2 })
 ]
 
@@ -150,4 +203,18 @@ export function findPreset(id: string): LayerPreset | undefined {
     if (p) return p
   }
   return TEXT_PRESETS.find((x) => x.id === id)
+}
+
+/** Chữ viết sẵn trong mẫu (tiêu đề, nhãn…) theo ngôn ngữ giao diện, dịch lúc thêm vào video */
+const LOCALIZED: Partial<Record<LayerType, string[]>> = {
+  text: ['template'],
+  timer: ['label'],
+  nowplaying: ['label'],
+  tracklist: ['title']
+}
+
+export function localizePresetProps(type: LayerType, props: Record<string, unknown>, translate: (vi: string) => string): Record<string, unknown> {
+  const out = { ...props }
+  for (const key of LOCALIZED[type] ?? []) if (typeof out[key] === 'string' && out[key]) out[key] = translate(out[key] as string)
+  return out
 }

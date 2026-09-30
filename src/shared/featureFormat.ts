@@ -4,6 +4,7 @@
 //   [0..63]    năng lượng 64 dải tần (log, 0..255)
 //   [64..191]  dạng sóng 128 điểm (int8 + 128)
 //   [192]      RMS, [193] bass, [194] độ mạnh beat (0 = không có beat)
+//   [195]      cân bằng trái/phải: 1..255 = phải / (trái + phải), 128 ≈ giữa; 0 = chưa có (bản phân tích cũ)
 import { tr } from './i18n'
 
 export const FEATURE_RATE = 60
@@ -17,6 +18,7 @@ export const OFF_WAVE = BAND_COUNT
 export const OFF_RMS = OFF_WAVE + WAVE_POINTS
 export const OFF_BASS = OFF_RMS + 1
 export const OFF_BEAT = OFF_RMS + 2
+export const OFF_BAL = OFF_RMS + 3
 export const STRIDE = OFF_RMS + 4
 // v2: cache có thêm file PCM stereo (.s16) cạnh file phân tích
 export const ANALYSIS_VERSION = 2

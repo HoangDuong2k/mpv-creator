@@ -10,6 +10,10 @@ import { drawFlicker, drawImageLayer, drawParticles, drawVignette } from './laye
 import { drawFilter } from './layers/filter'
 import { drawProgress, drawText } from './layers/text'
 import { drawTimer } from './layers/timer'
+import { drawVinyl } from './layers/vinyl'
+import { drawNowPlaying, drawTracklist } from './layers/playlist'
+import { drawVuMeter } from './layers/vumeter'
+import { drawCrt, drawGlitch, drawVhs } from './layers/screenfx'
 import { drawVisualizer } from './layers/visualizer'
 
 export { AudioSampler, TrackFeatures } from './audio'
@@ -28,7 +32,14 @@ const DRAWERS: { [K in LayerType]: LayerDrawer<K> } = {
   particles: drawParticles,
   vignette: drawVignette,
   filter: drawFilter,
-  timer: drawTimer
+  timer: drawTimer,
+  vinyl: drawVinyl,
+  nowplaying: drawNowPlaying,
+  tracklist: drawTracklist,
+  vumeter: drawVuMeter,
+  vhs: drawVhs,
+  glitch: drawGlitch,
+  crt: drawCrt
 }
 
 export interface RenderArgs {
@@ -145,7 +156,9 @@ export function collectAssets(project: Project): { images: string[]; videos: str
       l.enabled &&
       ((l.type === 'background' && l.props.mode === 'cover') ||
         (l.type === 'visualizer' && l.props.style === 'circle' && l.props.centerImage === 'cover') ||
-        (l.type === 'image' && l.props.source === 'cover'))
+        (l.type === 'image' && l.props.source === 'cover') ||
+        (l.type === 'vinyl' && l.props.label === 'cover') ||
+        (l.type === 'nowplaying' && l.props.showCover))
   )
   for (const l of project.layers as Layer[]) {
     if (!l.enabled) continue
@@ -155,6 +168,7 @@ export function collectAssets(project: Project): { images: string[]; videos: str
     } else if (l.type === 'visualizer' && l.props.centerImage === 'custom' && l.props.centerSrc) images.add(l.props.centerSrc)
     else if (l.type === 'image' && l.props.source === 'file' && l.props.src) images.add(l.props.src)
     else if (l.type === 'cta' && l.props.preset === 'image' && l.props.src) images.add(l.props.src)
+    else if (l.type === 'vinyl' && l.props.label === 'custom' && l.props.src) images.add(l.props.src)
   }
   if (needsCovers) for (const t of project.tracks) if (t.coverPath) images.add(t.coverPath)
   return { images: [...images], videos: [...videos] }

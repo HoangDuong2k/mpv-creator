@@ -13,8 +13,8 @@ export function falloffFromSmoothing(smoothing: number): number {
  * Giá trị 0..1 cho từng cột, lấy từ phổ 64 dải theo thang tần số log.
  * symmetric: tần số thấp ở giữa, toả đều ra hai bên.
  */
-function barValues(env: RenderEnv, p: VisualizerProps, count: number): Float32Array {
-  const spectrum = env.audio.bands(env.t, cached(env, 'viz-spectrum', () => new Float32Array(BAND_COUNT)), falloffFromSmoothing(p.smoothing))
+function barValues(env: RenderEnv, p: VisualizerProps, count: number, falloff = falloffFromSmoothing(p.smoothing), buffer = 'viz-spectrum'): Float32Array {
+  const spectrum = env.audio.bands(env.t, cached(env, buffer, () => new Float32Array(BAND_COUNT)), falloff)
   const out = new Float32Array(count)
   const half = p.symmetric ? Math.ceil(count / 2) : count
   const lo = Math.max(1, Math.min(p.minFreq, p.maxFreq - 1))
@@ -250,6 +250,65 @@ function drawCircle(env: RenderEnv, p: VisualizerProps): void {
   ctx.stroke()
 }
 
+/** Màu của ô LED thứ `seg` (từ dưới lên) ở cột `i` */
+function ledColor(p: VisualizerProps, seg: number, segs: number, i: number, n: number, t: number): string {
+  const f = segs <= 1 ? 0 : seg / (segs - 1)
+  if (p.ledPalette === 'hifi') return f < 0.62 ? '#3ddc84' : f < 0.86 ? '#ffd23f' : '#ff453a'
+  if (p.colorMode === 'rainbow') return barColor(p, i, n, t)
+  if (p.colorMode === 'gradient') return mixColor(p.color, p.color2, f)
+  return p.color
+}
+
+/**
+ * Equalizer LED: mỗi cột ghép từ các ô sáng như dàn hi-fi, ô chưa sáng vẫn hiện mờ;
+ * giữ đỉnh: một ô sáng ở mức cao nhất vừa đạt rồi rơi chậm.
+ */
+function drawLed(env: RenderEnv, p: VisualizerProps): void {
+  const { ctx, W, H, t } = env
+  const n = Math.max(2, Math.round(p.barCount))
+  const values = barValues(env, p, n)
+  const peaks = p.peakHold ? barValues(env, p, n, 1.4, 'viz-spectrum-peak') : null
+  const segs = Math.max(4, Math.min(48, Math.round(p.ledSegments)))
+  const bw = p.width * W
+  const bh = p.height * H
+  const left = p.x * W - bw / 2
+  const step = bw / n
+  const colW = Math.max(1, step * (1 - clamp(p.barGap, 0, 0.9)))
+  const segH = bh / segs
+  const blockH = Math.max(1, segH * 0.72)
+  const top = p.y * H - bh / 2
+  recordBounds(env, left, top, bw, bh)
+  const base = ctx.globalAlpha
+  // Gom các ô cùng màu, cùng trạng thái vào một lần tô
+  const groups = new Map<string, Array<[number, number]>>()
+  for (let i = 0; i < n; i++) {
+    const lit = Math.round(values[i] * segs)
+    const peak = peaks ? Math.min(segs - 1, Math.floor(peaks[i] * segs)) : -1
+    const x = left + i * step + (step - colW) / 2
+    for (let sgi = 0; sgi < segs; sgi++) {
+      const on = sgi < lit || sgi === peak
+      const y = p.flip ? top + sgi * segH + (segH - blockH) / 2 : top + bh - (sgi + 1) * segH + (segH - blockH) / 2
+      const key = `${on ? 1 : 0}|${ledColor(p, sgi, segs, i, n, t)}`
+      let list = groups.get(key)
+      if (!list) groups.set(key, (list = []))
+      list.push([x, y])
+    }
+  }
+  const r = Math.min(colW, blockH) * 0.18
+  for (const [key, cells] of groups) {
+    const on = key.startsWith('1')
+    ctx.fillStyle = key.slice(2)
+    ctx.globalAlpha = base * (on ? 1 : 0.1)
+    if (on) setGlow(env, { ...p, color: key.slice(2) })
+    else ctx.shadowBlur = 0
+    ctx.beginPath()
+    for (const [x, y] of cells) ctx.roundRect(x, y, colW, blockH, r)
+    ctx.fill()
+  }
+  ctx.shadowBlur = 0
+  ctx.globalAlpha = base
+}
+
 export function drawVisualizer(env: RenderEnv, p: VisualizerProps): void {
   env.ctx.globalAlpha = clamp(p.opacity) * env.fade
   switch (p.style) {
@@ -267,6 +326,9 @@ export function drawVisualizer(env: RenderEnv, p: VisualizerProps): void {
       break
     case 'circle':
       drawCircle(env, p)
+      break
+    case 'led':
+      drawLed(env, p)
       break
   }
 }

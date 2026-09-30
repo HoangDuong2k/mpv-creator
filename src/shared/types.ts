@@ -49,7 +49,7 @@ export interface BackgroundProps {
   kenBurns: number
 }
 
-export type VisualizerStyle = 'bars' | 'mirror' | 'wave' | 'area' | 'circle'
+export type VisualizerStyle = 'bars' | 'mirror' | 'wave' | 'area' | 'circle' | 'led'
 
 export interface VisualizerProps {
   style: VisualizerStyle
@@ -78,9 +78,19 @@ export interface VisualizerProps {
   centerSrc: string
   centerBeat: number
   rotateSpeed: number
+  /** Kiểu LED: số ô trên mỗi cột */
+  ledSegments: number
+  /** Kiểu LED: màu dàn hi-fi (xanh, vàng, đỏ) hay màu tự chọn */
+  ledPalette: 'hifi' | 'theme'
+  /** Kiểu LED: giữ đỉnh, rơi chậm */
+  peakHold: boolean
 }
 
 export interface ProgressProps {
+  /** bar: thanh thẳng · wave: vẽ bằng sóng âm của bài (hoặc cả video) */
+  style: 'bar' | 'wave'
+  /** Kiểu sóng âm: chiều cao (px ở khung 1080p) */
+  waveHeight: number
   scope: 'track' | 'playlist'
   x: number
   y: number
@@ -112,6 +122,8 @@ export interface TextProps {
   animation: 'none' | 'fade' | 'slide' | 'typewriter'
   opacity: number
   beatScale: number
+  /** Chập chờn như biển hiệu neon 0..1 (0 = tắt) */
+  flicker: number
 }
 
 export interface ImageProps {
@@ -165,7 +177,8 @@ export interface FlickerProps {
 }
 
 export interface ParticlesProps {
-  style: 'dust' | 'snow' | 'bokeh' | 'rain' | 'stars'
+  /** orbit: bay vòng quanh tâm vùng (quanh ảnh bìa, đĩa than), bung ra theo bass */
+  style: 'dust' | 'snow' | 'bokeh' | 'rain' | 'stars' | 'orbit'
   /** Vùng có hạt (tâm và kích thước, tỉ lệ theo khung hình) */
   x: number
   y: number
@@ -264,6 +277,148 @@ export interface TimerProps {
   beatScale: number
 }
 
+/** Đĩa than xoay */
+export interface VinylProps {
+  x: number
+  y: number
+  /** Đường kính đĩa theo chiều cao khung hình */
+  size: number
+  /** Vòng / phút */
+  rpm: number
+  /** Nhãn giữa đĩa: ảnh bìa bài đang phát, ảnh tự chọn, hoặc nhãn in tên bài */
+  label: 'cover' | 'custom' | 'text'
+  src: string
+  /** Đường kính nhãn so với đĩa */
+  labelSize: number
+  discColor: string
+  /** Màu nhãn in chữ (và khi bài không có ảnh bìa) */
+  labelColor: string
+  /** Độ bóng của rãnh đĩa */
+  sheen: number
+  tonearm: boolean
+  /** Đổi bài: đĩa chậm lại tới dừng rồi quay tiếp */
+  slowOnChange: boolean
+  beatScale: number
+  shadow: number
+  opacity: number
+}
+
+/** Thẻ "Đang phát": ảnh bìa, tên bài, ca sĩ, thanh tiến trình */
+export interface NowPlayingProps {
+  x: number
+  y: number
+  /** Bề ngang thẻ (px ở khung 1080p) */
+  width: number
+  /** Cỡ ảnh bìa (px ở khung 1080p): mọi thứ trong thẻ theo cỡ này */
+  size: number
+  style: 'glass' | 'solid' | 'minimal'
+  bgColor: string
+  bgOpacity: number
+  /** Làm mờ phần hình phía sau thẻ (kiểu kính) */
+  blur: number
+  radius: number
+  showCover: boolean
+  showProgress: boolean
+  showTime: boolean
+  /** Dòng chữ nhỏ trên tên bài ("Đang phát"…), để trống nếu không cần */
+  label: string
+  font: string
+  titleColor: string
+  textColor: string
+  accent: string
+  opacity: number
+}
+
+/** Danh sách bài trên video: bài đang phát nổi bật, tự cuộn */
+export interface TracklistProps {
+  x: number
+  y: number
+  align: 'left' | 'center' | 'right'
+  /** Bề ngang theo khung hình */
+  width: number
+  /** Số dòng hiện cùng lúc */
+  rows: number
+  fontSize: number
+  font: string
+  style: 'glass' | 'plain'
+  bgColor: string
+  bgOpacity: number
+  blur: number
+  /** Tiêu đề phía trên danh sách, để trống nếu không cần */
+  title: string
+  showNumber: boolean
+  /** Mốc thời gian bắt đầu của từng bài trong video */
+  showTime: boolean
+  showArtist: boolean
+  color: string
+  activeColor: string
+  /** Bài đã phát mờ hơn */
+  dimPlayed: boolean
+  opacity: number
+}
+
+/** Đồng hồ VU kim */
+export interface VuMeterProps {
+  x: number
+  y: number
+  /** Bề ngang một mặt đồng hồ (px ở khung 1080p) */
+  size: number
+  /** stereo: hai kim trái / phải · mono: một kim */
+  layout: 'stereo' | 'mono'
+  style: 'classic' | 'dark'
+  faceColor: string
+  needleColor: string
+  /** Vùng đỏ (quá mức) */
+  accent: string
+  textColor: string
+  sensitivity: number
+  /** Đèn nền mặt đồng hồ */
+  backlight: number
+  label: string
+  opacity: number
+}
+
+/** VHS / băng từ: lệch màu, sọc quét, nhiễu, kéo băng, chữ trên màn hình */
+export interface VhsProps {
+  intensity: number
+  /** Lệch màu (px ở khung 1080p) */
+  chroma: number
+  scanlines: number
+  noise: number
+  /** Nhiễu kéo băng: dải nhiễu trôi, mép dưới rung */
+  tracking: number
+  /** Hình nhoè mềm như băng từ */
+  soft: number
+  osd: boolean
+  osdText: string
+  dateText: string
+  showTime: boolean
+}
+
+/** Glitch theo beat: tách kênh màu, cắt lát lệch ngang */
+export interface GlitchProps {
+  trigger: 'beat' | 'bass' | 'random'
+  amount: number
+  /** Tách kênh màu (px ở khung 1080p) */
+  rgbSplit: number
+  slices: number
+  /** Ngưỡng nhạc để bắt đầu glitch */
+  threshold: number
+  blocks: boolean
+}
+
+/** Màn hình CRT cũ */
+export interface CrtProps {
+  curvature: number
+  scanlines: number
+  /** Lưới điểm màu RGB của màn hình */
+  mask: number
+  flicker: number
+  vignette: number
+  glow: number
+  bezel: boolean
+}
+
 export interface LayerPropsMap {
   background: BackgroundProps
   visualizer: VisualizerProps
@@ -276,6 +431,13 @@ export interface LayerPropsMap {
   vignette: VignetteProps
   filter: FilterProps
   timer: TimerProps
+  vinyl: VinylProps
+  nowplaying: NowPlayingProps
+  tracklist: TracklistProps
+  vumeter: VuMeterProps
+  vhs: VhsProps
+  glitch: GlitchProps
+  crt: CrtProps
 }
 
 export type LayerType = keyof LayerPropsMap

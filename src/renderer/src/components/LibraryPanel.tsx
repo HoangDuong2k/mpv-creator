@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type DragEvent, type MouseEvent, type R
 import { FILTER_PRESETS } from '../../../shared/filterPresets'
 import { mediaKind } from '../../../shared/files'
 import { tr, trKey } from '../../../shared/i18n'
-import { EFFECT_GROUPS, TEXT_PRESETS, type LayerPreset } from '../../../shared/presets'
+import { EFFECT_GROUPS, localizePresetProps, TEXT_PRESETS, type LayerPreset } from '../../../shared/presets'
 import { player } from '../engineHost'
 import { useLayout, type LibraryTab } from '../layout'
 import { addImageLayer, addLibraryItem, endLibraryDrag, itemName, startLibraryDrag, type LibraryItem } from '../libraryActions'
@@ -102,10 +102,8 @@ function LibCard({ item, name, scene, selected, title }: { item: LibraryItem; na
 }
 
 const presetBuild = (p: LayerPreset): (() => PreviewScene) => {
-  const props = { ...p.props } as Record<string, unknown>
   // Chữ viết sẵn trong mẫu theo ngôn ngữ giao diện (như khi thêm vào video)
-  if (p.type === 'text' && typeof props.template === 'string') props.template = tr(props.template)
-  if (p.type === 'timer' && typeof props.label === 'string' && props.label) props.label = tr(props.label)
+  const props = localizePresetProps(p.type, p.props as Record<string, unknown>, tr)
   return () => presetScene(p.id, p.type, props, p.type === 'text' ? 0.5 : 0.35)
 }
 

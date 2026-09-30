@@ -54,5 +54,6 @@ export function layerMediaPaths(layer: Layer): string[] {
   if (layer.type === 'image' && p.source === 'file') add(p.src)
   if (layer.type === 'visualizer' && p.centerImage === 'custom') add(p.centerSrc)
   if (layer.type === 'cta' && p.preset === 'image') add(p.src)
+  if (layer.type === 'vinyl' && p.label === 'custom') add(p.src)
   return out
 }

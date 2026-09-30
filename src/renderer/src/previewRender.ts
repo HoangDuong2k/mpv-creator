@@ -182,11 +182,24 @@ export function zoomForPreview(type: LayerType, props: Record<string, unknown>):
     case 'cta':
       return { ...props, anchor: 'free', x: 0.5, y: 0.5, scale: props.preset === 'combo' ? 2.2 : 3.2, schedule: 'times', times: '0', duration: DEMO_LEN }
     case 'progress':
-      return { ...props, x: 0.5, y: 0.5, width: 0.8, thickness: n('thickness') * 3, fontSize: n('fontSize') * 2.6 }
+      return { ...props, x: 0.5, y: 0.5, width: 0.8, thickness: n('thickness') * 3, fontSize: n('fontSize') * 2.6, waveHeight: n('waveHeight') * 3 }
     case 'particles':
       return { ...props, size: Math.max(n('size') * 5, 14) }
     case 'image':
       return { ...props, source: 'cover', x: 0.5, y: 0.5, width: 0.32, circle: true }
+    case 'vinyl':
+      return { ...props, x: 0.5, y: 0.5, size: 0.78 }
+    case 'nowplaying':
+      return { ...props, x: 0.5, y: 0.5, size: 250, width: 1500 }
+    case 'tracklist':
+      return { ...props, x: 0.5, y: 0.5, align: 'center', width: 0.78, fontSize: 56, rows: 4 }
+    case 'vumeter':
+      return { ...props, x: 0.5, y: 0.5, size: props.layout === 'mono' ? 1100 : 780 }
+    case 'vhs':
+      return { ...props, chroma: n('chroma') * 3 }
+    case 'glitch':
+      // Ảnh tĩnh vẽ ngay sau một beat: hạ ngưỡng, tách màu mạnh hơn để thấy rõ trong ô nhỏ
+      return { ...props, threshold: Math.min(n('threshold'), 0.1), rgbSplit: n('rgbSplit') * 3 }
     case 'timer':
       return { ...props, x: 0.5, y: 0.5, align: 'center', size: props.style === 'ring' ? 165 : props.style === 'flip' ? 190 : 230 }
     default:
@@ -204,7 +217,9 @@ export interface PreviewScene {
 /** Lớp của một mẫu trong thư viện, đặt trên cảnh mẫu */
 export function presetScene(id: string, type: LayerType, props: Record<string, unknown>, dim = 0.4): PreviewScene {
   const layer = { ...createLayer(type, zoomForPreview(type, props)), id: `pv-${id}`, timing: { ...FULL_TIMING } } as Layer
-  return { layers: [sceneLayer(dim), layer], editLayerId: layer.id }
+  // Hiệu ứng xử lý cả khung hình (VHS, glitch, CRT): thêm tên bài lên cảnh mẫu để thấy rõ tác dụng
+  const caption = type === 'vhs' || type === 'glitch' || type === 'crt' ? [{ ...createLayer('text', { y: 0.45, size: 170, animation: 'none' }), id: 'pv-caption', timing: { ...FULL_TIMING } } as Layer] : []
+  return { layers: [sceneLayer(dim), ...caption, layer], editLayerId: layer.id }
 }
 
 /**

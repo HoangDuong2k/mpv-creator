@@ -99,7 +99,8 @@ export function drawVignette(env: RenderEnv, p: VignetteProps): void {
 export function drawParticles(env: RenderEnv, p: ParticlesProps): void {
   const { ctx, W, H, S, t } = env
   const n = Math.max(0, Math.min(600, Math.round(p.count)))
-  const react = 1 + p.beatReact * bassPulse(env)
+  const pulse = bassPulse(env)
+  const react = 1 + p.beatReact * pulse
   // Vùng có hạt (mặc định cả khung hình)
   const RW = Math.max(1, p.width * W)
   const RH = Math.max(1, p.height * H)
@@ -146,13 +147,23 @@ export function drawParticles(env: RenderEnv, p: ParticlesProps): void {
         y = RY + r2 * RH
         alpha *= 0.3 + 0.7 * noise1(t * 1.5 * speedK + i * 7.3, p.seed)
         break
+      case 'orbit': {
+        // Bay vòng quanh tâm vùng (quanh ảnh bìa, đĩa than), bung ra theo tiếng bass
+        const R = Math.min(RW, RH) * 0.42
+        const ang = r1 * Math.PI * 2 + t * (0.12 + r4 * 0.3) * p.speed
+        const rad = R * (0.86 + r2 * 0.28) * (1 + p.beatReact * pulse * (0.08 + r3 * 0.22))
+        x = p.x * W + Math.cos(ang) * rad
+        y = p.y * H + Math.sin(ang) * rad
+        alpha *= 0.45 + 0.55 * noise1(t * 1.3 + i * 2.7, p.seed)
+        break
+      }
       default:
         // dust / đom đóm: bay lơ lửng lên trên
         x = wrap(r1 * spanW + noise1(t * 0.15 * speedK + i, p.seed) * 160 * S + t * 6 * S * speedK, spanW) - margin + RX
         y = wrap(r2 * spanH - t * 18 * S * speedK, spanH) - margin + RY
         alpha *= 0.35 + 0.65 * noise1(t * 0.7 + i * 3.1, p.seed + 5)
     }
-    if (bounded) {
+    if (bounded && p.style !== 'orbit') {
       const d = Math.min(x - RX, RX + RW - x, y - RY, RY + RH - y)
       if (d <= 0) continue
       alpha *= smoothstep(d / edge)

@@ -6,6 +6,7 @@ import {
   BAND_COUNT,
   FEATURE_RATE,
   FFT_SIZE,
+  OFF_BAL,
   OFF_BASS,
   OFF_BEAT,
   OFF_RMS,
@@ -60,8 +61,9 @@ function percentile(values: Iterable<number>, q: number, lo: number, hi: number,
 }
 
 /**
- * Phân tích tín hiệu mono 48kHz theo luồng: mỗi frame 1/60 giây tính
- * phổ 64 dải (thang log), dạng sóng, RMS, bass và phát hiện beat.
+ * Phân tích tín hiệu 48kHz theo luồng: mỗi frame 1/60 giây tính phổ 64 dải (thang log),
+ * dạng sóng, RMS, bass và phát hiện beat trên bản mono; nhận thêm hai kênh trái / phải
+ * (pushStereo) thì ghi cả độ cân bằng trái / phải (cho đồng hồ VU hai kim).
  */
 export class FeatureAnalyzer {
   private readonly fft = new FFT(N)
@@ -72,7 +74,10 @@ export class FeatureAnalyzer {
   private readonly bassLo = Math.max(1, Math.round(30 / BIN_HZ))
   private readonly bassHi = Math.round(150 / BIN_HZ)
 
-  private buf = new Float32Array(N * 8)
+  private buf: Float32Array = new Float32Array(N * 8)
+  /** Hai kênh trái / phải, cùng chỉ số với buf (chỉ có khi nhận âm thanh stereo) */
+  private bufL: Float32Array | null = null
+  private bufR: Float32Array | null = null
   private bufStart = 0 // chỉ số mẫu toàn cục của buf[0]
   private bufLen = 0
   private received = 0
@@ -81,6 +86,7 @@ export class FeatureAnalyzer {
   private readonly bandsDb = new ChunkedF32(BAND_COUNT)
   private readonly waveRaw = new ChunkedF32(WAVE_POINTS)
   private readonly scalars = new ChunkedF32(2) // [rmsDb, bassDb]
+  private readonly balance = new ChunkedF32(1)
 
   constructor() {
     for (let i = 0; i < N; i++) this.window[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (N - 1))
@@ -98,16 +104,39 @@ export class FeatureAnalyzer {
     return this.received
   }
 
-  push(samples: Float32Array): void {
-    if (this.bufLen + samples.length > this.buf.length) {
-      const next = new Float32Array(Math.max(this.buf.length * 2, this.bufLen + samples.length))
-      next.set(this.buf.subarray(0, this.bufLen))
-      this.buf = next
+  push(samples: Float32Array, left?: Float32Array, right?: Float32Array): void {
+    const need = this.bufLen + samples.length
+    const grow = (b: Float32Array): Float32Array => {
+      if (need <= b.length) return b
+      const next = new Float32Array(Math.max(b.length * 2, need))
+      next.set(b.subarray(0, this.bufLen))
+      return next
     }
+    this.buf = grow(this.buf)
     this.buf.set(samples, this.bufLen)
+    if (left && right) {
+      this.bufL = grow(this.bufL ?? new Float32Array(this.buf.length))
+      this.bufR = grow(this.bufR ?? new Float32Array(this.buf.length))
+      this.bufL.set(left, this.bufLen)
+      this.bufR.set(right, this.bufLen)
+    }
     this.bufLen += samples.length
     this.received += samples.length
     this.process(false)
+  }
+
+  /** Mẫu stereo xen kẽ trái, phải (mono = trung bình hai kênh, như FFmpeg trộn về 1 kênh) */
+  pushStereo(interleaved: Float32Array): void {
+    const n = interleaved.length >> 1
+    const mono = new Float32Array(n)
+    const l = new Float32Array(n)
+    const r = new Float32Array(n)
+    for (let i = 0; i < n; i++) {
+      l[i] = interleaved[i * 2]
+      r[i] = interleaved[i * 2 + 1]
+      mono[i] = (l[i] + r[i]) / 2
+    }
+    this.push(mono, l, r)
   }
 
   private sample(global: number): number {
@@ -127,6 +156,8 @@ export class FeatureAnalyzer {
     const drop = keepFrom - this.bufStart
     if (drop > N * 4) {
       this.buf.copyWithin(0, drop, this.bufLen)
+      this.bufL?.copyWithin(0, drop, this.bufLen)
+      this.bufR?.copyWithin(0, drop, this.bufLen)
       this.bufLen -= drop
       this.bufStart += drop
     }
@@ -178,6 +209,20 @@ export class FeatureAnalyzer {
     const sc = this.scalars.row(this.frame)
     sc[0] = 10 * Math.log10(sumSq / N + 1e-14)
     sc[1] = 10 * Math.log10(bass + 1e-14)
+    if (this.bufL && this.bufR) {
+      let sl = 0
+      let sr = 0
+      const from = center - HALF - this.bufStart
+      for (let i = 0; i < N; i++) {
+        const j = from + i
+        if (j < 0 || j >= this.bufLen) continue
+        sl += this.bufL[j] * this.bufL[j]
+        sr += this.bufR[j] * this.bufR[j]
+      }
+      const al = Math.sqrt(sl)
+      const ar = Math.sqrt(sr)
+      this.balance.row(this.frame)[0] = al + ar > 1e-9 ? ar / (al + ar) : 0.5
+    }
   }
 
   finish(): { header: FeatureHeader; data: Uint8Array } {
@@ -215,6 +260,8 @@ export class FeatureAnalyzer {
       const sc = this.scalars.row(f)
       data[base + OFF_RMS] = q((sc[0] - (rmsTop - 40)) / 40)
       data[base + OFF_BASS] = q((sc[1] - (bassTop - 30)) / 30)
+      // 0 = không có thông tin (bản mono / phân tích cũ): engine coi là cân giữa
+      if (this.bufL) data[base + OFF_BAL] = Math.max(1, q(this.balance.row(f)[0]))
     }
     this.detectBeats(frames, bassTop, data)
 
@@ -323,7 +370,7 @@ export async function analyzeFile(
   const run = runFfmpeg([
     '-v', 'error', '-y',
     '-i', inputPath,
-    '-map', '0:a:0', '-vn', '-ac', '1', '-ar', sr, '-f', 'f32le', 'pipe:1',
+    '-map', '0:a:0', '-vn', '-ac', '2', '-ar', sr, '-f', 'f32le', 'pipe:1',
     '-map', '0:a:0', '-vn', '-ac', '2', '-ar', sr, '-f', 's16le', pcmTmp
   ])
   const onAbort = (): void => run.kill()
@@ -332,14 +379,15 @@ export async function analyzeFile(
   let lastReport = 0
   run.proc.stdout!.on('data', (chunk: Buffer) => {
     let buf = leftover ? Buffer.concat([leftover, chunk]) : chunk
-    const usable = buf.length - (buf.length % 4)
+    // Mỗi mẫu stereo = 2 kênh × 4 byte
+    const usable = buf.length - (buf.length % 8)
     leftover = usable < buf.length ? Buffer.from(buf.subarray(usable)) : null
     buf = buf.subarray(0, usable)
     if (usable === 0) return
     // Copy sang vùng nhớ căn lề 4 byte trước khi đọc Float32
     const aligned = new Float32Array(usable / 4)
     new Uint8Array(aligned.buffer).set(buf)
-    analyzer.push(aligned)
+    analyzer.pushStereo(aligned)
     if (opts.onProgress && opts.expectedDuration) {
       const p = Math.min(0.99, analyzer.samples / SAMPLE_RATE / opts.expectedDuration)
       if (p - lastReport > 0.02) {

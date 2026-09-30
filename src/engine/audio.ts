@@ -1,6 +1,7 @@
 import {
   BAND_COUNT,
   FEATURE_RATE,
+  OFF_BAL,
   OFF_BASS,
   OFF_BEAT,
   OFF_RMS,
@@ -33,6 +34,8 @@ interface RawFrame {
   rms: number
   bass: number
   beat: number
+  /** Cân bằng trái / phải 0..1 (0,5 = giữa) */
+  bal: number
 }
 
 const DT = 1 / FEATURE_RATE
@@ -51,7 +54,8 @@ export class AudioSampler {
     wave: new Float32Array(WAVE_POINTS),
     rms: 0,
     bass: 0,
-    beat: 0
+    beat: 0,
+    bal: 0.5
   }
 
   constructor(
@@ -72,7 +76,9 @@ export class AudioSampler {
     const entries = activeEntries(this.timeline, t)
     let frame = this.empty
     if (entries.length > 0) {
-      frame = { bands: new Float32Array(BAND_COUNT), wave: new Float32Array(WAVE_POINTS), rms: 0, bass: 0, beat: 0 }
+      frame = { bands: new Float32Array(BAND_COUNT), wave: new Float32Array(WAVE_POINTS), rms: 0, bass: 0, beat: 0, bal: 0.5 }
+      let balSum = 0
+      let wSum = 0
       for (const e of entries) {
         const key = e.track.analysisKey
         const f = key ? this.lookup(key) : undefined
@@ -88,7 +94,11 @@ export class AudioSampler {
         frame.rms += (w * d[base + OFF_RMS]) / 255
         frame.bass += (w * d[base + OFF_BASS]) / 255
         frame.beat = Math.max(frame.beat, (w * d[base + OFF_BEAT]) / 255)
+        // Bản phân tích cũ không có cân bằng (0): coi là giữa
+        balSum += w * (d[base + OFF_BAL] === 0 ? 0.5 : d[base + OFF_BAL] / 255)
+        wSum += w
       }
+      if (wSum > 0) frame.bal = balSum / wSum
     }
     if (this.cache.size > 512) this.cache.clear()
     this.cache.set(g, frame)
@@ -159,5 +169,31 @@ export class AudioSampler {
   /** Dạng sóng 128 điểm (-1..1) tại t */
   wave(t: number): Float32Array {
     return this.raw(AudioSampler.gridIndex(t)).wave
+  }
+
+  /**
+   * Mức âm lượng hai kênh trái / phải 0..1 cho đồng hồ VU: trung bình trong `window` giây gần nhất
+   * (kim VU thật lên xuống trong khoảng 0,3 giây), lệch theo cân bằng trái / phải của bài.
+   * Mức lưu theo thang dB chuẩn hoá 40 dB nên lệch kênh cộng theo dB.
+   */
+  stereo(t: number, window = 0.3): { left: number; right: number } {
+    const g = AudioSampler.gridIndex(t)
+    const n = Math.max(1, Math.round(window * FEATURE_RATE))
+    let rms = 0
+    let bal = 0
+    for (let k = 0; k < n; k++) {
+      const r = this.raw(g - k)
+      rms += r.rms
+      bal += r.bal
+    }
+    rms /= n
+    bal /= n
+    const db = (v: number): number => (20 * Math.log10(Math.max(1e-3, v))) / 40
+    return { left: Math.max(0, Math.min(1, rms + db(2 * (1 - bal)))), right: Math.max(0, Math.min(1, rms + db(2 * bal))) }
+  }
+
+  /** Dữ liệu phân tích của một bài (thanh tiến trình dạng sóng âm vẽ từ cả bài) */
+  features(analysisKey: string | undefined): TrackFeatures | undefined {
+    return analysisKey ? this.lookup(analysisKey) : undefined
   }
 }

@@ -7,7 +7,7 @@ import { dropSegments, insertionIndexAt, moveTracksOrder, pasteTimings, splitTim
 import { isLang, setLang, tr, type Lang } from '../../shared/i18n'
 import { mediaKind } from '../../shared/files'
 import { presetById } from '../../shared/filterPresets'
-import type { LayerPreset } from '../../shared/presets'
+import { localizePresetProps, type LayerPreset } from '../../shared/presets'
 import { applyTemplate, type StyleTemplate } from '../../shared/templates'
 import { formatTimePrecise } from '../../shared/time'
 
@@ -672,10 +672,8 @@ export const useStore = create<State>((set, get) => ({
 
   addPresetLayer(preset, at) {
     const { project } = get()
-    const props = structuredClone(preset.props) as Record<string, unknown>
-    // Chữ viết sẵn trong mẫu ("Tiếp theo: {next}"…) theo ngôn ngữ giao diện
-    if (preset.type === 'text' && typeof props.template === 'string') props.template = tr(props.template)
-    if (preset.type === 'timer' && typeof props.label === 'string' && props.label) props.label = tr(props.label)
+    // Chữ viết sẵn trong mẫu ("Tiếp theo: {next}", "Danh sách phát"…) theo ngôn ngữ giao diện
+    const props = localizePresetProps(preset.type, structuredClone(preset.props) as Record<string, unknown>, tr)
     let timing: LayerTiming = { ...FULL_TIMING }
     if (at !== undefined && preset.type === 'cta') Object.assign(props, { schedule: 'times', times: formatTimePrecise(Math.max(0, at), at >= 3600) })
     else if (at !== undefined) timing = dropTiming(project, at)

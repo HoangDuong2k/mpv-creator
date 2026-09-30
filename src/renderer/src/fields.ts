@@ -71,7 +71,8 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
         ['mirror', 'Cột đối xứng trên dưới'],
         ['circle', 'Vòng tròn quanh ảnh'],
         ['area', 'Dải sóng mềm'],
-        ['wave', 'Đường sóng âm (waveform)']
+        ['wave', 'Đường sóng âm (waveform)'],
+        ['led', 'Equalizer LED ô vuông']
       ]
     },
     ...position,
@@ -79,10 +80,22 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
     { kind: 'range', key: 'radius', label: 'Bán kính vòng', min: 0.05, max: 0.4, step: 0.005, show: is('style', 'circle') },
     { kind: 'range', key: 'height', label: 'Độ cao cột', min: 0.02, max: 0.8, step: 0.01 },
     { kind: 'range', key: 'barCount', label: 'Số cột', min: 8, max: 180, step: 1, show: not('style', 'wave') },
-    { kind: 'range', key: 'barGap', label: 'Khoảng cách cột', min: 0, max: 0.9, step: 0.01, show: is('style', 'bars', 'mirror', 'circle') },
+    { kind: 'range', key: 'barGap', label: 'Khoảng cách cột', min: 0, max: 0.9, step: 0.01, show: is('style', 'bars', 'mirror', 'circle', 'led') },
+    { kind: 'range', key: 'ledSegments', label: 'Số ô mỗi cột', min: 4, max: 48, step: 1, show: is('style', 'led') },
+    {
+      kind: 'select',
+      key: 'ledPalette',
+      label: 'Màu đèn LED',
+      options: [
+        ['hifi', 'Dàn hi-fi (xanh, vàng, đỏ)'],
+        ['theme', 'Theo màu đã chọn bên dưới']
+      ],
+      show: is('style', 'led')
+    },
+    { kind: 'toggle', key: 'peakHold', label: 'Giữ đỉnh, rơi chậm', show: is('style', 'led') },
     { kind: 'toggle', key: 'rounded', label: 'Bo tròn đầu cột', show: is('style', 'bars', 'mirror', 'circle') },
     { kind: 'toggle', key: 'symmetric', label: 'Đối xứng hai bên (bass ở giữa)', show: is('style', 'bars', 'mirror', 'area') },
-    { kind: 'toggle', key: 'flip', label: 'Lật ngược (cột mọc xuống dưới)', show: is('style', 'bars') },
+    { kind: 'toggle', key: 'flip', label: 'Lật ngược (cột mọc xuống dưới)', show: is('style', 'bars', 'led') },
     { kind: 'toggle', key: 'flip', label: 'Lật ngược sóng', show: is('style', 'wave') },
     { kind: 'toggle', key: 'flip', label: 'Bass ở phía trên vòng', show: is('style', 'circle') },
     { kind: 'range', key: 'lineWidth', label: 'Độ dày đường', min: 1, max: 20, step: 0.5, show: is('style', 'wave') },
@@ -125,6 +138,16 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
   progress: [
     {
       kind: 'select',
+      key: 'style',
+      label: 'Kiểu',
+      options: [
+        ['bar', 'Thanh thẳng'],
+        ['wave', 'Sóng âm của bài']
+      ]
+    },
+    { kind: 'range', key: 'waveHeight', label: 'Độ cao sóng', min: 8, max: 240, step: 1, show: is('style', 'wave') },
+    {
+      kind: 'select',
       key: 'scope',
       label: 'Tiến trình của',
       options: [
@@ -134,13 +157,177 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
     },
     ...position,
     { kind: 'range', key: 'width', label: 'Chiều dài', min: 0.1, max: 1, step: 0.01 },
-    { kind: 'range', key: 'thickness', label: 'Độ dày', min: 1, max: 24, step: 0.5 },
+    { kind: 'range', key: 'thickness', label: 'Độ dày', min: 1, max: 24, step: 0.5, show: is('style', 'bar') },
     { kind: 'color', key: 'color', label: 'Màu đã chạy' },
     { kind: 'color', key: 'trackColor', label: 'Màu nền thanh' },
-    { kind: 'toggle', key: 'showDot', label: 'Hiện chấm tròn' },
+    { kind: 'toggle', key: 'showDot', label: 'Hiện chấm tròn / vạch đầu phát' },
     { kind: 'toggle', key: 'showTime', label: 'Hiện thời gian' },
     { kind: 'range', key: 'fontSize', label: 'Cỡ chữ thời gian', min: 10, max: 60, step: 1, show: (p) => !!p.showTime },
     { kind: 'color', key: 'textColor', label: 'Màu chữ', show: (p) => !!p.showTime }
+  ],
+  vinyl: [
+    ...position,
+    { kind: 'range', key: 'size', label: 'Đường kính', min: 0.1, max: 1.2, step: 0.01 },
+    { kind: 'range', key: 'rpm', label: 'Tốc độ quay', min: 0, max: 78, step: 0.5, unit: 'vòng/phút' },
+    { kind: 'toggle', key: 'slowOnChange', label: 'Đổi bài: chậm lại tới dừng rồi quay tiếp' },
+    { kind: 'toggle', key: 'tonearm', label: 'Hiện cần đọc đĩa' },
+    { kind: 'section', label: 'Nhãn giữa đĩa' },
+    {
+      kind: 'select',
+      key: 'label',
+      label: 'Nhãn',
+      options: [
+        ['cover', 'Ảnh bìa bài đang phát'],
+        ['custom', 'Ảnh tự chọn'],
+        ['text', 'Nhãn in tên bài và ca sĩ']
+      ]
+    },
+    { kind: 'file', key: 'src', label: 'Ảnh nhãn', accept: 'image', show: is('label', 'custom') },
+    { kind: 'range', key: 'labelSize', label: 'Cỡ nhãn', min: 0.15, max: 0.7, step: 0.01 },
+    { kind: 'color', key: 'labelColor', label: 'Màu nhãn in (và khi bài không có ảnh bìa)' },
+    { kind: 'section', label: 'Mặt đĩa' },
+    { kind: 'color', key: 'discColor', label: 'Màu đĩa' },
+    { kind: 'range', key: 'sheen', label: 'Ánh bóng', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'shadow', label: 'Bóng đổ', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'beatScale', label: 'Nảy theo nhạc', min: 0, max: 0.2, step: 0.005 },
+    { kind: 'range', key: 'opacity', label: 'Độ đậm', min: 0, max: 1, step: 0.01 }
+  ],
+  nowplaying: [
+    ...position,
+    { kind: 'range', key: 'size', label: 'Cỡ', min: 40, max: 400, step: 1 },
+    { kind: 'range', key: 'width', label: 'Bề ngang', min: 200, max: 1800, step: 5 },
+    {
+      kind: 'select',
+      key: 'style',
+      label: 'Kiểu',
+      options: [
+        ['glass', 'Kính mờ'],
+        ['solid', 'Nền đặc'],
+        ['minimal', 'Không nền']
+      ]
+    },
+    { kind: 'color', key: 'bgColor', label: 'Màu nền', show: not('style', 'minimal') },
+    { kind: 'range', key: 'bgOpacity', label: 'Độ đậm nền', min: 0, max: 1, step: 0.01, show: not('style', 'minimal') },
+    { kind: 'range', key: 'blur', label: 'Làm mờ phía sau', min: 0, max: 60, step: 1, show: is('style', 'glass') },
+    { kind: 'range', key: 'radius', label: 'Bo góc', min: 0, max: 80, step: 1, show: not('style', 'minimal') },
+    { kind: 'section', label: 'Nội dung' },
+    { kind: 'toggle', key: 'showCover', label: 'Ảnh bìa' },
+    { kind: 'toggle', key: 'showProgress', label: 'Thanh tiến trình' },
+    { kind: 'toggle', key: 'showTime', label: 'Thời gian', show: (p) => !!p.showProgress },
+    { kind: 'text', key: 'label', label: 'Dòng chữ nhỏ trên tên bài', placeholder: 'Đang phát (để trống nếu không cần)' },
+    { kind: 'select', key: 'font', label: 'Font', options: FONT_FAMILIES.map((f) => [f, f]) },
+    { kind: 'color', key: 'titleColor', label: 'Màu tên bài' },
+    { kind: 'color', key: 'textColor', label: 'Màu chữ phụ' },
+    { kind: 'color', key: 'accent', label: 'Màu thanh tiến trình', show: (p) => !!p.showProgress },
+    { kind: 'range', key: 'opacity', label: 'Độ đậm', min: 0, max: 1, step: 0.01 }
+  ],
+  tracklist: [
+    ...position,
+    {
+      kind: 'select',
+      key: 'align',
+      label: 'Neo theo',
+      options: [
+        ['left', 'Mép trái'],
+        ['center', 'Giữa'],
+        ['right', 'Mép phải']
+      ]
+    },
+    { kind: 'range', key: 'width', label: 'Bề ngang', min: 0.1, max: 0.9, step: 0.01 },
+    { kind: 'range', key: 'rows', label: 'Số dòng hiện cùng lúc', min: 2, max: 20, step: 1 },
+    { kind: 'range', key: 'fontSize', label: 'Cỡ chữ', min: 12, max: 80, step: 1 },
+    { kind: 'select', key: 'font', label: 'Font', options: FONT_FAMILIES.map((f) => [f, f]) },
+    { kind: 'text', key: 'title', label: 'Tiêu đề', placeholder: 'Danh sách phát (để trống nếu không cần)' },
+    { kind: 'section', label: 'Nội dung' },
+    { kind: 'toggle', key: 'showNumber', label: 'Số thứ tự' },
+    { kind: 'toggle', key: 'showArtist', label: 'Tên ca sĩ' },
+    { kind: 'toggle', key: 'showTime', label: 'Mốc thời gian trong video' },
+    { kind: 'toggle', key: 'dimPlayed', label: 'Làm mờ bài đã phát' },
+    { kind: 'section', label: 'Màu sắc và nền' },
+    { kind: 'color', key: 'color', label: 'Màu chữ' },
+    { kind: 'color', key: 'activeColor', label: 'Màu bài đang phát' },
+    {
+      kind: 'select',
+      key: 'style',
+      label: 'Nền',
+      options: [
+        ['glass', 'Kính mờ'],
+        ['plain', 'Không nền']
+      ]
+    },
+    { kind: 'color', key: 'bgColor', label: 'Màu nền', show: is('style', 'glass') },
+    { kind: 'range', key: 'bgOpacity', label: 'Độ đậm nền', min: 0, max: 1, step: 0.01, show: is('style', 'glass') },
+    { kind: 'range', key: 'blur', label: 'Làm mờ phía sau', min: 0, max: 60, step: 1, show: is('style', 'glass') },
+    { kind: 'range', key: 'opacity', label: 'Độ đậm', min: 0, max: 1, step: 0.01 }
+  ],
+  vumeter: [
+    ...position,
+    { kind: 'range', key: 'size', label: 'Cỡ', min: 120, max: 900, step: 1 },
+    {
+      kind: 'select',
+      key: 'layout',
+      label: 'Số kim',
+      options: [
+        ['stereo', 'Hai đồng hồ trái / phải'],
+        ['mono', 'Một đồng hồ']
+      ]
+    },
+    {
+      kind: 'select',
+      key: 'style',
+      label: 'Kiểu',
+      options: [
+        ['classic', 'Cổ điển (mặt kem)'],
+        ['dark', 'Mặt tối, đèn cam']
+      ]
+    },
+    { kind: 'range', key: 'sensitivity', label: 'Độ nhạy', min: 0.5, max: 1.6, step: 0.01 },
+    { kind: 'range', key: 'backlight', label: 'Đèn nền', min: 0, max: 1, step: 0.01 },
+    { kind: 'text', key: 'label', label: 'Chữ trên mặt đồng hồ', placeholder: 'VU' },
+    { kind: 'color', key: 'faceColor', label: 'Màu mặt đồng hồ', show: is('style', 'classic') },
+    { kind: 'color', key: 'textColor', label: 'Màu vạch và chữ', show: is('style', 'classic') },
+    { kind: 'color', key: 'needleColor', label: 'Màu kim', show: is('style', 'classic') },
+    { kind: 'color', key: 'accent', label: 'Màu vùng đỏ' },
+    { kind: 'range', key: 'opacity', label: 'Độ đậm', min: 0, max: 1, step: 0.01 }
+  ],
+  vhs: [
+    { kind: 'range', key: 'intensity', label: 'Cường độ', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'chroma', label: 'Lệch màu', min: 0, max: 20, step: 0.5 },
+    { kind: 'range', key: 'soft', label: 'Nhoè mềm', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'scanlines', label: 'Sọc quét', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'noise', label: 'Hạt nhiễu', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'tracking', label: 'Nhiễu kéo băng', min: 0, max: 1, step: 0.01 },
+    { kind: 'section', label: 'Chữ trên màn hình' },
+    { kind: 'toggle', key: 'osd', label: 'Hiện chữ như đầu video' },
+    { kind: 'text', key: 'osdText', label: 'Chữ góc trên', placeholder: 'PLAY', show: (p) => !!p.osd },
+    { kind: 'text', key: 'dateText', label: 'Ngày ở góc dưới', placeholder: 'SEP. 30 1997', show: (p) => !!p.osd },
+    { kind: 'toggle', key: 'showTime', label: 'Mốc thời gian góc dưới', show: (p) => !!p.osd }
+  ],
+  glitch: [
+    {
+      kind: 'select',
+      key: 'trigger',
+      label: 'Kích hoạt',
+      options: [
+        ['beat', 'Theo beat'],
+        ['bass', 'Theo tiếng bass'],
+        ['random', 'Ngẫu nhiên']
+      ]
+    },
+    { kind: 'range', key: 'threshold', label: 'Ngưỡng (càng cao càng ít glitch)', min: 0, max: 0.9, step: 0.01, show: not('trigger', 'random') },
+    { kind: 'range', key: 'amount', label: 'Cường độ', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'rgbSplit', label: 'Tách kênh màu', min: 0, max: 60, step: 1 },
+    { kind: 'range', key: 'slices', label: 'Số lát cắt lệch', min: 0, max: 40, step: 1 },
+    { kind: 'toggle', key: 'blocks', label: 'Khối màu lỗi tín hiệu' }
+  ],
+  crt: [
+    { kind: 'range', key: 'curvature', label: 'Độ cong màn hình', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'scanlines', label: 'Sọc quét', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'mask', label: 'Lưới điểm màu', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'glow', label: 'Phát sáng', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'flicker', label: 'Nhấp nháy', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'vignette', label: 'Tối mép', min: 0, max: 1, step: 0.01 },
+    { kind: 'toggle', key: 'bezel', label: 'Vỏ màn hình bo góc' }
   ],
   timer: [
     {
@@ -260,6 +447,7 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
     { kind: 'color', key: 'strokeColor', label: 'Màu viền', show: (p) => Number(p.strokeWidth) > 0 },
     { kind: 'range', key: 'shadowBlur', label: 'Bóng / phát sáng', min: 0, max: 60, step: 1 },
     { kind: 'color', key: 'shadowColor', label: 'Màu bóng', show: (p) => Number(p.shadowBlur) > 0 },
+    { kind: 'range', key: 'flicker', label: 'Neon chập chờn', min: 0, max: 1, step: 0.01 },
     { kind: 'range', key: 'beatScale', label: 'Nảy theo nhạc', min: 0, max: 0.3, step: 0.005 },
     { kind: 'range', key: 'opacity', label: 'Độ trong suốt', min: 0, max: 1, step: 0.01 }
   ],
@@ -372,7 +560,8 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
         ['snow', 'Tuyết rơi'],
         ['bokeh', 'Bokeh (đốm sáng mờ)'],
         ['rain', 'Mưa'],
-        ['stars', 'Sao lấp lánh']
+        ['stars', 'Sao lấp lánh'],
+        ['orbit', 'Bay vòng quanh tâm vùng (quanh ảnh bìa)']
       ]
     },
     { kind: 'range', key: 'count', label: 'Số lượng', min: 0, max: 400, step: 1 },

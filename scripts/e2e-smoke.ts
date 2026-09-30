@@ -788,6 +788,43 @@ async function main(): Promise<void> {
     await undo()
     await undo()
     assert(await until(async () => (await layersNow()).length === nLayers), 'Ctrl+Z bỏ đồng hồ vừa thêm')
+    // Đĩa than, thẻ đang phát, danh sách bài, đồng hồ VU, VHS, glitch, CRT: thêm từ thư viện, preview vẽ không lỗi
+    const musicThumbs = page.locator('.lib-card:is([data-item^="vn-"], [data-item^="np-"], [data-item^="tl-"], [data-item^="vu-"]) img[src^="data:image/jpeg"]')
+    assert(await until(async () => (await musicThumbs.count()) === 10, 15000), `nhóm "Đĩa than và thông tin bài": 10 mẫu có ảnh xem trước (${await musicThumbs.count()})`)
+    const added: Array<[string, string]> = [
+      ['vn-cover', 'vinyl'],
+      ['np-solid', 'nowplaying'],
+      ['tl-glass', 'tracklist'],
+      ['vu-classic', 'vumeter'],
+      ['fx-vhs', 'vhs'],
+      ['fx-glitch', 'glitch'],
+      ['fx-crt', 'crt']
+    ]
+    for (const [item, type] of added) {
+      await page.locator(`.lib-card[data-item="${item}"]`).click()
+      assert(await until(async () => (await topLayer()).type === type), `bấm mẫu "${item}": thêm lớp ${type}`)
+    }
+    const musicLayers = (await layersNow()).slice(-added.length)
+    const np = musicLayers.find((l) => l.type === 'nowplaying')!
+    const list = musicLayers.find((l) => l.type === 'tracklist')!
+    assert(np.props.label === 'Đang phát' && list.props.title === 'Danh sách phát', `thẻ đang phát, danh sách bài có chữ tiếng Việt (${np.props.label} / ${list.props.title})`)
+    // Chọn đĩa than, đổi nhãn sang "in tên bài"
+    const vinyl = musicLayers.find((l) => l.type === 'vinyl')!
+    await page.evaluate(`window.__pvm.store.getState().selectLayer(${JSON.stringify(vinyl.id)})`)
+    assert(await until(async () => (await page.locator('.sel-box').count()) === 1), 'đĩa than có khung chọn trên preview')
+    const labelSel = page.locator('label.field').filter({ has: page.locator('.field-label', { hasText: /^Nhãn$/ }) }).locator('select')
+    await labelSel.selectOption('text')
+    assert(await until(async () => (await layersNow()).find((l) => l.id === vinyl.id)?.props.label === 'text'), 'đổi nhãn đĩa than sang nhãn in tên bài')
+    // Phát qua chỗ đổi bài để mọi hiệu ứng đều được vẽ (kể cả lúc đĩa chậm lại, glitch theo beat)
+    await page.evaluate('window.__pvm.player.seek(38.5)')
+    await page.locator('.play-btn').click()
+    await page.waitForTimeout(1800)
+    await page.locator('.play-btn').click()
+    await page.screenshot({ path: join(OUT, '9b-music-effects.png') })
+    const drawErrors = (await page.evaluate('[...window.__pvm.preview.errors.values()]')) as string[]
+    assert(drawErrors.length === 0, `preview vẽ các hiệu ứng mới không lỗi${drawErrors.length ? `: ${drawErrors.join('; ')}` : ''}`)
+    for (let i = 0; i < added.length + 1; i++) await undo()
+    assert(await until(async () => (await layersNow()).length === nLayers), 'Ctrl+Z bỏ các lớp vừa thêm')
     // Kéo chữ mẫu vào giữa bài thứ hai → hiện từ chỗ thả đến hết bài đó
     await page.locator('.lib-tab[data-tab="text"]').click()
     const neon = page.locator('.lib-card[data-item="txt-neon"]')

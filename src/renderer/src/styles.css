@@ -1807,6 +1807,27 @@ button.tl-dot:hover {
 .t-timer {
   --c: #b87dbf;
 }
+.t-vinyl {
+  --c: #c4a484;
+}
+.t-nowplaying {
+  --c: #86b8ad;
+}
+.t-tracklist {
+  --c: #9bb0c9;
+}
+.t-vumeter {
+  --c: #b9a86a;
+}
+.t-vhs {
+  --c: #c97fa0;
+}
+.t-glitch {
+  --c: #6fc2c9;
+}
+.t-crt {
+  --c: #8fae8a;
+}
 
 .layer-name.static {
   flex: 1;
