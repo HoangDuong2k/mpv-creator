@@ -5,6 +5,7 @@ import { LayersPanel } from './components/LayersPanel'
 import { LibraryPanel } from './components/LibraryPanel'
 import { importPaths } from './components/MusicTab'
 import { TemplatesDialog, welcomeEnabled } from './components/TemplatesDialog'
+import { SaveTemplateDialog } from './components/SaveTemplate'
 import { previewFontsLoaded } from './previewRender'
 import { PreviewPanel, togglePreviewMax } from './components/PreviewPanel'
 import { SettingsDialog } from './components/SettingsDialog'
@@ -322,6 +323,7 @@ export function App(): ReactNode {
         {dialog === 'chapters' && <ChaptersDialog />}
         {dialog === 'shortcuts' && <ShortcutsDialog />}
         {(dialog === 'welcome' || dialog === 'new-project' || dialog === 'styles') && <TemplatesDialog mode={dialog} onOpenProject={() => void openProject()} />}
+        {dialog === 'save-template' && <SaveTemplateDialog />}
       </Fragment>
       {/* Ngoài Fragment: đổi ngôn ngữ không làm đếm ngược tắt máy bắt đầu lại */}
       <ShutdownCountdown />

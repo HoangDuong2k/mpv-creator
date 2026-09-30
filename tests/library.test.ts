@@ -12,7 +12,7 @@ import { BAND_COUNT, decodeFeatures, encodeFeatures, FEATURE_RATE, OFF_BEAT, STR
 import { FILTER_PRESETS } from '../src/shared/filterPresets'
 import { setLang } from '../src/shared/i18n'
 import { EFFECT_GROUPS, findPreset, TEXT_PRESETS } from '../src/shared/presets'
-import { applyTemplate, builtinTemplates, isTemplateId, projectFromTemplate, templateFromProject } from '../src/shared/templates'
+import { applyTemplate, builtinTemplates, isTemplateId, planTemplate, projectFromTemplate, templateFromProject } from '../src/shared/templates'
 import { buildTimeline } from '../src/shared/timeline'
 import type { Layer, LayerType, Project } from '../src/shared/types'
 import { track } from './helpers'
@@ -122,6 +122,80 @@ describe('mẫu phong cách', () => {
   it('id mẫu an toàn để làm tên file', () => {
     expect(isTemplateId('tpl_abc-12')).toBe(true)
     for (const bad of ['', '../x', 'a/b', 'a\\b', 'x'.repeat(65), 5, null]) expect(isTemplateId(bad)).toBe(false)
+  })
+})
+
+describe('tạo mẫu từ video vừa làm', () => {
+  // 2 bài × 60 giây, nối liền: video dài 120 giây
+  const make = (layers: Layer[]): Project => ({
+    ...createDefaultProject(),
+    tracks: [track('a', 60), track('b', 60)],
+    settings: { ...createDefaultProject().settings, transition: { type: 'none', duration: 0 } },
+    layers
+  })
+  const at = (l: Layer, start: number, end: number | null, extra: Partial<Layer> = {}): Layer => ({ ...l, timing: { start, end, fadeIn: 0, fadeOut: 0 }, ...extra }) as Layer
+
+  it('chỉ giữ lớp dùng suốt video; bỏ lớp một đoạn, các đoạn đã tách, lớp đang ẩn', () => {
+    const bg = at(createLayer('background', { mode: 'image', src: '/a.jpg' }), 0, null)
+    const viz = at(createLayer('visualizer'), 0, null, { locked: true })
+    const nearlyFull = at(createLayer('particles'), 0.5, 119.4)
+    const partial = at(createLayer('text', { template: 'Tiếp theo' }), 30, 60)
+    const splitA = at(createLayer('flicker'), 0, 45, { row: 'r' })
+    const splitB = at(createLayer('flicker'), 45, null, { row: 'r' })
+    const hidden = at({ ...createLayer('vignette'), enabled: false } as Layer, 0, null)
+    const cta = at(createLayer('cta'), 0, null)
+    const plan = planTemplate(make([bg, viz, nearlyFull, partial, splitA, splitB, hidden, cta]))
+    expect(plan.layers.map((l) => l.type)).toEqual(['background', 'visualizer', 'particles', 'cta'])
+    // Lớp giữ lại hiện tới hết video (tự dài theo bài của video mới), không khoá, không chung hàng
+    expect(plan.layers.every((l) => l.timing.end === null && !l.locked && !l.row)).toBe(true)
+    expect(plan.layers[2].timing.start).toBe(0.5)
+    expect(plan.skipped.map((x) => [x.layer.id, x.reason])).toEqual([
+      [partial.id, 'partial'],
+      [splitA.id, 'partial'],
+      [splitB.id, 'partial'],
+      [hidden.id, 'hidden']
+    ])
+    expect(plan.backgroundFromSegment).toBe(false)
+    expect(viz.locked).toBe(true)
+  })
+
+  it('video chỉ có nền theo từng bài: mẫu có một nền suốt video theo kiểu nền của đoạn đầu', () => {
+    const b1 = at(createLayer('background', { mode: 'image', src: '/1.jpg', dim: 0.4 }), 0, 60, { row: 'r' })
+    const b2 = at(createLayer('background', { mode: 'image', src: '/2.jpg', dim: 0.4 }), 60, null, { row: 'r' })
+    const plan = planTemplate(make([b1, b2, at(createLayer('visualizer'), 0, null)]))
+    expect(plan.backgroundFromSegment).toBe(true)
+    expect(plan.layers.map((l) => l.type)).toEqual(['background', 'visualizer'])
+    expect(plan.layers[0]).toMatchObject({ timing: FULL_TIMING, props: { src: '/1.jpg', dim: 0.4 } })
+    expect(plan.layers[0].row).toBeUndefined()
+  })
+
+  it('lưu kèm khung hình, chuyển bài, chất lượng xuất; video mới từ mẫu dùng lại, áp phong cách thì không đổi', () => {
+    const p = make([at(createLayer('background'), 0, null)])
+    p.settings = { ...p.settings, width: 1080, height: 1920, fps: 60, transition: { type: 'gap', duration: 2 }, fadeIn: 0, fadeOut: 5 }
+    p.export = { ...p.export, encoder: 'h264_nvenc', quality: 'high', audioBitrate: 320 }
+    const t = templateFromProject(p, 'Shorts lofi')
+    expect(t.settings).toEqual({ width: 1080, height: 1920, fps: 60, transition: { type: 'gap', duration: 2 }, fadeIn: 0, fadeOut: 5 })
+    expect(t.export).toEqual({ quality: 'high', audioBitrate: 320 })
+    const fresh = projectFromTemplate(t)
+    expect(fresh.tracks).toEqual([])
+    expect(fresh.settings).toMatchObject({ width: 1080, height: 1920, fps: 60, fadeOut: 5, transition: { type: 'gap', duration: 2 } })
+    // Bộ mã hoá tuỳ máy: không lấy theo mẫu
+    expect(fresh.export).toMatchObject({ quality: 'high', audioBitrate: 320, encoder: 'libx264' })
+    const other = make([at(createLayer('background'), 0, null)])
+    expect(applyTemplate(other, t).settings).toBe(other.settings)
+  })
+
+  it('lưu đè mẫu cũ (giữ id)', () => {
+    expect(templateFromProject(make([]), 'A', { id: 'tpl_cu' }).id).toBe('tpl_cu')
+  })
+
+  it('kho mẫu: giữ khung hình, chất lượng hợp lệ; bỏ giá trị hỏng', () => {
+    const good = templateFromProject(make([at(createLayer('background'), 0, null)]), 'A')
+    expect(parseTemplate(good)?.settings).toEqual(good.settings)
+    expect(parseTemplate(good)?.export).toEqual(good.export)
+    expect(parseTemplate({ ...good, settings: { ...good.settings!, width: 0 } })?.settings).toBeUndefined()
+    expect(parseTemplate({ ...good, export: { quality: 'ultra', audioBitrate: 256 } })?.export).toBeUndefined()
+    expect(parseTemplate({ ...good, settings: undefined, export: undefined })).not.toHaveProperty('settings')
   })
 })
 

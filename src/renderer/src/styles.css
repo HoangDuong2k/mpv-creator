@@ -2634,3 +2634,151 @@ kbd {
     transition-duration: 0ms !important;
   }
 }
+
+/* ---------- Tạo mẫu từ video ---------- */
+.tpl-builtin {
+  display: grid;
+  gap: 12px;
+}
+.tpl-builtin h4 {
+  margin: 0;
+  font-size: 13px;
+}
+.tpl-save-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 20px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}
+.modal-body > .tpl-save-form {
+  padding: 0;
+  background: none;
+}
+.tpl-save-preview {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.tpl-save-preview p {
+  margin: 0;
+  line-height: 1.5;
+}
+.tpl-save-body {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+.tpl-save-body section {
+  display: grid;
+  gap: 6px;
+}
+.tpl-save-body > p {
+  margin: 0;
+}
+.tpl-save-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.tpl-layers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 2px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tpl-layer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+.tpl-layer-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tpl-layer-type,
+.tpl-layer-note {
+  flex: none;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.tpl-layers.skipped .tpl-layer-name {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--faint);
+}
+.tpl-layers.skipped .tl-dot {
+  opacity: 0.45;
+}
+.tpl-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 760px) {
+  .tpl-save-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Video mới theo mẫu: đổi nền, thêm nhạc ---------- */
+.start-steps {
+  display: grid;
+  gap: 10px;
+}
+.start-steps > p {
+  margin: 0 0 4px;
+  max-width: 70ch;
+  line-height: 1.55;
+}
+.start-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}
+.start-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 112px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background: var(--panel-3);
+  color: var(--muted);
+  box-shadow: 0 0 0 1px rgba(255, 244, 230, 0.06);
+}
+.start-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.start-thumb img.strip {
+  object-position: left center;
+}
+.start-info {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.start-info .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

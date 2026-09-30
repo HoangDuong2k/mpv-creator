@@ -4,7 +4,8 @@ import { existsSync } from 'fs'
 import { mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { createDefaultProject, normalizeProject } from '../shared/defaults'
-import { isTemplateId, type StyleTemplate } from '../shared/templates'
+import { isTemplateId, type StyleTemplate, type TemplateExport, type TemplateSettings } from '../shared/templates'
+import type { ProjectSettings } from '../shared/types'
 
 /** Giới hạn số mẫu đọc ra (tránh thư mục bị chép nhầm hàng nghìn file) */
 const MAX_TEMPLATES = 200
@@ -52,12 +53,36 @@ export function parseTemplate(v: unknown): StyleTemplate | null {
   if (!isTemplateId(o.id) || typeof o.name !== 'string' || !o.name.trim() || !Array.isArray(o.layers)) return null
   const layers = normalizeProject({ ...createDefaultProject(), layers: o.layers }).layers
   if (layers.length === 0) return null
+  const settings = parseSettings(o.settings)
+  const exp = parseExport(o.export)
   return {
     id: o.id,
     name: o.name.trim().slice(0, 80),
     description: typeof o.description === 'string' ? o.description.slice(0, 200) : '',
     custom: true,
     createdAt: typeof o.createdAt === 'number' ? o.createdAt : 0,
-    layers
+    layers,
+    ...(settings ? { settings } : {}),
+    ...(exp ? { export: exp } : {})
   }
+}
+
+const inRange = (v: unknown, min: number, max: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
+
+/** Khung hình / chuyển bài lưu kèm mẫu; sai giá trị thì bỏ (video mới dùng cài đặt mặc định) */
+function parseSettings(v: unknown): TemplateSettings | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const s = v as Partial<ProjectSettings>
+  const t = s.transition
+  if (!inRange(s.width, 16, 8192) || !inRange(s.height, 16, 8192) || !inRange(s.fps, 1, 120)) return undefined
+  if (!t || !['none', 'gap', 'crossfade'].includes(t.type) || !inRange(t.duration, 0, 60)) return undefined
+  if (!inRange(s.fadeIn, 0, 60) || !inRange(s.fadeOut, 0, 60)) return undefined
+  return { width: Math.round(s.width), height: Math.round(s.height), fps: s.fps, transition: { type: t.type, duration: t.duration }, fadeIn: s.fadeIn, fadeOut: s.fadeOut }
+}
+
+function parseExport(v: unknown): TemplateExport | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const e = v as Partial<TemplateExport>
+  if (!['fast', 'balanced', 'high'].includes(e.quality as string) || !inRange(e.audioBitrate, 32, 512)) return undefined
+  return { quality: e.quality as TemplateExport['quality'], audioBitrate: e.audioBitrate }
 }

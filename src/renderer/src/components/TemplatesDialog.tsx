@@ -1,11 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { tr } from '../../../shared/i18n'
-import { builtinTemplates, hasMediaBackground, projectFromTemplate, templateFromProject, type StyleTemplate } from '../../../shared/templates'
+import { builtinTemplates, hasMediaBackground, projectFromTemplate, type StyleTemplate } from '../../../shared/templates'
 import { player } from '../engineHost'
 import { errorText } from '../hooks'
 import { forgetPreviews, type PreviewScene } from '../previewRender'
 import { useStore } from '../store'
 import { PreviewThumb } from './PreviewThumb'
+import { SaveTemplateForm, transitionText } from './SaveTemplate'
+import { TemplateStart } from './TemplateStart'
 import { Icon, Modal } from './ui'
 
 const api = window.api
@@ -37,10 +39,17 @@ function templateScene(t: StyleTemplate): () => PreviewScene {
 
 const previewId = (t: StyleTemplate): string => `tpl:${t.id}:${t.createdAt ?? 0}`
 
+/** Dòng mô tả của mẫu tự tạo: khung hình, fps, cách chuyển bài */
+function customMeta(t: StyleTemplate): string {
+  const s = t.settings
+  return s ? `${s.width}×${s.height}, ${s.fps} fps, ${transitionText(s.transition)}` : ''
+}
+
 /**
  * Chọn mẫu phong cách:
- * - welcome / new-project: bắt đầu project mới theo mẫu;
- * - styles: áp mẫu cho project đang làm (giữ nguyên nhạc, hoàn tác được) và lưu phong cách hiện tại làm mẫu riêng.
+ * - welcome / new-project: bắt đầu project mới theo mẫu (cùng khung hình, chuyển bài nếu là mẫu tạo từ video),
+ *   rồi sang bước đổi nền và thêm nhạc;
+ * - styles: áp mẫu cho project đang làm (giữ nguyên nhạc, hoàn tác được) và tạo mẫu từ video đang làm.
  */
 export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; onOpenProject?: () => void }): ReactNode {
   const [builtins] = useState(builtinTemplates)
@@ -48,7 +57,9 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
   const project = useStore((s) => s.project)
   const mediaBg = hasMediaBackground(project)
   const [keepBg, setKeepBg] = useState(true)
-  const [saveName, setSaveName] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  /** Mẫu vừa chọn cho video mới: đang ở bước đổi nền, thêm nhạc */
+  const [started, setStarted] = useState<StyleTemplate | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [hover, setHover] = useState<string | null>(null)
   const [showOnStart, setShowOnStart] = useState(welcomeEnabled)
@@ -64,24 +75,12 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
     if (mode === 'styles') {
       st.applyStyle(t, keepBg && mediaBg)
       st.toast('success', tr('Đã áp phong cách "{name}". Bấm Ctrl+Z để hoàn tác.', { name: tr(t.name) }))
+      close()
     } else {
       player.pause()
       st.setPlaying(false)
       st.loadProject(projectFromTemplate(t), null)
-    }
-    close()
-  }
-
-  const save = async (): Promise<void> => {
-    const name = (saveName ?? '').trim()
-    if (!name) return
-    try {
-      await api.saveTemplate(templateFromProject(useStore.getState().project, name))
-      useStore.getState().toast('success', tr('Đã lưu mẫu "{name}"', { name }))
-      setSaveName(null)
-      reload()
-    } catch (err) {
-      useStore.getState().toast('error', tr('Không lưu được mẫu: {err}', { err: errorText(err) }))
+      setStarted(t)
     }
   }
 
@@ -105,7 +104,7 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
       <button type="button" className="tpl-pick" onClick={() => pick(t)} title={mode === 'styles' ? tr('Áp phong cách này (giữ nguyên nhạc)') : tr('Bắt đầu với mẫu này')}>
         <PreviewThumb id={previewId(t)} build={templateScene(t)} size="large" hover={hover === t.id} />
         <span className="tpl-name">{tr(t.name)}</span>
-        {t.description && <span className="tpl-desc">{tr(t.description)}</span>}
+        {(t.description || t.custom) && <span className="tpl-desc">{t.description ? tr(t.description) : customMeta(t)}</span>}
       </button>
       {t.custom && (
         <button
@@ -164,6 +163,23 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
       </button>
     )
 
+  if (started)
+    return (
+      <Modal
+        title={tr('Video mới theo mẫu "{name}"', { name: tr(started.name) })}
+        onClose={close}
+        footer={
+          <button type="button" className="btn primary" onClick={close}>
+            {tr('Xong')}
+          </button>
+        }
+        wide
+      >
+        <TemplateStart />
+      </Modal>
+    )
+
+  const hasCustom = !!custom && custom.length > 0
   return (
     <Modal title={title} onClose={close} footer={footer} wide>
       <div className="tpl-dialog" data-mode={mode}>
@@ -174,41 +190,36 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
             <span>{tr('Giữ ảnh / video nền đang dùng (chỉ thay cột sóng, chữ, hiệu ứng)')}</span>
           </label>
         )}
-        <div className="tpl-grid">{builtins.map(card)}</div>
-        {(mode === 'styles' || (custom && custom.length > 0)) && (
+        {(mode === 'styles' || hasCustom) && (
           <section className="tpl-custom">
             <div className="tpl-custom-head">
               <h4>{tr('Mẫu của bạn')}</h4>
-              {mode === 'styles' && saveName === null && (
-                <button type="button" className="btn small" onClick={() => setSaveName('')}>
-                  <Icon name="save" size={15} /> {tr('Lưu phong cách hiện tại làm mẫu')}
+              {mode === 'styles' && !creating && (
+                <button type="button" className="btn small" onClick={() => setCreating(true)}>
+                  <Icon name="save" size={15} /> {tr('Tạo mẫu từ video này')}
                 </button>
               )}
             </div>
-            {saveName !== null && (
-              <form
-                className="tpl-save"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  void save()
+            {creating && (
+              <SaveTemplateForm
+                onDone={() => {
+                  setCreating(false)
+                  reload()
                 }}
-              >
-                <input autoFocus value={saveName} maxLength={80} placeholder={tr('Tên mẫu, vd. Kênh lofi của tôi')} onChange={(e) => setSaveName(e.target.value)} />
-                <button type="submit" className="btn small primary" disabled={!saveName.trim()}>
-                  {tr('Lưu')}
-                </button>
-                <button type="button" className="btn small" onClick={() => setSaveName(null)}>
-                  {tr('Huỷ')}
-                </button>
-              </form>
+                onCancel={() => setCreating(false)}
+              />
             )}
-            {custom && custom.length > 0 ? (
+            {hasCustom ? (
               <div className="tpl-grid">{custom.map(card)}</div>
             ) : (
-              <p className="muted small">{tr('Chưa có mẫu nào. Chỉnh project theo ý rồi bấm "Lưu phong cách hiện tại làm mẫu" để dùng lại cho video sau.')}</p>
+              !creating && <p className="muted small">{tr('Chưa có mẫu nào. Làm xong một video, bấm "Tạo mẫu từ video này" để lần sau chỉ cần đổi nền và thêm nhạc.')}</p>
             )}
           </section>
         )}
+        <section className="tpl-builtin">
+          {(mode === 'styles' || hasCustom) && <h4>{tr('Mẫu có sẵn')}</h4>}
+          <div className="tpl-grid">{builtins.map(card)}</div>
+        </section>
       </div>
     </Modal>
   )

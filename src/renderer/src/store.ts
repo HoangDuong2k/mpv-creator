@@ -57,8 +57,8 @@ export interface CtaSelection {
   index: number
 }
 
-/** 'welcome': màn hình chào lúc mở app · 'new-project': chọn mẫu cho project mới · 'styles': áp / lưu mẫu phong cách */
-export type DialogName = 'export' | 'settings' | 'chapters' | 'shortcuts' | 'welcome' | 'new-project' | 'styles' | null
+/** 'welcome': màn hình chào lúc mở app, 'new-project': chọn mẫu cho project mới, 'styles': áp / tạo mẫu, 'save-template': tạo mẫu từ video vừa xuất */
+export type DialogName = 'export' | 'settings' | 'chapters' | 'shortcuts' | 'welcome' | 'new-project' | 'styles' | 'save-template' | null
 
 export interface Toast {
   id: number

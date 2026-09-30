@@ -305,6 +305,14 @@ export function ExportDialog(): ReactNode {
             <button type="button" className="btn small" onClick={() => openDialog('chapters')}>
               <Icon name="list" size={16} /> {tr('Lấy timestamp cho mô tả')}
             </button>
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => openDialog('save-template')}
+              title={tr('Lần sau làm video cùng phong cách: chỉ cần đổi nền và thêm nhạc')}
+            >
+              <Icon name="palette" size={16} /> {tr('Tạo mẫu từ video này')}
+            </button>
           </div>
           {result.warnings.length > 0 && <p className="warn">{tr('Cảnh báo: {list}', { list: result.warnings.join('; ') })}</p>}
         </div>

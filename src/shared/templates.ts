@@ -1,9 +1,15 @@
 // Mẫu phong cách: bộ lớp dựng sẵn (nền, cột sóng, chữ, hiệu ứng, bộ lọc…). Áp mẫu cho project
 // thì thay các lớp nhưng giữ nguyên nhạc và cài đặt; người dùng lưu được phong cách đang làm thành mẫu riêng.
-import { createDefaultProject, createLayer, newId } from './defaults'
+import { createDefaultProject, createLayer, FULL_TIMING, newId } from './defaults'
 import { presetById } from './filterPresets'
 import { trKey } from './i18n'
-import type { Layer, Project, TextProps } from './types'
+import { buildTimeline } from './timeline'
+import type { ExportSettings, Layer, Project, ProjectSettings, TextProps } from './types'
+
+/** Khung hình và chuyển bài của video gốc: video mới làm từ mẫu dùng lại (cùng một series) */
+export type TemplateSettings = Pick<ProjectSettings, 'width' | 'height' | 'fps' | 'transition' | 'fadeIn' | 'fadeOut'>
+/** Chất lượng xuất đi kèm mẫu (bộ mã hoá tuỳ máy nên không lưu) */
+export type TemplateExport = Pick<ExportSettings, 'quality' | 'audioBitrate'>
 
 export interface StyleTemplate {
   id: string
@@ -13,6 +19,9 @@ export interface StyleTemplate {
   custom?: boolean
   createdAt?: number
   layers: Layer[]
+  /** Mẫu tạo từ video: khung hình, chuyển bài, chất lượng xuất (chỉ dùng khi làm video mới từ mẫu) */
+  settings?: TemplateSettings
+  export?: TemplateExport
 }
 
 const filterLayer = (id: string): Layer => createLayer('filter', { ...presetById(id)!.values, preset: id, intensity: 1 })
@@ -166,21 +175,81 @@ export function applyTemplate(project: Project, template: StyleTemplate, opts: {
   return { ...project, layers: [...structuredClone(own), ...layers.filter((l) => l.type !== 'background')] }
 }
 
-/** Project mới với phong cách của mẫu */
+/** Project mới theo mẫu: phong cách của mẫu, cùng khung hình / chuyển bài / chất lượng xuất nếu mẫu có lưu */
 export function projectFromTemplate(template: StyleTemplate): Project {
-  return applyTemplate(createDefaultProject(), template)
+  const base = createDefaultProject()
+  const p = applyTemplate(base, template)
+  const s = template.settings
+  return {
+    ...p,
+    settings: s ? { ...base.settings, ...structuredClone(s) } : base.settings,
+    export: template.export ? { ...base.export, ...template.export } : base.export
+  }
 }
 
-/** Lưu phong cách của project thành mẫu riêng */
-export function templateFromProject(project: Project, name: string, description = ''): StyleTemplate {
+/** Sai số (giây) khi xét một lớp có dùng suốt video hay không */
+const WHOLE_SLACK = 1
+
+/** Lớp dùng suốt video: đang bật, hiện từ đầu video tới hết video */
+export function coversWholeVideo(layer: Layer, total: number): boolean {
+  if (!layer.enabled) return false
+  const { start, end } = layer.timing
+  if (start > WHOLE_SLACK) return false
+  return end === null || (total > 0 && end >= total - WHOLE_SLACK)
+}
+
+export interface TemplatePlan {
+  /** Các lớp mẫu giữ lại: hiện tới hết video (tự dài theo bài của video mới), không khoá, hàng riêng */
+  layers: Layer[]
+  /** Các lớp bỏ qua: chỉ hiện một đoạn, hoặc đang ẩn */
+  skipped: Array<{ layer: Layer; reason: 'partial' | 'hidden' }>
+  /** Video gốc không có nền nào dùng suốt video: nền của mẫu lấy kiểu nền của đoạn đầu tiên */
+  backgroundFromSegment: boolean
+}
+
+function wholeVideoLayer(l: Layer, timing = l.timing): Layer {
+  const copy = { ...structuredClone(l), timing: { ...timing, end: null } } as Layer
+  delete copy.locked
+  delete copy.row
+  return copy
+}
+
+/**
+ * Mẫu tạo từ một video chỉ giữ những gì dùng suốt video đó (nền, cột sóng, chữ tên bài, hiệu ứng…);
+ * lớp chỉ hiện một đoạn (chữ riêng một bài, nền theo từng bài, các đoạn đã tách) và lớp đang ẩn bị bỏ.
+ */
+export function planTemplate(project: Project): TemplatePlan {
+  const total = buildTimeline(project.tracks, project.settings).total
+  const layers: Layer[] = []
+  const skipped: TemplatePlan['skipped'] = []
+  for (const l of project.layers) {
+    if (coversWholeVideo(l, total)) layers.push(wholeVideoLayer(l))
+    else skipped.push({ layer: l, reason: l.enabled ? 'partial' : 'hidden' })
+  }
+  let backgroundFromSegment = false
+  if (!layers.some((l) => l.type === 'background')) {
+    // Video nào cũng cần nền: giữ cách hiển thị (làm tối, mờ, đập theo bass…) của đoạn nền đầu tiên
+    const first = project.layers.find((l) => l.type === 'background' && l.enabled) ?? project.layers.find((l) => l.type === 'background')
+    if (first) {
+      layers.unshift({ ...wholeVideoLayer(first, { ...FULL_TIMING }), enabled: true } as Layer)
+      backgroundFromSegment = true
+    }
+  }
+  return { layers, skipped, backgroundFromSegment }
+}
+
+/** Tạo mẫu từ video đang làm (xem planTemplate). `id`: ghi đè mẫu đã có */
+export function templateFromProject(project: Project, name: string, opts: { id?: string; description?: string } = {}): StyleTemplate {
+  const s = project.settings
   return {
-    id: newId('tpl'),
+    id: opts.id ?? newId('tpl'),
     name: name.trim().slice(0, 80),
-    description,
+    description: opts.description ?? '',
     custom: true,
     createdAt: Date.now(),
-    // Không giữ trạng thái khoá (chỉ là thao tác trên timeline)
-    layers: project.layers.map((l) => ({ ...structuredClone(l), locked: undefined }))
+    layers: planTemplate(project).layers,
+    settings: { width: s.width, height: s.height, fps: s.fps, transition: { ...s.transition }, fadeIn: s.fadeIn, fadeOut: s.fadeOut },
+    export: { quality: project.export.quality, audioBitrate: project.export.audioBitrate }
   }
 }
 

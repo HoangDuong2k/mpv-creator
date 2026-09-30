@@ -5,7 +5,7 @@
  *   (Windows: PVM_E2E_EXE="release/win-unpacked/Playlist Video Maker.exe")
  */
 import { spawnSync } from 'child_process'
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'fs'
 import { join, resolve } from 'path'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core'
 import { ffmpegPath } from '../src/main/ffmpeg'
@@ -835,27 +835,66 @@ async function main(): Promise<void> {
     )
     await undo()
     assert(await until(async () => (await layersNow()).map((l) => l.id).join() === layersBefore), 'Ctrl+Z trả lại phong cách cũ')
+    // Tạo mẫu từ video đang làm: chỉ giữ lớp dùng suốt video (các đoạn flicker đã tách bị bỏ)
     await page.getByRole('button', { name: 'Mẫu phong cách' }).click()
-    await page.getByRole('button', { name: 'Lưu phong cách hiện tại làm mẫu' }).click()
-    await page.locator('.tpl-save input').fill('Mẫu e2e')
-    await page.keyboard.press('Enter')
+    await page.getByRole('button', { name: 'Tạo mẫu từ video này' }).click()
+    const saveForm = page.locator('.tpl-save-form')
+    await saveForm.waitFor()
+    const keptText = (await saveForm.locator('.tpl-layers:not(.skipped)').textContent()) ?? ''
+    const skippedText = (await saveForm.locator('.tpl-layers.skipped').textContent()) ?? ''
+    assert(
+      keptText.includes('Cột sóng nhạc') && keptText.includes('Bộ lọc màu') && skippedText.includes('Flicker') && !keptText.includes('Flicker'),
+      'tạo mẫu: giữ lớp dùng suốt video, bỏ các đoạn flicker đã tách'
+    )
+    await saveForm.locator('input').fill('Mẫu e2e')
+    await saveForm.getByRole('button', { name: 'Lưu mẫu' }).click()
     const customCards = page.locator('.tpl-custom .tpl-card')
-    assert(await until(async () => (await customCards.count()) === 1 && ((await customCards.textContent()) ?? '').includes('Mẫu e2e'), 5000), 'lưu phong cách hiện tại thành mẫu riêng')
+    assert(await until(async () => (await customCards.count()) === 1 && ((await customCards.textContent()) ?? '').includes('Mẫu e2e'), 5000), 'lưu mẫu, mẫu hiện trong "Mẫu của bạn"')
     const tplDir = join(OUT, 'userdata', 'templates')
-    assert(existsSync(tplDir) && readdirSync(tplDir).filter((f) => f.endsWith('.json')).length === 1, 'mẫu riêng được lưu thành file trong thư mục dữ liệu của app')
+    const tplFiles = existsSync(tplDir) ? readdirSync(tplDir).filter((f) => f.endsWith('.json')) : []
+    const saved = tplFiles.length === 1 ? (JSON.parse(readFileSync(join(tplDir, tplFiles[0]), 'utf8')) as { layers: L[]; settings?: { width: number; fps: number } }) : null
+    assert(
+      !!saved && saved.layers.every((l) => l.timing.end === null && l.type !== 'flicker') && saved.settings?.width === 1920 && saved.settings.fps === 30,
+      `mẫu lưu thành file: ${saved?.layers.length} lớp đều hiện suốt video, kèm khung hình 1920×1080 30 fps`
+    )
+    await page.keyboard.press('Escape')
+
+    // Video mới từ mẫu vừa tạo: chọn nền mới, thêm nhạc (giả lập hộp thoại chọn file)
+    await app.evaluate(
+      ({ dialog }, [img, song]) => {
+        dialog.showOpenDialog = (async (_win: unknown, opts: { filters?: Array<{ extensions: string[] }> }) => ({
+          canceled: false,
+          filePaths: opts?.filters?.some((f) => f.extensions.includes('mp3')) ? [song] : [img]
+        })) as unknown as typeof dialog.showOpenDialog
+      },
+      [imgA, files[1]]
+    )
+    page.once('dialog', (d) => void d.accept())
+    await page.getByRole('button', { name: 'Project mới' }).click()
+    await page.locator('.tpl-custom .tpl-card .tpl-pick').first().click()
+    await page.locator('.start-steps').waitFor()
+    assert(
+      await until(async () => (await state()).tracks.length === 0 && (await layersNow()).some((l) => l.type === 'filter' && l.props.preset === 'bw') && !(await layersNow()).some((l) => l.type === 'flicker')),
+      'Project mới từ mẫu: có đủ phong cách của video cũ, chưa có nhạc'
+    )
+    await page.getByRole('button', { name: 'Chọn ảnh / video…' }).click()
+    assert(
+      await until(async () => (await layersNow()).filter((l) => l.type === 'background').some((l) => l.props.src === imgA && l.props.mode === 'image')),
+      'bước tiếp theo: đổi ảnh nền cho video mới'
+    )
+    await page.getByRole('button', { name: 'Thêm nhạc…' }).click()
+    assert(await until(async () => (await state()).tracks.length === 1, 10000), 'bước tiếp theo: thêm nhạc cho video mới')
+    await page.screenshot({ path: join(OUT, '11-new-from-template.png') })
+    await page.getByRole('button', { name: 'Xong' }).click()
+    assert(await until(async () => (await page.locator('.start-steps').count()) === 0), 'bấm Xong: vào làm video mới')
+
+    // Xoá mẫu riêng (bấm hai lần để xác nhận)
+    await page.getByRole('button', { name: 'Mẫu phong cách' }).click()
     await customCards.hover()
     await customCards.locator('.tpl-delete').click()
     await customCards.locator('.tpl-delete').click()
     assert(await until(async () => (await customCards.count()) === 0 && readdirSync(tplDir).length === 0), 'xoá mẫu riêng (bấm hai lần để xác nhận)')
     await page.keyboard.press('Escape')
-    // Project mới: chọn mẫu Lofi → project trống với phong cách Lofi
-    page.once('dialog', (d) => void d.accept())
-    await page.getByRole('button', { name: 'Project mới' }).click()
-    await page.locator('.tpl-card[data-template="lofi"] .tpl-pick').click()
-    assert(
-      await until(async () => (await state()).tracks.length === 0 && (await layersNow()).some((l) => l.type === 'filter' && l.props.preset === 'lofi')),
-      'Project mới → chọn mẫu Lofi: project trống theo phong cách Lofi'
-    )
 
     // Lỡ thả một đường link vào cửa sổ: không chỗ nào nhận nên bị chặn, app không chuyển trang
     const dropBlocked = await page.evaluate(`(() => {
