@@ -9,6 +9,7 @@ import { drawCta } from './layers/cta'
 import { drawFlicker, drawImageLayer, drawParticles, drawVignette } from './layers/effects'
 import { drawFilter } from './layers/filter'
 import { drawProgress, drawText } from './layers/text'
+import { drawTimer } from './layers/timer'
 import { drawVisualizer } from './layers/visualizer'
 
 export { AudioSampler, TrackFeatures } from './audio'
@@ -26,7 +27,8 @@ const DRAWERS: { [K in LayerType]: LayerDrawer<K> } = {
   flicker: drawFlicker,
   particles: drawParticles,
   vignette: drawVignette,
-  filter: drawFilter
+  filter: drawFilter,
+  timer: drawTimer
 }
 
 export interface RenderArgs {
@@ -95,6 +97,7 @@ export class Renderer {
       px: scale,
       entry: entryAt(timeline, t),
       layerId: '',
+      timing: { start: 0, end: null, fadeIn: 0, fadeOut: 0 },
       fade: 1,
       editLayerId,
       bounds: this.bounds,
@@ -117,6 +120,7 @@ export class Renderer {
     const baked = this.prebakeFilters && scale >= BAKE_MIN_SCALE ? findFilterBake(env, visible) : null
     for (const [i, { layer, fade }] of visible.entries()) {
       env.layerId = layer.id
+      env.timing = layer.timing
       env.fade = fade
       env.bake = baked && i <= baked.index ? baked.bake : null
       ctx.save()

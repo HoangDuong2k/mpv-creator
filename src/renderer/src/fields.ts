@@ -142,6 +142,84 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
     { kind: 'range', key: 'fontSize', label: 'Cỡ chữ thời gian', min: 10, max: 60, step: 1, show: (p) => !!p.showTime },
     { kind: 'color', key: 'textColor', label: 'Màu chữ', show: (p) => !!p.showTime }
   ],
+  timer: [
+    {
+      kind: 'select',
+      key: 'mode',
+      label: 'Đếm gì',
+      options: [
+        ['elapsed', 'Đã phát (cả video)'],
+        ['remaining', 'Còn lại (cả video)'],
+        ['trackElapsed', 'Đã phát của bài đang phát'],
+        ['trackRemaining', 'Còn lại của bài đang phát'],
+        ['countdown', 'Đếm ngược tự đặt (từ lúc lớp hiện)'],
+        ['stopwatch', 'Bấm giờ (đếm lên từ lúc lớp hiện)'],
+        ['clock', 'Giờ trong ngày']
+      ]
+    },
+    { kind: 'number', key: 'countdownMin', label: 'Đếm ngược trong', min: 0.1, max: 1440, step: 1, unit: 'phút', show: is('mode', 'countdown') },
+    { kind: 'toggle', key: 'repeat', label: 'Đếm xong thì bắt đầu lại (Pomodoro)', show: is('mode', 'countdown') },
+    { kind: 'text', key: 'clockStart', label: 'Giờ lúc video bắt đầu', placeholder: '21:30', show: is('mode', 'clock') },
+    { kind: 'toggle', key: 'hour12', label: 'Kiểu 12 giờ (AM / PM)', show: is('mode', 'clock') },
+    {
+      kind: 'select',
+      key: 'format',
+      label: 'Cách hiện',
+      options: [
+        ['auto', 'Tự động (có giờ khi cần)'],
+        ['hms', 'Giờ:phút:giây'],
+        ['ms', 'Phút:giây'],
+        ['hm', 'Giờ:phút']
+      ]
+    },
+    { kind: 'toggle', key: 'blink', label: 'Dấu hai chấm nhấp nháy' },
+    { kind: 'section', label: 'Kiểu hiển thị' },
+    {
+      kind: 'select',
+      key: 'style',
+      label: 'Kiểu',
+      options: [
+        ['plain', 'Chữ số'],
+        ['box', 'Khung nền mờ'],
+        ['flip', 'Đồng hồ lật'],
+        ['digital', 'Đèn LED'],
+        ['ring', 'Vòng tiến trình']
+      ]
+    },
+    { kind: 'select', key: 'font', label: 'Font', options: FONT_FAMILIES.map((f) => [f, f]), show: not('style', 'digital') },
+    { kind: 'toggle', key: 'bold', label: 'Chữ đậm (Be Vietnam Pro)', show: not('style', 'digital') },
+    { kind: 'range', key: 'size', label: 'Cỡ', min: 12, max: 360, step: 1 },
+    {
+      kind: 'select',
+      key: 'align',
+      label: 'Neo theo',
+      options: [
+        ['left', 'Mép trái'],
+        ['center', 'Giữa'],
+        ['right', 'Mép phải']
+      ]
+    },
+    ...position,
+    { kind: 'color', key: 'color', label: 'Màu số' },
+    { kind: 'color', key: 'color2', label: 'Màu nhãn và rãnh vòng' },
+    { kind: 'color', key: 'boxColor', label: 'Màu khung / thẻ', show: is('style', 'box', 'flip', 'ring') },
+    { kind: 'range', key: 'boxOpacity', label: 'Độ đậm khung / thẻ', min: 0, max: 1, step: 0.01, show: is('style', 'box', 'flip', 'ring') },
+    { kind: 'range', key: 'glow', label: 'Phát sáng', min: 0, max: 60, step: 1 },
+    { kind: 'section', label: 'Nhãn và hiệu ứng' },
+    { kind: 'text', key: 'label', label: 'Nhãn', placeholder: 'Còn lại, Pomodoro… (để trống nếu không cần)' },
+    {
+      kind: 'select',
+      key: 'labelPos',
+      label: 'Vị trí nhãn',
+      options: [
+        ['above', 'Trên số'],
+        ['below', 'Dưới số']
+      ],
+      show: (p) => String(p.label ?? '').trim().length > 0
+    },
+    { kind: 'range', key: 'opacity', label: 'Độ đậm', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'beatScale', label: 'Nảy theo nhạc', min: 0, max: 0.3, step: 0.005 }
+  ],
   text: [
     {
       kind: 'textarea',

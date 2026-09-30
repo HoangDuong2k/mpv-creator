@@ -66,6 +66,55 @@ export const EFFECT_GROUPS: PresetGroup[] = [
     ]
   },
   {
+    id: 'timer',
+    name: trKey('Đồng hồ đếm giờ'),
+    items: [
+      preset('tm-elapsed', trKey('Thời gian đã phát'), 'timer', { style: 'box', mode: 'elapsed', label: trKey('Đã phát') }),
+      preset('tm-remaining', trKey('Thời gian còn lại'), 'timer', { style: 'plain', mode: 'remaining', font: 'Oswald', size: 56, label: trKey('Còn lại') }),
+      preset('tm-flip', trKey('Đồng hồ lật'), 'timer', {
+        style: 'flip',
+        mode: 'elapsed',
+        font: 'Be Vietnam Pro',
+        bold: true,
+        format: 'ms',
+        size: 120,
+        x: 0.5,
+        y: 0.5,
+        align: 'center',
+        color: '#f2efe9',
+        boxColor: '#1c1a18',
+        boxOpacity: 1
+      }),
+      preset('tm-led', trKey('Đồng hồ LED'), 'timer', { style: 'digital', mode: 'clock', clockStart: '23:30', blink: true, size: 110, x: 0.5, y: 0.5, align: 'center', color: '#ff4d3d', glow: 22 }),
+      preset('tm-song', trKey('Vòng thời gian bài hát'), 'timer', {
+        style: 'ring',
+        mode: 'trackRemaining',
+        size: 56,
+        x: 0.9,
+        y: 0.82,
+        align: 'center',
+        label: trKey('Bài này còn'),
+        color: '#ffffff',
+        boxOpacity: 0.35
+      }),
+      preset('tm-pomodoro', trKey('Pomodoro 25 phút'), 'timer', {
+        style: 'ring',
+        mode: 'countdown',
+        countdownMin: 25,
+        repeat: true,
+        size: 110,
+        x: 0.5,
+        y: 0.5,
+        align: 'center',
+        label: trKey('Tập trung'),
+        color: '#ffb35c',
+        boxOpacity: 0.45
+      }),
+      preset('tm-clock', trKey('Giờ trong ngày'), 'timer', { style: 'plain', mode: 'clock', clockStart: '21:00', hour12: true, font: 'Playfair Display', size: 78, x: 0.06, y: 0.12, align: 'left' }),
+      preset('tm-stopwatch', trKey('Bấm giờ'), 'timer', { style: 'digital', mode: 'stopwatch', format: 'hms', size: 64, x: 0.06, y: 0.1, align: 'left', color: '#5fe0ff', glow: 16 })
+    ]
+  },
+  {
     id: 'cta',
     name: trKey('Đăng ký / Like'),
     items: [

@@ -214,6 +214,56 @@ export interface FilterProps {
   blur: number
 }
 
+/**
+ * Đồng hồ đếm giờ đang hiển thị gì:
+ * - elapsed / remaining: đã phát / còn lại của cả video
+ * - trackElapsed / trackRemaining: đã phát / còn lại của bài đang phát
+ * - countdown: đếm ngược số phút tự đặt, bắt đầu từ lúc lớp hiện (kiểu Pomodoro)
+ * - stopwatch: bấm giờ, đếm lên từ lúc lớp hiện
+ * - clock: giờ trong ngày, bắt đầu từ giờ tự đặt lúc video bắt đầu
+ */
+export type TimerMode = 'elapsed' | 'remaining' | 'trackElapsed' | 'trackRemaining' | 'countdown' | 'stopwatch' | 'clock'
+
+/** plain: chữ số · box: khung nền mờ · flip: đồng hồ lật · digital: đèn LED 7 đoạn · ring: vòng tiến trình */
+export type TimerStyle = 'plain' | 'box' | 'flip' | 'digital' | 'ring'
+
+export interface TimerProps {
+  mode: TimerMode
+  /** Đếm ngược: số phút */
+  countdownMin: number
+  /** Đếm ngược xong thì bắt đầu lại */
+  repeat: boolean
+  /** Giờ trong ngày lúc video bắt đầu: "21:30" hoặc "21:30:15" */
+  clockStart: string
+  /** Giờ kiểu 12 giờ (AM / PM) */
+  hour12: boolean
+  /** auto: có giờ khi cần · hms: giờ:phút:giây · ms: phút:giây · hm: giờ:phút */
+  format: 'auto' | 'hms' | 'ms' | 'hm'
+  /** Dấu hai chấm nhấp nháy theo giây */
+  blink: boolean
+  style: TimerStyle
+  font: string
+  bold: boolean
+  /** Cỡ chữ số (px ở khung 1080p); kiểu vòng: bán kính vòng ≈ 1,25 × cỡ */
+  size: number
+  x: number
+  y: number
+  align: 'left' | 'center' | 'right'
+  color: string
+  /** Màu phụ: nhãn, rãnh của vòng */
+  color2: string
+  /** Khung nền / thẻ số */
+  boxColor: string
+  boxOpacity: number
+  /** Phát sáng quanh chữ số */
+  glow: number
+  /** Nhãn nhỏ kèm đồng hồ ("Còn lại"…), để trống nếu không cần */
+  label: string
+  labelPos: 'above' | 'below'
+  opacity: number
+  beatScale: number
+}
+
 export interface LayerPropsMap {
   background: BackgroundProps
   visualizer: VisualizerProps
@@ -225,6 +275,7 @@ export interface LayerPropsMap {
   particles: ParticlesProps
   vignette: VignetteProps
   filter: FilterProps
+  timer: TimerProps
 }
 
 export type LayerType = keyof LayerPropsMap

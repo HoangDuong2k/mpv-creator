@@ -187,6 +187,8 @@ export function zoomForPreview(type: LayerType, props: Record<string, unknown>):
       return { ...props, size: Math.max(n('size') * 5, 14) }
     case 'image':
       return { ...props, source: 'cover', x: 0.5, y: 0.5, width: 0.32, circle: true }
+    case 'timer':
+      return { ...props, x: 0.5, y: 0.5, align: 'center', size: props.style === 'ring' ? 165 : props.style === 'flip' ? 190 : 230 }
     default:
       return props
   }

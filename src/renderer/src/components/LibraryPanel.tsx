@@ -105,6 +105,7 @@ const presetBuild = (p: LayerPreset): (() => PreviewScene) => {
   const props = { ...p.props } as Record<string, unknown>
   // Chữ viết sẵn trong mẫu theo ngôn ngữ giao diện (như khi thêm vào video)
   if (p.type === 'text' && typeof props.template === 'string') props.template = tr(props.template)
+  if (p.type === 'timer' && typeof props.label === 'string' && props.label) props.label = tr(props.label)
   return () => presetScene(p.id, p.type, props, p.type === 'text' ? 0.5 : 0.35)
 }
 

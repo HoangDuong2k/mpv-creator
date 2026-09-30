@@ -16,7 +16,9 @@ export const FONT_FILES: FontFile[] = [
   { family: 'Dancing Script', file: 'DancingScript-Variable.ttf', weight: 400 },
   { family: 'Pacifico', file: 'Pacifico-Regular.ttf', weight: 400 },
   { family: 'Lobster', file: 'Lobster-Regular.ttf', weight: 400 },
-  { family: 'Bungee', file: 'Bungee-Regular.ttf', weight: 400 }
+  { family: 'Bungee', file: 'Bungee-Regular.ttf', weight: 400 },
+  // Chữ số rộng đều: hợp với đồng hồ đếm giờ, mã thời gian
+  { family: 'JetBrains Mono', file: 'JetBrainsMono-Variable.ttf', weight: 400 }
 ]
 
 export const FONT_FAMILIES = Array.from(new Set(FONT_FILES.map((f) => f.family)))

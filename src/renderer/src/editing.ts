@@ -23,7 +23,7 @@ export interface DragResult {
   guides: { x?: number; y?: number }
 }
 
-const MOVABLE: LayerType[] = ['visualizer', 'text', 'image', 'progress', 'cta', 'particles']
+const MOVABLE: LayerType[] = ['visualizer', 'text', 'image', 'progress', 'cta', 'particles', 'timer']
 
 export function isMovable(layer: Layer): boolean {
   return MOVABLE.includes(layer.type)
@@ -43,6 +43,7 @@ export function handlesFor(layer: Layer): Handle[] {
     case 'text':
     case 'image':
     case 'cta':
+    case 'timer':
       return CORNERS
     default:
       return []
@@ -138,6 +139,7 @@ export function applyDrag(layer: Layer, s: DragSession, px: number, py: number, 
       set(patch, 'width', num('width') * kx)
       break
     case 'text':
+    case 'timer':
       set(patch, 'size', num('size') * k)
       break
     case 'image':

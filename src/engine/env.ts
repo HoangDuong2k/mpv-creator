@@ -1,4 +1,4 @@
-import type { FilterProps, Project } from '../shared/types'
+import type { FilterProps, LayerTiming, Project } from '../shared/types'
 import type { Timeline, TimelineEntry } from '../shared/timeline'
 import type { AudioSampler } from './audio'
 
@@ -47,6 +47,8 @@ export interface RenderEnv {
   entry: TimelineEntry | null
   /** Layer đang vẽ */
   layerId: string
+  /** Khoảng thời gian của layer đang vẽ (đồng hồ đếm ngược / bấm giờ tính từ lúc layer hiện) */
+  timing: LayerTiming
   /** Độ hiện của layer theo khoảng thời gian (hiện dần / ẩn dần), 0..1 — nhân vào mọi globalAlpha */
   fade: number
   /** Layer đang được chỉnh trên preview: luôn hiện (vd. nút Đăng ký ngoài lịch) để dễ canh chỉnh */

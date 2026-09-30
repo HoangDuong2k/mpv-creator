@@ -771,6 +771,23 @@ async function main(): Promise<void> {
     )
     await undo()
     assert(await until(async () => (await layersNow()).length === nLayers), 'Ctrl+Z bỏ lớp vừa thêm')
+    // Đồng hồ đếm giờ: thêm mẫu Pomodoro từ thư viện, đổi kiểu trong bảng thuộc tính
+    await page.locator('.lib-card[data-item="tm-pomodoro"]').click()
+    const topLayer = async (): Promise<L> => (await layersNow()).at(-1)!
+    assert(
+      await until(async () => {
+        const l = await topLayer()
+        return l.type === 'timer' && l.props.mode === 'countdown' && l.props.style === 'ring' && l.props.label === 'Tập trung'
+      }),
+      'bấm "Pomodoro 25 phút": thêm đồng hồ đếm ngược dạng vòng'
+    )
+    assert(await until(async () => (await page.locator('.sel-box').count()) === 1), 'đồng hồ có khung chọn trên preview (kéo, đổi cỡ được)')
+    const timerStyle = page.locator('label.field').filter({ has: page.locator('.field-label', { hasText: /^Kiểu$/ }) }).locator('select')
+    await timerStyle.selectOption('digital')
+    assert(await until(async () => (await topLayer()).props.style === 'digital'), 'đổi kiểu đồng hồ sang đèn LED')
+    await undo()
+    await undo()
+    assert(await until(async () => (await layersNow()).length === nLayers), 'Ctrl+Z bỏ đồng hồ vừa thêm')
     // Kéo chữ mẫu vào giữa bài thứ hai → hiện từ chỗ thả đến hết bài đó
     await page.locator('.lib-tab[data-tab="text"]').click()
     const neon = page.locator('.lib-card[data-item="txt-neon"]')

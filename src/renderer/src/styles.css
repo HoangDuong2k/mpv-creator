@@ -1804,6 +1804,9 @@ button.tl-dot:hover {
 .t-vignette {
   --c: #7d7870;
 }
+.t-timer {
+  --c: #b87dbf;
+}
 
 .layer-name.static {
   flex: 1;

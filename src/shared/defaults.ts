@@ -142,6 +142,31 @@ export const LAYER_DEFAULTS: LayerPropsMap = {
     preset: 'warm',
     intensity: 1,
     ...presetById('warm')!.values
+  },
+  timer: {
+    mode: 'elapsed',
+    countdownMin: 25,
+    repeat: false,
+    clockStart: '21:00',
+    hour12: false,
+    format: 'auto',
+    blink: false,
+    style: 'box',
+    font: 'JetBrains Mono',
+    bold: false,
+    size: 48,
+    x: 0.95,
+    y: 0.09,
+    align: 'right',
+    color: '#ffffff',
+    color2: '#c9c3b8',
+    boxColor: '#000000',
+    boxOpacity: 0.4,
+    glow: 0,
+    label: '',
+    labelPos: 'above',
+    opacity: 1,
+    beatScale: 0
   }
 }
 
@@ -155,7 +180,8 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   flicker: 'Flicker (nháy sáng)',
   particles: 'Hạt bay (bụi/tuyết)',
   vignette: 'Viền tối (vignette)',
-  filter: 'Bộ lọc màu'
+  filter: 'Bộ lọc màu',
+  timer: 'Đồng hồ đếm giờ'
 }
 
 let idCounter = 0
