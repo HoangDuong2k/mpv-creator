@@ -1,6 +1,6 @@
 import type { BackgroundProps } from '../../shared/types'
 import { cached, type OffscreenSurface, type RenderEnv } from '../env'
-import { clamp, drawCover, noise1 } from '../util'
+import { clamp, drawCover, noise1, parseHex } from '../util'
 import { bakeFilterInto, bakeSignature } from './filter'
 
 /** Xung "đập" theo nhạc 0..1: kết hợp beat và mức bass */
@@ -32,8 +32,18 @@ function prerendered(env: RenderEnv, path: string, blur: number): CanvasImageSou
   return surf.canvas
 }
 
+/** Gradient theo góc, phủ kín khung W × H */
+function linearGradient(ctx: CanvasRenderingContext2D, W: number, H: number, angle: number, c0: string, c1: string): CanvasGradient {
+  const a = (angle * Math.PI) / 180
+  const r = (Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a))) / 2
+  const g = ctx.createLinearGradient(W / 2 - Math.cos(a) * r, H / 2 - Math.sin(a) * r, W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r)
+  g.addColorStop(0, c0)
+  g.addColorStop(1, c1)
+  return g
+}
+
 /**
- * Gradient vẽ sẵn một lần: drawImage rẻ hơn tô gradient toàn khung mỗi frame.
+ * Gradient vẽ sẵn một lần (dùng khi nướng bộ lọc màu vào nền).
  * Chỉ giữ vài gradient gần nhất — kéo bảng chọn màu không làm bộ nhớ phình ra.
  */
 function gradientSurface(env: RenderEnv, p: BackgroundProps): OffscreenSurface {
@@ -47,12 +57,7 @@ function gradientSurface(env: RenderEnv, p: BackgroundProps): OffscreenSurface {
     return hit
   }
   const s = env.assets.createSurface(W, H)
-  const a = (p.angle * Math.PI) / 180
-  const r = (Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a))) / 2
-  const g = s.ctx.createLinearGradient(W / 2 - Math.cos(a) * r, H / 2 - Math.sin(a) * r, W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r)
-  g.addColorStop(0, p.color)
-  g.addColorStop(1, p.color2)
-  s.ctx.fillStyle = g
+  s.ctx.fillStyle = linearGradient(s.ctx, W, H, p.angle, p.color, p.color2)
   s.ctx.fillRect(0, 0, W, H)
   lru.set(key, s)
   while (lru.size > 4) lru.delete(lru.keys().next().value as string)
@@ -103,6 +108,35 @@ function bakedSurface(env: RenderEnv, srcKey: string, src: CanvasImageSource, di
   }
   lru.set(key, entry)
   return entry.surf.canvas
+}
+
+/** Màu hex đục tối đi như khi phủ đen với độ tối `dim`; null nếu không phải màu hex (có thể có độ trong) */
+function dimmedHex(color: string, dim: number): string | null {
+  const rgb = parseHex(color)
+  if (!rgb) return null
+  const k = 1 - clamp(dim)
+  return `rgb(${Math.round(rgb[0] * k)},${Math.round(rgb[1] * k)},${Math.round(rgb[2] * k)})`
+}
+
+/**
+ * Nền gradient / màu đơn bằng màu hex (đục) đang hiện đủ: phủ kín khung (phóng ≥ 1), nên lớp dưới cùng là nền
+ * này thì không cần tô đen khung trước.
+ */
+export function coversFrame(env: RenderEnv, p: BackgroundProps): boolean {
+  if (!env.fastBackground || env.fade < 0.999) return false
+  if (p.mode === 'color') return parseHex(p.color) !== null
+  return p.mode === 'gradient' && parseHex(p.color) !== null && parseHex(p.color2) !== null
+}
+
+/**
+ * Nền phủ kín khung, không nướng bộ lọc: tô thẳng một lần bằng màu đã tối sẵn, thay cho vẽ gradient phóng to
+ * rồi phủ đen cả khung. Hình như nhau — phủ đen lên một lớp đục chỉ là nhân màu với (1 − độ tối) — nhưng xuất
+ * video nhanh hơn nhiều vì Skia vẽ bằng CPU. Trả về màu đầu–cuối đã tối, null nếu không dùng được cách này.
+ */
+function solidColors(env: RenderEnv, p: BackgroundProps): [string, string] | null {
+  if (env.bake || !coversFrame(env, p)) return null
+  const c0 = dimmedHex(p.color, p.dim)!
+  return [c0, p.mode === 'gradient' ? dimmedHex(p.color2, p.dim)! : c0]
 }
 
 const COVER_FADE = 1.2
@@ -212,6 +246,24 @@ export function drawBackground(env: RenderEnv, p: BackgroundProps): void {
 
   const bake = env.bake
   if (!bake) {
+    const solid = solidColors(env, p)
+    if (solid) {
+      ctx.globalAlpha = env.fade
+      if (p.mode === 'color') {
+        ctx.fillStyle = solid[0]
+        ctx.fillRect(0, 0, W, H)
+        return
+      }
+      ctx.save()
+      ctx.translate(W / 2 + panX + dx, H / 2 + panY + dy)
+      ctx.scale(zoom, zoom)
+      ctx.translate(-W / 2, -H / 2)
+      ctx.fillStyle = linearGradient(ctx, W, H, p.angle, solid[0], solid[1])
+      // Tô rộng hơn khung: phóng / lia / rung thế nào cũng phủ kín
+      ctx.fillRect(-W, -H, W * 3, H * 3)
+      ctx.restore()
+      return
+    }
     content(false, env.fade)
     dimFill()
     return

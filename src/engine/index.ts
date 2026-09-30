@@ -4,7 +4,7 @@ import { entryAt, type Timeline } from '../shared/timeline'
 import { layerFade } from '../shared/timing'
 import type { AudioSampler } from './audio'
 import type { EngineAssets, FilterBake, Rect, RenderEnv } from './env'
-import { drawBackground, isStaticBackground } from './layers/background'
+import { coversFrame, drawBackground, isStaticBackground } from './layers/background'
 import { drawCta } from './layers/cta'
 import { drawFlicker, drawImageLayer, drawParticles, drawVignette } from './layers/effects'
 import { drawFilter } from './layers/filter'
@@ -89,6 +89,8 @@ export class Renderer {
    * lọc cả khung hình mỗi frame). Tắt để so sánh với cách lọc từng frame.
    */
   prebakeFilters = true
+  /** Nền gradient / màu đơn tô thẳng một lần, không tô đen khung trước. Tắt để so sánh với cách vẽ đầy đủ. */
+  fastBackground = true
 
   constructor(readonly assets: EngineAssets) {}
 
@@ -112,15 +114,14 @@ export class Renderer {
       fade: 1,
       editLayerId,
       bounds: this.bounds,
-      bake: null
+      bake: null,
+      fastBackground: this.fastBackground
     }
     this.bounds.clear()
     ctx.save()
     ctx.setTransform(scale, 0, 0, scale, 0, 0)
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = 'source-over'
-    ctx.fillStyle = '#000000'
-    ctx.fillRect(0, 0, W, H)
     // Ngoài khoảng thời gian của layer thì không vẽ
     const visible: { layer: Layer; fade: number }[] = []
     for (const layer of project.layers) {
@@ -129,6 +130,13 @@ export class Renderer {
       if (fade > 0) visible.push({ layer, fade })
     }
     const baked = this.prebakeFilters && scale >= BAKE_MIN_SCALE ? findFilterBake(env, visible) : null
+    // Lớp dưới cùng là nền đục phủ kín khung thì không cần tô đen trước (đỡ một lần tô cả khung mỗi frame)
+    const first = visible[0]
+    env.fade = first?.fade ?? 1
+    if (!(first?.layer.type === 'background' && coversFrame(env, first.layer.props))) {
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(0, 0, W, H)
+    }
     for (const [i, { layer, fade }] of visible.entries()) {
       env.layerId = layer.id
       env.timing = layer.timing

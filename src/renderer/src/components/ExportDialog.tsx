@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import type { EncoderOption, ExportProgressEvent, ExportResultInfo } from '../../../shared/api'
+import { resolutionName } from '../../../shared/defaults'
 import { safeFileName, shortPath } from '../../../shared/files'
 import { formatTime } from '../../../shared/time'
 import type { ExportSettings } from '../../../shared/types'
-import { player } from '../engineHost'
+import { assets, player } from '../engineHost'
 import { errorText, useTimeline } from '../hooks'
 import { useStore } from '../store'
+import { FpsSelect, ResolutionSelect } from './SettingsDialog'
 import { Icon, Modal, Row, fileName } from './ui'
 import { getLang, tr, trKey } from '../../../shared/i18n'
 
@@ -132,6 +134,12 @@ export function ExportDialog(): ReactNode {
   const ex = project.export
 
   useEffect(() => {
+    // Mở hộp xuất video thì dừng phát preview: không phát tiếng khi đang chọn cài đặt, nhường CPU cho việc xuất
+    if (player.playing) {
+      player.pause()
+      assets.pauseVideos()
+      useStore.getState().setPlaying(false)
+    }
     api.listEncoders().then(setEncoders).catch(() => setEncoders([]))
   }, [])
 
@@ -170,6 +178,8 @@ export function ExportDialog(): ReactNode {
   const pct = Math.round((progress?.progress ?? 0) * 100)
   const locale = getLang() === 'en' ? 'en-US' : 'vi-VN'
   const withHours = timeline.total >= 3600
+  // Card đồ hoạ mã hoá nhanh hơn CPU (x264) và để CPU rảnh cho việc vẽ hình
+  const hardware = encoders?.find((e) => e.hardware && e.available)
 
   return (
     <Modal
@@ -192,7 +202,8 @@ export function ExportDialog(): ReactNode {
               {tr('Xuất thử 15 giây')}
             </button>
             <button type="button" className="btn primary" disabled={!canStart} onClick={() => start()}>
-              <Icon name="movie" size={16} /> {tr('Xuất video ({time})', { time: formatTime(timeline.total, withHours) })}
+              <Icon name="movie" size={16} />{' '}
+              {tr('Xuất video {res} ({time})', { res: resolutionName(project.settings.width, project.settings.height), time: formatTime(timeline.total, withHours) })}
             </button>
           </>
         )
@@ -209,6 +220,14 @@ export function ExportDialog(): ReactNode {
         </div>
       </Row>
       <div className="two">
+        <Row label={tr('Độ phân giải')}>
+          <ResolutionSelect disabled={running} />
+        </Row>
+        <Row label={tr('Số khung hình / giây')}>
+          <FpsSelect disabled={running} />
+        </Row>
+      </div>
+      <div className="two">
         <Row label={tr('Bộ mã hoá')}>
           <select value={ex.encoder} onChange={(e) => setExport({ encoder: e.target.value as ExportSettings['encoder'] })} disabled={running}>
             {(encoders ?? []).map((e) => (
@@ -220,7 +239,7 @@ export function ExportDialog(): ReactNode {
             {!encoders && <option value={ex.encoder}>{tr('Đang kiểm tra bộ mã hoá…')}</option>}
           </select>
         </Row>
-        <Row label={tr('Chất lượng')}>
+        <Row label={tr('Chất lượng nén')}>
           <select value={ex.quality} onChange={(e) => setExport({ quality: e.target.value as ExportSettings['quality'] })} disabled={running}>
             <option value="fast">{tr('Nhanh (file lớn hơn)')}</option>
             <option value="balanced">{tr('Cân bằng (khuyên dùng)')}</option>
@@ -228,6 +247,14 @@ export function ExportDialog(): ReactNode {
           </select>
         </Row>
       </div>
+      {hardware && ex.encoder === 'libx264' && !running && (
+        <p className="muted small encoder-tip">
+          {tr('Máy này có {name}: xuất nhanh hơn và CPU đỡ tải.', { name: tr(hardware.label) })}{' '}
+          <button type="button" className="link" onClick={() => setExport({ encoder: hardware.id })}>
+            {tr('Dùng bộ mã hoá này')}
+          </button>
+        </p>
+      )}
       <div className="two">
         <Row label={tr('Âm thanh AAC')}>
           <select value={ex.audioBitrate} onChange={(e) => setExport({ audioBitrate: Number(e.target.value) })} disabled={running}>
@@ -235,14 +262,6 @@ export function ExportDialog(): ReactNode {
             <option value={256}>256 kbps</option>
             <option value={320}>320 kbps</option>
           </select>
-        </Row>
-        <Row label={tr('Khung hình')}>
-          <div className="static-value">
-            {project.settings.width}×{project.settings.height} · {project.settings.fps} fps{' '}
-            <button type="button" className="link" onClick={() => openDialog('settings')} disabled={running}>
-              {tr('đổi')}
-            </button>
-          </div>
         </Row>
       </div>
       <label className="toggle" title={tr('Hợp khi để máy xuất video dài qua đêm. Trước khi tắt có 60 giây để huỷ.')}>

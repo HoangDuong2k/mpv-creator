@@ -257,17 +257,22 @@ describe('nướng sẵn bộ lọc vào ảnh nền', () => {
 
 describe('bộ nhớ đệm nền gradient', () => {
   it('kéo bảng chọn màu không làm bộ nhớ đệm phình ra', () => {
-    const r = new Renderer(new NodeAssets())
-    const canvas = createCanvas(W, H)
-    const bg = createLayer('background', { mode: 'gradient', beatZoom: 0, kenBurns: 0 })
-    for (let i = 0; i < 12; i++) {
-      const layer = { ...bg, props: { ...bg.props, color: `#${(i * 20).toString(16).padStart(2, '0')}3050` } } as Layer
-      const project: Project = { ...createDefaultProject(), layers: [layer], tracks: [track('a', 60)] }
-      project.settings = { ...project.settings, width: W, height: H }
-      const tl = buildTimeline(project.tracks, project.settings)
-      r.render({ ctx: canvas.getContext('2d') as unknown as CanvasRenderingContext2D, project, timeline: tl, audio: new AudioSampler(tl, () => undefined), t: 1 })
+    // Gradient dựng sẵn thành ảnh (khi nướng bộ lọc màu vào nền) chỉ giữ vài cái; không có bộ lọc thì tô thẳng, không lưu gì
+    for (const fast of [false, true]) {
+      const r = new Renderer(new NodeAssets())
+      r.fastBackground = fast
+      const canvas = createCanvas(W, H)
+      const bg = createLayer('background', { mode: 'gradient', beatZoom: 0, kenBurns: 0 })
+      for (let i = 0; i < 12; i++) {
+        const layer = { ...bg, props: { ...bg.props, color: `#${(i * 20).toString(16).padStart(2, '0')}3050` } } as Layer
+        const project: Project = { ...createDefaultProject(), layers: [layer], tracks: [track('a', 60)] }
+        project.settings = { ...project.settings, width: W, height: H }
+        const tl = buildTimeline(project.tracks, project.settings)
+        r.render({ ctx: canvas.getContext('2d') as unknown as CanvasRenderingContext2D, project, timeline: tl, audio: new AudioSampler(tl, () => undefined), t: 1 })
+      }
+      if (fast) expect(r.cache.has('bg-gradient-lru')).toBe(false)
+      else expect((r.cache.get('bg-gradient-lru') as Map<string, unknown>).size).toBeLessThanOrEqual(4)
+      expect([...r.cache.keys()].filter((k) => k.startsWith('bg-gradient|'))).toEqual([])
     }
-    expect((r.cache.get('bg-gradient-lru') as Map<string, unknown>).size).toBeLessThanOrEqual(4)
-    expect([...r.cache.keys()].filter((k) => k.startsWith('bg-gradient|'))).toEqual([])
   })
 })

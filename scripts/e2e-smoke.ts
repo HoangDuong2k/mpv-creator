@@ -695,7 +695,17 @@ async function main(): Promise<void> {
     await app.evaluate(({ dialog }, out) => {
       dialog.showSaveDialog = (async () => ({ canceled: false, filePath: out })) as typeof dialog.showSaveDialog
     }, outFile)
+    // Bấm Xuất video khi đang phát: preview dừng lại; hộp thoại ghi rõ độ phân giải (720p, 1080p…)
+    const isPlaying = async (): Promise<boolean> => (await page.evaluate('window.__pvm.player.playing')) as boolean
+    await page.locator('.play-btn').click()
+    assert(await until(isPlaying), 'đang phát preview')
     await page.getByRole('button', { name: 'Xuất video', exact: true }).click()
+    assert(await until(async () => !(await isPlaying())), 'bấm Xuất video: preview dừng phát')
+    const resolution = page.locator('.modal label.field', { hasText: 'Độ phân giải' }).locator('select')
+    assert(
+      (await resolution.inputValue()) === '1080p' && ((await page.locator('.modal .btn.primary').textContent()) ?? '').includes('Xuất video 1080p'),
+      `hộp xuất video ghi rõ độ phân giải (${await resolution.locator('option:checked').textContent()})`
+    )
     await page.getByRole('button', { name: /Xuất thử 15 giây/ }).click()
     await page.locator('.success-box, .error-box').first().waitFor({ timeout: 180000 })
     const err = await page.locator('.error-box').count()

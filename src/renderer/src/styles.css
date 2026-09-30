@@ -1222,6 +1222,9 @@ input[type='checkbox'] {
   color: var(--muted);
   font-size: 12px;
 }
+.encoder-tip {
+  margin: 0;
+}
 .shutdown-count {
   margin: 4px 0 10px;
   font-size: 22px;

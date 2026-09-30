@@ -60,6 +60,8 @@ export interface RenderEnv {
    * bộ lọc và chính lớp bộ lọc đó), null nếu không.
    */
   bake: FilterBake | null
+  /** Nền gradient / màu đơn đục tô thẳng một lần (xem solidColors); tắt để so sánh với cách vẽ đầy đủ */
+  fastBackground: boolean
 }
 
 /**

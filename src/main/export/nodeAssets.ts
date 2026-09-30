@@ -53,6 +53,8 @@ class VideoFrameReader {
     this.imageData = new ImageData(W, H)
     this.run = runFfmpeg([
       '-v', 'error',
+      // Co giãn / đổi màu bằng 1 luồng: đủ nhanh cho một luồng render, không giành CPU của các luồng khác
+      '-filter_threads', '1',
       '-stream_loop', '-1',
       '-ss', startOffset.toFixed(3),
       '-i', path,

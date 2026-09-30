@@ -7,12 +7,52 @@ import { useStore } from '../store'
 import { Modal, NumberInput, Row } from './ui'
 import { LANGS, tr, type Lang } from '../../../shared/i18n'
 
+/** Chọn độ phân giải của video (dùng ở Cài đặt project và hộp Xuất video) */
+export function ResolutionSelect({ disabled }: { disabled?: boolean }): ReactNode {
+  const s = useStore((st) => st.project.settings)
+  const presetId = RESOLUTION_PRESETS.find((p) => p.width === s.width && p.height === s.height)?.id ?? 'custom'
+  return (
+    <select
+      value={presetId}
+      disabled={disabled}
+      onChange={(e) => {
+        const p = RESOLUTION_PRESETS.find((x) => x.id === e.target.value)
+        if (p) useStore.getState().setSettings({ width: p.width, height: p.height })
+      }}
+    >
+      {RESOLUTION_PRESETS.map((p) => (
+        <option key={p.id} value={p.id}>
+          {tr(p.label)}
+        </option>
+      ))}
+      {presetId === 'custom' && (
+        <option value="custom">
+          {tr('Tuỳ chỉnh {w}×{h}', { w: s.width, h: s.height })}
+        </option>
+      )}
+    </select>
+  )
+}
+
+/** Chọn số khung hình / giây (dùng ở Cài đặt project và hộp Xuất video) */
+export function FpsSelect({ disabled }: { disabled?: boolean }): ReactNode {
+  const fps = useStore((st) => st.project.settings.fps)
+  return (
+    <select value={fps} disabled={disabled} onChange={(e) => useStore.getState().setSettings({ fps: Number(e.target.value) })}>
+      {[24, 25, 30, 50, 60].map((f) => (
+        <option key={f} value={f}>
+          {f} fps{f === 30 ? tr(' (khuyên dùng)') : ''}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 export function SettingsDialog(): ReactNode {
   const project = useStore((s) => s.project)
   const { update, setSettings, openDialog } = useStore.getState()
   const s = project.settings
   const lang = useStore((st) => st.lang)
-  const presetId = RESOLUTION_PRESETS.find((p) => p.width === s.width && p.height === s.height)?.id ?? 'custom'
 
   return (
     <Modal title={tr('Cài đặt project')} onClose={() => openDialog(null)}>
@@ -39,34 +79,11 @@ export function SettingsDialog(): ReactNode {
         />
       </Row>
       <div className="two">
-        <Row label={tr('Khung hình')}>
-          <select
-            value={presetId}
-            onChange={(e) => {
-              const p = RESOLUTION_PRESETS.find((x) => x.id === e.target.value)
-              if (p) setSettings({ width: p.width, height: p.height })
-            }}
-          >
-            {RESOLUTION_PRESETS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {tr(p.label)}
-              </option>
-            ))}
-            {presetId === 'custom' && (
-              <option value="custom">
-                {tr('Tuỳ chỉnh {w}×{h}', { w: s.width, h: s.height })}
-              </option>
-            )}
-          </select>
+        <Row label={tr('Độ phân giải')}>
+          <ResolutionSelect />
         </Row>
         <Row label={tr('Số khung hình / giây')}>
-          <select value={s.fps} onChange={(e) => setSettings({ fps: Number(e.target.value) })}>
-            {[24, 25, 30, 50, 60].map((f) => (
-              <option key={f} value={f}>
-                {f} fps{f === 30 ? tr(' (khuyên dùng)') : ''}
-              </option>
-            ))}
-          </select>
+          <FpsSelect />
         </Row>
       </div>
       <div className="two">

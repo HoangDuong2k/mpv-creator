@@ -1,6 +1,6 @@
 import { presetById } from './filterPresets'
 import type { Layer, LayerPropsMap, LayerTiming, LayerType, Project } from './types'
-import { getLang } from './i18n'
+import { getLang, tr } from './i18n'
 
 export const FULL_TIMING: LayerTiming = { start: 0, end: null, fadeIn: 0, fadeOut: 0 }
 
@@ -368,10 +368,16 @@ export function normalizeProject(p: Project): Project {
 }
 
 export const RESOLUTION_PRESETS = [
-  { id: '1080p', label: '1920×1080 (YouTube Full HD)', width: 1920, height: 1080 },
-  { id: '1440p', label: '2560×1440 (2K)', width: 2560, height: 1440 },
-  { id: '2160p', label: '3840×2160 (4K)', width: 3840, height: 2160 },
-  { id: '720p', label: '1280×720 (HD)', width: 1280, height: 720 },
-  { id: 'shorts', label: '1080×1920 (Shorts / TikTok)', width: 1080, height: 1920 },
-  { id: 'square', label: '1080×1080 (Vuông)', width: 1080, height: 1080 }
+  { id: '720p', label: '720p HD (1280×720)', width: 1280, height: 720 },
+  { id: '1080p', label: '1080p Full HD (1920×1080)', width: 1920, height: 1080 },
+  { id: '1440p', label: '1440p 2K (2560×1440)', width: 2560, height: 1440 },
+  { id: '2160p', label: '2160p 4K (3840×2160)', width: 3840, height: 2160 },
+  { id: 'shorts', label: 'Dọc 1080×1920 (Shorts / TikTok)', width: 1080, height: 1920 },
+  { id: 'square', label: 'Vuông 1080×1080', width: 1080, height: 1080 }
 ]
+
+/** Tên ngắn của độ phân giải theo cách YouTube gọi (cạnh ngắn): "1080p", "1080p dọc", "1080p vuông" */
+export function resolutionName(width: number, height: number): string {
+  if (width > height) return `${height}p`
+  return width < height ? tr('{n}p dọc', { n: width }) : tr('{n}p vuông', { n: width })
+}
