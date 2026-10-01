@@ -84,6 +84,32 @@ describe('nền gradient / màu đơn tô thẳng một lần', () => {
     }
   })
 
+  it('rung mạnh đúng lúc Ken Burns lia hết cỡ: không lộ mép (không viền đen, không sót hình frame trước)', () => {
+    const base = createDefaultProject()
+    const bg = createLayer('background', { mode: 'gradient', color: '#3a1c71', color2: '#ffaf7b', angle: 30, dim: 0.3, beatZoom: 0, shake: 40, kenBurns: 0.01 })
+    const warm = createLayer('filter', { ...presetById('warm')!.values, preset: 'warm', intensity: 1 })
+    // Các khung hình từng lộ một hàng điểm ảnh ở mép trên / dưới (lia dùng cả phần phóng dành cho rung)
+    const times = [92 / 30, 900 / 30, 962 / 30]
+    for (const layers of [[bg], [bg, warm]]) {
+      const project = { ...base, layers }
+      const canvas = createCanvas(W, H)
+      const g = canvas.getContext('2d')
+      for (const t of times) {
+        g.fillStyle = '#ff00ff'
+        g.fillRect(0, 0, W, H)
+        const stale = render(project, t, true, canvas).data
+        const full = render(project, t, false).data
+        let magenta = 0
+        let black = 0
+        for (let i = 0; i < stale.length; i += 4) {
+          if (stale[i] > 200 && stale[i + 1] < 60 && stale[i + 2] > 200) magenta++
+          if (full[i] + full[i + 1] + full[i + 2] < 6) black++
+        }
+        expect({ t, magenta, black }).toEqual({ t, magenta: 0, black: 0 })
+      }
+    }
+  })
+
   it('không dùng cách tô thẳng khi nền có độ trong, đang hiện dần, hoặc không phải lớp đục', () => {
     const base = createDefaultProject()
     const cases: Layer[] = [

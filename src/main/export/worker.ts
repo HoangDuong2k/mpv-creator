@@ -76,8 +76,8 @@ async function main(): Promise<void> {
   encoder = runFfmpeg(
     [
       '-v', 'error', '-y',
-      // Đổi màu RGBA → YUV bằng 1 luồng: mặc định FFmpeg chia cho mọi nhân CPU, tốn gấp ~3 lần CPU
-      // (đồng bộ giữa các luồng) — trong khi các luồng render khác đang cần CPU để vẽ
+      // Đổi màu RGBA → YUV bằng 1 luồng: không có dòng này FFmpeg chia theo "-threads" của bộ mã hoá, tốn thêm
+      // ~60% CPU cho việc đồng bộ giữa các luồng mà không nhanh hơn — trong khi các luồng render khác đang cần CPU để vẽ
       '-filter_threads', '1',
       ...job.encoderPre,
       '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(fps),

@@ -220,9 +220,11 @@ export function drawBackground(env: RenderEnv, p: BackgroundProps): void {
   const kb = p.kenBurns * (0.5 - 0.5 * Math.cos((2 * Math.PI * t) / 36))
   const shakeAmp = p.shake * S
   const beat = shakeAmp > 0 ? env.audio.beat(t, 10) : 0
-  // Phóng to thêm một chút để khi rung/pan không lộ viền
-  const zoom = 1 + kb + p.beatZoom * pulse + (shakeAmp * 2.2) / Math.min(W, H)
-  const panRoom = ((zoom - 1) * W) / 2
+  // Phóng to thêm một chút để khi rung/pan không lộ viền. Lia chỉ dùng phần phóng của Ken Burns / đập theo bass;
+  // phần phóng thêm cho rung để riêng (lia hết cỡ đúng lúc rung mạnh vẫn phủ kín khung)
+  const panZoom = 1 + kb + p.beatZoom * pulse
+  const zoom = panZoom + (shakeAmp * 2.2) / Math.min(W, H)
+  const panRoom = ((panZoom - 1) * W) / 2
   const panX = kb > 0 ? Math.sin((2 * Math.PI * t) / 53) * panRoom * 0.6 : 0
   const panY = kb > 0 ? Math.cos((2 * Math.PI * t) / 61) * panRoom * 0.3 : 0
   const frame = Math.floor(t * 30)
