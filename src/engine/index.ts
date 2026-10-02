@@ -123,20 +123,26 @@ export class Renderer {
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = 'source-over'
     // Ngoài khoảng thời gian của layer thì không vẽ
-    const visible: { layer: Layer; fade: number }[] = []
+    let visible: { layer: Layer; fade: number }[] = []
     for (const layer of project.layers) {
       if (!layer.enabled) continue
       const fade = layerFade(layer.timing, t, timeline.total)
       if (fade > 0) visible.push({ layer, fade })
     }
-    const baked = this.prebakeFilters && scale >= BAKE_MIN_SCALE ? findFilterBake(env, visible) : null
-    // Lớp dưới cùng là nền đục phủ kín khung thì không cần tô đen trước (đỡ một lần tô cả khung mỗi frame)
-    const first = visible[0]
-    env.fade = first?.fade ?? 1
-    if (!(first?.layer.type === 'background' && coversFrame(env, first.layer.props))) {
+    // Nền đục phủ kín khung (trên cùng) che hết các lớp nằm dưới: không vẽ các lớp đó (vd. nền gradient mặc định
+    // dưới ảnh nền), và không cần tô đen khung trước. Lớp đang chỉnh trên preview vẫn vẽ để còn khung chọn.
+    let cover = -1
+    for (let i = visible.length - 1; i >= 0 && cover < 0; i--) {
+      const { layer, fade } = visible[i]
+      env.fade = fade
+      if (layer.type === 'background' && coversFrame(env, layer.props)) cover = i
+    }
+    if (cover > 0) visible = visible.filter((v, i) => i >= cover || v.layer.id === editLayerId)
+    else if (cover < 0) {
       ctx.fillStyle = '#000000'
       ctx.fillRect(0, 0, W, H)
     }
+    const baked = this.prebakeFilters && scale >= BAKE_MIN_SCALE ? findFilterBake(env, visible) : null
     for (const [i, { layer, fade }] of visible.entries()) {
       env.layerId = layer.id
       env.timing = layer.timing
