@@ -73,6 +73,12 @@ jobs:
           codesign --verify --deep --verbose=2 "$APP"
           PVM_E2E_EXE="$PWD/$APP/Contents/MacOS/Playlist Video Maker" npm run e2e
       - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-packaged-screenshots-${{ matrix.os }}
+          path: test-output/e2e/*.png
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
         with:
           name: playlist-video-maker-${{ matrix.os }}
           path: |
