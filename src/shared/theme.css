@@ -1,0 +1,96 @@
+/*
+ * Màu và token thương hiệu, dùng chung cho app (src/renderer/src/index.css) và trang landing (site/).
+ * Đổi màu ở đây là cả hai đổi theo. Nhập sau 'momi-ui/tailwind.css' để thắng token mặc định của momi-ui.
+ */
+
+/*
+ * Màu giao diện. Bề mặt "mực": gần trung tính, ngả tím rất nhẹ (chung cho mọi lựa chọn). Màu nhấn chọn trong
+ * Cài đặt (html[data-accent]): orchid (hồng), lavender (tím, mặc định), aqua (xanh neon). Màu nhấn đặc dùng cho
+ * nút, mục đang chọn, focus; dải chuyển màu --brand-grad chỉ ở vài điểm nhận diện (logo, nút Phát, nút Xuất video).
+ * Không đặt trong layer nào nên thắng token của CSS cũ (layer legacy) và token mặc định của momi-ui.
+ */
+:root {
+  /* Bề mặt, từ sâu nhất tới nổi nhất */
+  --bg-0: #0b0a10;
+  --bg: #100f16;
+  --panel: #16151d;
+  --panel-2: #1d1b26;
+  --panel-3: #272431;
+  --well: #0c0b11;
+  --line: #25222e;
+  --line-2: #36323f;
+  /* Chữ */
+  --text: #eeecf4;
+  --text-2: #bbb7c9;
+  --text-3: #8c889c;
+  --faint: #605c70;
+  --brand-soft: color-mix(in srgb, var(--brand) 15%, transparent);
+  --brand-line: color-mix(in srgb, var(--brand) 60%, transparent);
+  /* Trạng thái (cảnh báo giữ màu hổ phách, không theo màu nhấn) */
+  --ok: #7fd1a0;
+  --warn: #e8a849;
+  --err: #f06d7a;
+  --err-soft: rgba(240, 109, 122, 0.14);
+  /* Bóng đổ ngả màu nền (không dùng đen tuyền), kèm viền sáng mảnh */
+  --shadow-pop: 0 14px 36px rgba(5, 4, 12, 0.6), 0 0 0 1px rgba(244, 240, 255, 0.05);
+  --shadow-dialog: 0 28px 80px rgba(3, 2, 9, 0.66), 0 0 0 1px rgba(244, 240, 255, 0.06);
+}
+/* Màu nhấn theo lựa chọn; cũng đặt được trên một phần tử (chấm màu trong Cài đặt) để xem trước màu đó */
+:root,
+[data-accent='lavender'] {
+  --brand: #a98bff;
+  --brand-hi: #c0a8ff;
+  --brand-ink: #150a30;
+  --brand-grad: linear-gradient(135deg, #c3a5ff 0%, #8f8bff 48%, #62d0ff 100%);
+}
+[data-accent='orchid'] {
+  --brand: #f383c4;
+  --brand-hi: #f8a3d4;
+  --brand-ink: #2b0a1f;
+  --brand-grad: linear-gradient(135deg, #ffa3cf 0%, #f07ac0 45%, #a98bff 100%);
+}
+[data-accent='aqua'] {
+  --brand: #3fe3d2;
+  --brand-hi: #79eee2;
+  --brand-ink: #03231f;
+  --brand-grad: linear-gradient(135deg, #5ff3e0 0%, #3fd0e8 50%, #8a8cff 100%);
+}
+
+/* Token của momi-ui lấy từ màu giao diện ở trên; trên :root và .dark để menu, popover, toast vẽ qua portal cũng đổi theo */
+:root,
+.dark {
+  --radius: 0.375rem;
+  /* Tên thứ hai: font của trang landing (gói @fontsource-variable) */
+  --font-sans: 'Hanken Grotesk', 'Hanken Grotesk Variable', 'Be Vietnam Pro', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--panel);
+  --card-foreground: var(--text);
+  --popover: var(--panel-2);
+  --popover-foreground: var(--text);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-ink);
+  --secondary: var(--panel-3);
+  --secondary-foreground: var(--text);
+  --muted: var(--panel-2);
+  --muted-foreground: var(--text-3);
+  --accent: var(--panel-3);
+  --accent-foreground: var(--text);
+  --destructive: var(--err);
+  --destructive-foreground: #22070c;
+  --success: var(--ok);
+  --success-foreground: #06170d;
+  --warning: var(--warn);
+  --warning-foreground: #1c1407;
+  --info: #8fb4f0;
+  --info-foreground: #0b1222;
+  --border: var(--line);
+  --input: var(--line-2);
+  --ring: var(--brand);
+
+  --surface-sunken: var(--well);
+  --surface-raised: var(--panel-2);
+  --border-strong: var(--line-2);
+}

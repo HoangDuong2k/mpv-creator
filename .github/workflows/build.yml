@@ -4,7 +4,10 @@ on:
   push:
     tags: ['v*']
     branches: [main]
+    # Chỉ đổi trang landing thì không cần kiểm thử / đóng gói lại app (tag v* vẫn luôn chạy)
+    paths-ignore: ['site/**', '.github/workflows/site.yml']
   pull_request:
+    paths-ignore: ['site/**', '.github/workflows/site.yml']
   workflow_dispatch:
 
 jobs:
@@ -97,6 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
       - name: Tag phải khớp version trong package.json
@@ -119,3 +123,9 @@ jobs:
           body_path: notes.md
           files: dist/*
           fail_on_unmatched_files: true
+      # Build lại trang landing để nút tải trỏ tới bản vừa phát hành (sự kiện do GITHUB_TOKEN tạo không tự chạy
+      # workflow khác, trừ khi gọi workflow_dispatch như thế này)
+      - name: Cập nhật trang landing
+        run: gh workflow run site.yml --ref main --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}

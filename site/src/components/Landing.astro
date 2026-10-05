@@ -1,0 +1,160 @@
+---
+/**
+ * Toàn bộ trang landing cho một ngôn ngữ. Đầu trang viết bằng Astro (HTML tĩnh, ảnh app tối ưu bằng <Picture>);
+ * các phần khác là block của momi-ui. Island (chạy JavaScript): thanh điều hướng, nút tải theo hệ điều hành,
+ * và các phần có hiệu ứng hiện dần / bấm mở (Tính năng, Cách dùng, Hỏi đáp, lời kêu gọi cuối trang).
+ */
+import { getImage, Picture } from 'astro:assets'
+import { AppWindowFrame, BackgroundPattern, Badge, buttonVariants, Container } from 'momi-ui'
+import Base from '../layouts/Base.astro'
+import { COPY, REPO_URL, type Lang } from '../content'
+import { latestRelease, pickDownloads } from '../release'
+import { withBase } from '../paths'
+import { SiteNav } from './SiteNav'
+import { DownloadButton } from './DownloadButton'
+import { FaqSection, Features, FinalCta, HowItWorks, type Img } from './Sections'
+import { DownloadSection, SiteFooter } from './DownloadSection'
+import appShot from '../assets/shots/app.png'
+import libraryShot from '../assets/shots/library.png'
+import timelineShot from '../assets/shots/timeline.png'
+import chaptersShot from '../assets/shots/chapters.png'
+import exportShot from '../assets/shots/export.png'
+import stylesShot from '../assets/shots/styles.png'
+import inspectorShot from '../assets/shots/inspector.png'
+
+interface Props {
+  lang: Lang
+}
+const { lang } = Astro.props
+const c = COPY[lang]
+const ch = c.chapters
+const home = withBase(lang === 'vi' ? '/' : '/en/')
+const release = await latestRelease()
+const downloads = pickDownloads(release)
+const versionLine = release
+  ? c.download.version(release.version, new Date(release.date).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }))
+  : null
+const links = [ch.features, ch.how, ch.download, ch.faq].map((x) => ({ label: x.label, href: `#${x.id}` }))
+const labels = {
+  generic: c.download.generic,
+  forWindows: c.download.forWindows,
+  forMac: c.download.forMac,
+  forLinux: c.download.forLinux,
+  macIntel: c.download.macIntel,
+  otherSystems: c.download.otherSystems
+}
+
+/** Ảnh tính năng: WebP, chiều ngang gấp đôi cỡ hiển thị (màn hình độ nét cao) */
+const webp = async (src: ImageMetadata, width: number): Promise<Img> => {
+  const r = await getImage({ src, width: Math.min(width, src.width), format: 'webp', quality: 82 })
+  return { src: r.src, width: Number(r.attributes.width), height: Number(r.attributes.height) }
+}
+const images = {
+  effects: await webp(libraryShot, 600),
+  timeline: await webp(timelineShot, 1600),
+  chapters: await webp(chaptersShot, 1100),
+  export: await webp(exportShot, 832),
+  styles: await webp(stylesShot, 1400),
+  inspector: await webp(inspectorShot, 680)
+}
+
+/**
+ * Dải sóng trang trí dưới đầu trang: tổng vài sóng sin lặp đúng chu kỳ 1200 đơn vị, vẽ hai chu kỳ để trượt
+ * sang trái liền mạch (CSS .wave-move).
+ */
+const wavePath = (() => {
+  const pts: string[] = []
+  for (let x = 0; x <= 2400; x += 6) {
+    const t = (x / 1200) * Math.PI * 2
+    const y = 40 + 14 * Math.sin(t * 3) + 8 * Math.sin(t * 7 + 1.3) + 4 * Math.sin(t * 13 + 0.4)
+    pts.push(`${x === 0 ? 'M' : 'L'}${x} ${y.toFixed(1)}`)
+  }
+  return pts.join(' ')
+})()
+---
+
+<Base lang={lang} copy={c} version={release?.version}>
+  <SiteNav
+    client:load
+    home={home}
+    links={links}
+    langHref={withBase(c.nav.otherLang)}
+    langLabel={c.nav.otherLangLabel}
+    downloadHref={`#${ch.download.id}`}
+    downloadLabel={c.nav.download}
+    menuLabel={c.nav.menu}
+  />
+  <main>
+    <section id={ch.intro.id} class="relative isolate overflow-hidden pt-14 sm:pt-20">
+      <BackgroundPattern variant="grid" fade="radial" />
+      <Container size="xl">
+        <div class="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+          <a
+            href={release?.url ?? `#${ch.download.id}`}
+            class="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 py-1 ps-1 pe-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Badge variant="solid" tone="primary" size="sm">{release?.version ?? c.hero.badge}</Badge>
+            {c.hero.badgeLabel}
+          </a>
+          <h1 class="text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-6xl lg:text-7xl">
+            {c.hero.titleStart} <span class="text-brand-grad">{c.hero.titleHighlight}</span>
+          </h1>
+          <p class="max-w-2xl text-lg text-pretty text-muted-foreground sm:text-xl">{c.hero.description}</p>
+          <div class="flex flex-wrap items-start justify-center gap-3">
+            <DownloadButton client:load downloads={downloads} labels={labels} anchor={ch.download.id} />
+            <a href={`#${ch.how.id}`} class={buttonVariants({ variant: 'outline', tone: 'neutral', size: 'lg' })}>{c.hero.secondary}</a>
+          </div>
+          <p class="text-sm text-muted-foreground">{c.hero.footnote}</p>
+        </div>
+
+        <div class="relative mx-auto mt-14 max-w-6xl sm:mt-20">
+          <div class="hero-glow"></div>
+          <AppWindowFrame variant="macos" title="Playlist Video Maker" glow>
+            <Picture
+              src={appShot}
+              formats={['avif', 'webp']}
+              fallbackFormat="webp"
+              widths={[960, 1440, 2160, 2880]}
+              sizes="(min-width: 1200px) 1152px, 100vw"
+              alt={c.hero.shotAlt}
+              loading="eager"
+              fetchpriority="high"
+              class="block h-auto w-full"
+            />
+          </AppWindowFrame>
+          <!-- Như phần mô tả dưới video YouTube: danh sách chương, cũng là lối tắt tới từng phần -->
+          <nav aria-label={lang === 'vi' ? 'Các phần của trang' : 'Page sections'} class="mx-auto mt-6 flex max-w-3xl flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
+            {
+              [ch.intro, ch.features, ch.how, ch.download, ch.faq].map((x) => (
+                <a href={`#${x.id}`} class="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground">
+                  <span class="chapter-time">{x.time}</span>
+                  {x.label}
+                </a>
+              ))
+            }
+          </nav>
+        </div>
+      </Container>
+      <svg class="wave-line mt-10 block h-16 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <!-- Màu lặp đúng hai chu kỳ như đường sóng nên trượt liền mạch; mờ hai đầu bằng mask trong CSS -->
+          <linearGradient id="wave-grad" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" style="stop-color: var(--brand)" />
+            <stop offset="0.25" style="stop-color: #62d0ff" />
+            <stop offset="0.5" style="stop-color: var(--brand)" />
+            <stop offset="0.75" style="stop-color: #62d0ff" />
+            <stop offset="1" style="stop-color: var(--brand)" />
+          </linearGradient>
+        </defs>
+        <g class="wave-move"><path d={wavePath}></path></g>
+      </svg>
+    </section>
+
+    <Features client:idle copy={c.features} chapter={ch.features} images={images} />
+    <HowItWorks client:idle copy={c.how} chapter={ch.how} />
+    <DownloadSection copy={c.download} chapter={ch.download} downloads={downloads} versionLine={versionLine} />
+    <FaqSection client:idle copy={c.faq} chapter={ch.faq} />
+    <FinalCta client:idle copy={c.cta} downloads={downloads} labels={labels} anchor={ch.download.id} repoUrl={REPO_URL} />
+  </main>
+  <SiteFooter copy={c.footer} links={links} repoUrl={REPO_URL} home={home} />
+</Base>

@@ -1,7 +1,7 @@
 /*
  * Giao diện: công cụ dựng video chuyên nghiệp (kiểu DaVinci Resolve / Ableton), không phải trang web mẫu.
- * - Một họ xám graphite hơi ấm cho mọi bề mặt, một màu nhấn duy nhất (hổ phách, như đèn tín hiệu
- *   trên thiết bị âm thanh). Màu riêng chỉ dùng để phân biệt loại thanh trên timeline.
+ * - Bề mặt "mực" gần trung tính, một màu nhấn chọn trong Cài đặt (token ở src/shared/theme.css, dùng chung với
+ *   trang landing). Màu riêng chỉ dùng để phân biệt loại thanh trên timeline.
  * - Chữ Hanken Grotesk (đủ dấu tiếng Việt), số và mã thời gian dùng JetBrains Mono.
  * - Hình khối: nút / ô nhập bo 5px, khung / thẻ 8px, hộp thoại 12px; chỉ nút Phát và núm tròn là hình tròn.
  * Nền tối cố định: màu của video trên preview không bị giao diện sáng làm lệch mắt.

@@ -60,6 +60,19 @@ Bản Windows phải build trên Windows, bản Mac phải build trên Mac (ho�
 
 Bộ cài và ảnh chụp các bước kiểm thử nằm trong mục *Artifacts* của lượt chạy.
 
+**Phát hành:** tăng `version` trong `package.json`, thêm mục `## vX.Y.Z — ngày` vào `CHANGELOG.md`, rồi push tag
+`vX.Y.Z`. Khi kiểm thử và đóng gói đều đạt, CI tạo bản phát hành trên GitHub Releases kèm các file cài (ghi chú lấy
+từ CHANGELOG) và build lại trang landing để nút tải trỏ tới bản mới.
+
+## Trang landing (`site/`)
+
+Trang giới thiệu và tải app: Astro + momi-ui, tiếng Việt ở `/`, tiếng Anh ở `/en/`, đăng lên GitHub Pages
+(https://hoangduong2k.github.io/mpv-creator/) bằng `.github/workflows/site.yml`. Màu dùng chung với app ở
+`src/shared/theme.css`. Link tải lấy từ bản phát hành mới nhất lúc build.
+
+- Chạy thử: `cd site && npm ci && npm run dev` (cần Node 22.12 trở lên).
+- Ảnh chụp app trên trang: `npm run build && npm run site:shots` ở thư mục gốc (Linux không có màn hình: `xvfb-run -a npm run site:shots`), rồi commit ảnh trong `site/src/assets/shots/`.
+
 ## Dùng trên Windows
 
 - **Yêu cầu:** Windows 10/11 64-bit. Chỉ cần chạy bộ cài; FFmpeg, font và mọi thư viện đã đóng gói sẵn, không phải cài thêm gì.

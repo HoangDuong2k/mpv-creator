@@ -1,0 +1,88 @@
+/*
+ * CSS của trang landing: Tailwind CSS v4 + momi-ui, màu lấy từ token dùng chung với app (src/shared/theme.css)
+ * nên trang và app luôn cùng màu. Trang chỉ có nền tối, màu nhấn Tím (mặc định của app).
+ */
+@import 'tailwindcss';
+@import 'momi-ui/tailwind.css';
+@import '../../../src/shared/theme.css';
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+  background: var(--bg);
+  color-scheme: dark;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Chữ dải màu nhấn (dùng ít: cụm từ chính ở đầu trang) */
+.text-brand-grad {
+  background: var(--brand-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Quầng sáng sau ảnh app ở đầu trang: hai vệt màu nhấn mờ, không phải mảng gradient tràn trang */
+.hero-glow {
+  position: absolute;
+  inset: -12% -8% auto;
+  height: 70%;
+  z-index: -1;
+  background:
+    radial-gradient(40% 55% at 30% 50%, color-mix(in srgb, var(--brand) 32%, transparent), transparent 70%),
+    radial-gradient(35% 50% at 72% 45%, rgb(98 208 255 / 0.18), transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+/* Mốc thời gian kiểu chương YouTube trước tiêu đề mỗi phần: "0:42 Tính năng" */
+.chapter-time {
+  font-family: var(--font-mono);
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dải sóng trang trí dưới đầu trang (vẽ bằng SVG, chạy nhẹ; tắt khi người dùng chọn giảm chuyển động) */
+.wave-line {
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  opacity: 0.8;
+}
+.wave-line path {
+  stroke: url(#wave-grad);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+}
+.wave-line .wave-move {
+  transform-box: fill-box;
+  animation: wave-drift 14s linear infinite;
+}
+@keyframes wave-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wave-line .wave-move {
+    animation: none;
+  }
+}
+
+/* Nút tải: dải màu nhấn, như nút Xuất video trong app */
+.download-btn {
+  background-image: var(--brand-grad);
+  transition: filter 140ms ease;
+}
+.download-btn:hover {
+  filter: brightness(1.08);
+}

@@ -1,0 +1,70 @@
+---
+/** Khung HTML chung: font, CSS, thẻ meta (SEO, chia sẻ), liên kết bản tiếng Việt / tiếng Anh, dữ liệu có cấu trúc */
+import '@fontsource-variable/hanken-grotesk'
+import '@fontsource-variable/jetbrains-mono'
+import '../styles/global.css'
+import { getImage } from 'astro:assets'
+import appShot from '../assets/shots/app.png'
+import type { Copy, Lang } from '../content'
+import { RELEASES_URL } from '../release'
+import { withBase } from '../paths'
+
+interface Props {
+  lang: Lang
+  copy: Copy
+  version?: string
+}
+const { lang, copy, version } = Astro.props
+const site = Astro.site ?? new URL('https://hoangduong2k.github.io')
+const url = (path: string): string => new URL(withBase(path), site).href
+const canonical = url(lang === 'vi' ? '/' : '/en/')
+const og = await getImage({ src: appShot, width: 1200, format: 'jpg', quality: 82 })
+const ogUrl = new URL(og.src, site).href
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Playlist Video Maker',
+  description: copy.meta.description,
+  applicationCategory: 'MultimediaApplication',
+  operatingSystem: 'Windows 10, Windows 11, macOS 12+, Linux',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  downloadUrl: RELEASES_URL,
+  inLanguage: copy.htmlLang,
+  ...(version ? { softwareVersion: version.replace(/^v/, '') } : {}),
+  screenshot: ogUrl,
+  url: canonical
+}
+---
+
+<!doctype html>
+<html lang={copy.htmlLang} class="dark" data-accent="lavender">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{copy.meta.title}</title>
+    <meta name="description" content={copy.meta.description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="vi" href={url('/')} />
+    <link rel="alternate" hreflang="en" href={url('/en/')} />
+    <link rel="alternate" hreflang="x-default" href={url('/')} />
+    <link rel="icon" type="image/png" href={withBase('/favicon.png')} />
+    <meta name="theme-color" content="#100f16" />
+    <meta name="color-scheme" content="dark" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Playlist Video Maker" />
+    <meta property="og:title" content={copy.meta.title} />
+    <meta property="og:description" content={copy.meta.description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:width" content={String(og.attributes.width)} />
+    <meta property="og:image:height" content={String(og.attributes.height)} />
+    <meta property="og:locale" content={lang === 'vi' ? 'vi_VN' : 'en_US'} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </head>
+  <body class="min-h-dvh">
+    <slot />
+  </body>
+</html>

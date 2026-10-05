@@ -16,6 +16,7 @@
     "cli": "tsx scripts/cli.ts",
     "dist": "electron-vite build && electron-builder",
     "e2e": "tsx scripts/e2e-smoke.ts",
+    "site:shots": "tsx scripts/site-shots.ts",
     "test-audio": "tsx scripts/make-test-audio.ts",
     "dist:win": "electron-vite build && electron-builder --win",
     "dist:linux": "electron-vite build && electron-builder --linux",

@@ -1,0 +1,33 @@
+{
+  "name": "playlist-video-maker-site",
+  "private": true,
+  "type": "module",
+  "description": "Trang landing của Playlist Video Maker (Astro + momi-ui), đăng lên GitHub Pages",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@astrojs/react": "^7.0.0",
+    "@astrojs/sitemap": "^3.7.4",
+    "@fontsource-variable/hanken-grotesk": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "momi-ui": "github:HoangDuong2k/momi-ui#v0.2.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "simple-icons": "^16.34.0",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "5.9"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}
