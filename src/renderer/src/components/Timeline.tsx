@@ -62,7 +62,8 @@ import { ctaMenu, laneMenu, layerMenu, trackMenu } from '../contextMenus'
 import { ContextMenu, type MenuState } from './ContextMenu'
 import { useThumbUrl } from '../thumbs'
 import { useLayout } from '../layout'
-import { Icon, IconButton, rangeFill } from './ui'
+import { Icon, IconButton } from './ui'
+import { Button, Slider } from 'momi-ui'
 import { tr } from '../../../shared/i18n'
 
 const SNAP_PX = 8
@@ -805,21 +806,18 @@ export function Timeline(): ReactNode {
           <IconButton icon="magnet" title={snapOn ? tr('Bắt dính: bật (giữ Shift để tạm tắt)') : tr('Bắt dính: tắt')} onClick={() => setSnapOn(!snapOn)} active={snapOn} size={16} />
           <span className="sep" />
           <IconButton icon="zoomOut" title={tr('Thu nhỏ')} onClick={() => zoomTo(zoom / 1.5)} size={16} />
-          <input
+          <Slider
             className="tl-zoom"
-            type="range"
             min={Math.log(MIN_ZOOM)}
             max={Math.log(MAX_ZOOM)}
             step={0.01}
-            value={logZ}
-            style={rangeFill(logZ, Math.log(MIN_ZOOM), Math.log(MAX_ZOOM))}
-            onChange={(e) => zoomTo(Math.exp(parseFloat(e.target.value)))}
-            aria-label={tr('Mức zoom timeline')}
+            value={[logZ]}
+            onValueChange={([v]) => zoomTo(Math.exp(v))}
+            thumbLabels={[tr('Mức zoom timeline')]}
           />
           <IconButton icon="zoomIn" title={tr('Phóng to')} onClick={() => zoomTo(zoom * 1.5)} size={16} />
-          <button
-            type="button"
-            className="btn small"
+          <Button
+            variant="outline" tone="neutral" size="xs"
             onClick={() => {
               setAutoFit(true)
               if (scrollRef.current) scrollRef.current.scrollLeft = 0
@@ -827,7 +825,7 @@ export function Timeline(): ReactNode {
             title={tr('Vừa khung cả video')}
           >
             {tr('Vừa khung')}
-          </button>
+          </Button>
         </span>
       </div>
       <div className="tl-scroll" ref={scrollRef}>

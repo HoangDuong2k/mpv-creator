@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Button, Checkbox, NativeSelect } from 'momi-ui'
 import { create } from 'zustand'
 import type { EncoderOption, ExportProgressEvent, ExportResultInfo } from '../../../shared/api'
 import { resolutionName } from '../../../shared/defaults'
@@ -99,9 +100,9 @@ export function ShutdownCountdown(): ReactNode {
       title={tr('Tắt máy')}
       onClose={cancelShutdownCountdown}
       footer={
-        <button type="button" className="btn primary" onClick={cancelShutdownCountdown} disabled={left <= 0}>
+        <Button variant="solid" tone="primary" size="sm" onClick={cancelShutdownCountdown} disabled={left <= 0}>
           {tr('Huỷ tắt máy')}
-        </button>
+        </Button>
       }
     >
       <p className="shutdown-count">{left > 0 ? tr('Máy sẽ tắt sau {n} giây', { n: left }) : tr('Đang tắt máy…')}</p>
@@ -202,33 +203,32 @@ export function ExportDialog(): ReactNode {
       onClose={() => openDialog(null)}
       footer={
         running ? (
-          <button type="button" className="btn danger" onClick={() => api.cancelExport()}>
+          <Button variant="soft" tone="danger" size="sm" onClick={() => api.cancelExport()}>
             {tr('Huỷ xuất')}
-          </button>
+          </Button>
         ) : (
           <>
-            <button
-              type="button"
-              className="btn"
+            <Button
+              variant="outline" tone="neutral" size="sm"
               disabled={!canStart}
               title={tr('Render 15 giây từ vị trí đang xem để kiểm tra nhanh')}
               onClick={() => start({ start: Math.max(0, Math.min(player.time(), timeline.total - 15)), duration: 15 })}
             >
               {tr('Xuất thử 15 giây')}
-            </button>
-            <button type="button" className="btn primary" disabled={!canStart} onClick={() => start()}>
+            </Button>
+            <Button variant="solid" tone="primary" size="sm" data-action="export-start" disabled={!canStart} onClick={() => start()}>
               <Icon name="movie" size={16} />{' '}
               {tr('Xuất video {res} ({time})', { res: resolutionName(project.settings.width, project.settings.height), time: formatTime(timeline.total, withHours) })}
-            </button>
+            </Button>
           </>
         )
       }
     >
       <Row label={tr('Lưu vào')}>
         <div className="file-pick">
-          <button type="button" className="btn small" onClick={chooseOutput} disabled={running}>
+          <Button variant="outline" tone="neutral" size="xs" onClick={chooseOutput} disabled={running}>
             {tr('Chọn…')}
-          </button>
+          </Button>
           <span className="file-name" title={ex.outputPath}>
             {ex.outputPath ? shortPath(ex.outputPath) : tr('Chưa chọn nơi lưu')}
           </span>
@@ -244,7 +244,7 @@ export function ExportDialog(): ReactNode {
       </div>
       <div className="two">
         <Row label={tr('Bộ mã hoá')}>
-          <select value={ex.encoder} onChange={(e) => setExport({ encoder: e.target.value as ExportSettings['encoder'] })} disabled={running}>
+          <NativeSelect size="sm" value={ex.encoder} onChange={(e) => setExport({ encoder: e.target.value as ExportSettings['encoder'] })} disabled={running}>
             {(encoders ?? []).map((e) => (
               <option key={e.id} value={e.id} disabled={!e.available}>
                 {tr(e.label)}
@@ -252,14 +252,14 @@ export function ExportDialog(): ReactNode {
               </option>
             ))}
             {!encoders && <option value={ex.encoder}>{tr('Đang kiểm tra bộ mã hoá…')}</option>}
-          </select>
+          </NativeSelect>
         </Row>
         <Row label={tr('Chất lượng nén')}>
-          <select value={ex.quality} onChange={(e) => setExport({ quality: e.target.value as ExportSettings['quality'] })} disabled={running}>
+          <NativeSelect size="sm" value={ex.quality} onChange={(e) => setExport({ quality: e.target.value as ExportSettings['quality'] })} disabled={running}>
             <option value="fast">{tr('Nhanh (file lớn hơn)')}</option>
             <option value="balanced">{tr('Cân bằng (khuyên dùng)')}</option>
             <option value="high">{tr('Chất lượng cao (chậm)')}</option>
-          </select>
+          </NativeSelect>
         </Row>
       </div>
       {hardware && ex.encoder === 'libx264' && !running && (
@@ -272,17 +272,21 @@ export function ExportDialog(): ReactNode {
       )}
       <div className="two">
         <Row label={tr('Âm thanh AAC')}>
-          <select value={ex.audioBitrate} onChange={(e) => setExport({ audioBitrate: Number(e.target.value) })} disabled={running}>
+          <NativeSelect size="sm" value={ex.audioBitrate} onChange={(e) => setExport({ audioBitrate: Number(e.target.value) })} disabled={running}>
             <option value={192}>192 kbps</option>
             <option value={256}>256 kbps</option>
             <option value={320}>320 kbps</option>
-          </select>
+          </NativeSelect>
         </Row>
       </div>
-      <label className="toggle" title={tr('Hợp khi để máy xuất video dài qua đêm. Trước khi tắt có 60 giây để huỷ.')}>
-        <input type="checkbox" checked={shutdownAfter} onChange={(e) => setShutdownAfter(e.target.checked)} />
-        <span>{tr('Tắt máy khi xuất xong (không áp dụng cho xuất thử)')}</span>
-      </label>
+      <Checkbox
+        size="sm"
+        wrapperClassName="toggle-row"
+        checked={shutdownAfter}
+        onCheckedChange={(on) => setShutdownAfter(on === true)}
+        label={tr('Tắt máy khi xuất xong (không áp dụng cho xuất thử)')}
+        description={tr('Hợp khi để máy xuất video dài qua đêm. Trước khi tắt có 60 giây để huỷ.')}
+      />
       {encoders && ex.encoder !== 'libx264' && !encoders.find((e) => e.id === ex.encoder)?.available && (
         <p className="warn">{tr('Bộ mã hoá đã chọn không dùng được trên máy này, hãy chọn “CPU (x264)”.')}</p>
       )}
@@ -333,20 +337,19 @@ export function ExportDialog(): ReactNode {
               : tr(' nhanh {x}× thời gian thực.', { x: (result.duration / Math.max(0.1, result.seconds)).toFixed(1) })}
           </p>
           <div className="row-actions">
-            <button type="button" className="btn small" onClick={() => api.showItem(result.outputPath)}>
+            <Button variant="outline" tone="neutral" size="xs" onClick={() => api.showItem(result.outputPath)}>
               <Icon name="folder" size={16} /> {tr('Mở thư mục')}
-            </button>
-            <button type="button" className="btn small" onClick={() => openDialog('chapters')}>
+            </Button>
+            <Button variant="outline" tone="neutral" size="xs" onClick={() => openDialog('chapters')}>
               <Icon name="list" size={16} /> {tr('Lấy timestamp cho mô tả')}
-            </button>
-            <button
-              type="button"
-              className="btn small"
+            </Button>
+            <Button
+              variant="outline" tone="neutral" size="xs"
               onClick={() => openDialog('save-template')}
               title={tr('Lần sau làm video cùng phong cách: chỉ cần đổi nền và thêm nhạc')}
             >
               <Icon name="palette" size={16} /> {tr('Tạo mẫu từ video này')}
-            </button>
+            </Button>
           </div>
           {result.warnings.length > 0 && <p className="warn">{tr('Cảnh báo: {list}', { list: result.warnings.join('; ') })}</p>}
         </div>

@@ -6,7 +6,20 @@ import { assets, features, player } from '../engineHost'
 import { useTimeline } from '../hooks'
 import { PREVIEW_QUALITY_SCALE, useStore, type PreviewQuality } from '../store'
 import { Stage } from './Stage'
-import { Icon, IconButton, rangeFill } from './ui'
+import { Icon, IconButton } from './ui'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Slider
+} from 'momi-ui'
 import { tr, trKey } from '../../../shared/i18n'
 import { useLayout } from '../layout'
 import { addLibraryItem, itemName } from '../libraryActions'
@@ -124,12 +137,10 @@ export function PreviewPanel(): ReactNode {
         <div className="lib-preview-bar" role="status">
           <Icon name="eye" size={15} />
           <span className="lib-preview-name">{tr('Đang xem thử "{name}"', { name: itemName(libPreview.item) })}</span>
-          <button type="button" className="btn small primary" onClick={() => addLibraryItem(libPreview.item)}>
+          <Button variant="solid" tone="primary" size="xs" onClick={() => addLibraryItem(libPreview.item)}>
             <Icon name="add" size={15} /> {libPreview.item.kind === 'media' ? tr('Đặt làm nền') : tr('Thêm vào video')}
-          </button>
-          <button type="button" className="icon-btn" onClick={clearLibraryPreview} title={tr('Thôi xem thử (Esc)')} aria-label={tr('Thôi xem thử (Esc)')}>
-            <Icon name="close" size={15} />
-          </button>
+          </Button>
+          <IconButton icon="close" btnSize="xs" title={tr('Thôi xem thử (Esc)')} onClick={clearLibraryPreview} />
         </div>
       )}
       {/* Toàn màn hình không còn timeline: thanh tua ngay trên các nút điều khiển */}
@@ -255,32 +266,27 @@ function VolumeControl(): ReactNode {
   const apply = (v: number, m: boolean): void => player.setVolume(m ? 0 : v)
   return (
     <span className="volume">
-      <button
-        type="button"
-        className="icon-btn"
+      <IconButton
+        icon={muted || volume === 0 ? 'volumeOff' : 'volume'}
+        size={16}
+        title={muted ? tr('Bật tiếng') : tr('Tắt tiếng')}
         onClick={() => {
           setMuted(!muted)
           apply(volume, !muted)
         }}
-        title={muted ? tr('Bật tiếng') : tr('Tắt tiếng')}
-        aria-label={muted ? tr('Bật tiếng') : tr('Tắt tiếng')}
-      >
-        <Icon name={muted || volume === 0 ? 'volumeOff' : 'volume'} size={16} />
-      </button>
-      <input
-        type="range"
+      />
+      <Slider
+        className="volume-slider"
         min={0}
         max={1}
         step={0.01}
-        value={muted ? 0 : volume}
-        style={rangeFill(muted ? 0 : volume, 0, 1)}
-        onChange={(e) => {
-          const v = parseFloat(e.target.value)
+        value={[muted ? 0 : volume]}
+        onValueChange={([v]) => {
           setVolume(v)
           setMuted(false)
           apply(v, false)
         }}
-        aria-label={tr('Âm lượng')}
+        thumbLabels={[tr('Âm lượng')]}
       />
     </span>
   )
@@ -310,72 +316,55 @@ function PreviewMenu({ info }: { info: string }): ReactNode {
   const quality = useStore((s) => s.previewQuality)
   const safeArea = useLayout((s) => s.safeArea)
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: globalThis.PointerEvent): void => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('pointerdown', onDown)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('pointerdown', onDown)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  // Bấm nút mở khi menu vừa chọn xong còn đang chạy hiệu ứng đóng: Radix mở rồi đóng lại ngay. Bỏ qua lệnh đóng
+  // đến ngay sau cú bấm mở đó (lỗi của DropdownMenu, đã báo cho momi-ui)
+  const press = useRef({ at: 0, wasOpen: false })
   return (
-    <span className="preview-menu-wrap" ref={ref}>
-      <button type="button" className="chip chip-btn preview-menu-btn" onClick={() => setOpen(!open)} title={tr('Độ nét preview, khung hình')} aria-expanded={open}>
-        <Icon name="tune" size={13} />
-        <span className="chip-text">{quality === 'high' ? info : `${info} · ${quality === 'medium' ? '½' : '¼'}`}</span>
-        <Icon name="expand" size={14} />
-      </button>
-      {open && (
-        <div className="preview-menu" role="menu">
-          <div className="menu-title">{tr('Độ nét preview')}</div>
+    // Không modal: menu mở không chặn chuột ở phần còn lại của cửa sổ
+    <DropdownMenu
+      modal={false}
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !press.current.wasOpen && performance.now() - press.current.at < 200) return
+        setOpen(next)
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="chip chip-btn preview-menu-btn"
+          title={tr('Độ nét preview, khung hình')}
+          onPointerDown={() => (press.current = { at: performance.now(), wasOpen: open })}
+        >
+          <Icon name="tune" size={13} />
+          <span className="chip-text">{quality === 'high' ? info : `${info} · ${quality === 'medium' ? '½' : '¼'}`}</span>
+          <Icon name="expand" size={14} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="preview-menu" align="end" side="top">
+        <DropdownMenuLabel>{tr('Độ nét preview')}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={quality} onValueChange={(q) => useStore.getState().setPreviewQuality(q as PreviewQuality)}>
           {QUALITY_LABELS.map(([q, label]) => (
-            <button
-              type="button"
-              key={q}
-              data-q={q}
-              className={quality === q ? 'on' : ''}
-              role="menuitemradio"
-              aria-checked={quality === q}
-              onClick={() => {
-                useStore.getState().setPreviewQuality(q)
-                setOpen(false)
-              }}
-            >
+            <DropdownMenuRadioItem key={q} value={q} data-q={q}>
               {tr(label)}
-            </button>
+            </DropdownMenuRadioItem>
           ))}
-          <p className="menu-note">{tr('Chỉ ảnh hưởng khung xem trước, video xuất ra luôn đủ nét.')}</p>
-          <button
-            type="button"
-            className={`check${safeArea ? ' on' : ''}`}
-            data-safe
-            role="menuitemcheckbox"
-            aria-checked={safeArea}
-            onClick={() => useLayout.getState().toggleSafeArea()}
-            title={tr('Những chỗ giao diện YouTube thường che mất. Tránh đặt chữ, nút Đăng ký ở đó; vùng này không có trong video xuất ra.')}
-          >
-            {safeArea ? '☑' : '☐'} {tr('Hiện vùng an toàn YouTube')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false)
-              useStore.getState().openDialog('settings')
-            }}
-          >
-            {tr('Khung hình {info}. Đổi trong Cài đặt…', { info })}
-          </button>
-        </div>
-      )}
-    </span>
+        </DropdownMenuRadioGroup>
+        <p className="menu-note">{tr('Chỉ ảnh hưởng khung xem trước, video xuất ra luôn đủ nét.')}</p>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem
+          checked={safeArea}
+          data-safe
+          // Bật / tắt mà menu vẫn mở, để xem ngay vùng bị che
+          onSelect={(e) => e.preventDefault()}
+          onCheckedChange={() => useLayout.getState().toggleSafeArea()}
+          title={tr('Những chỗ giao diện YouTube thường che mất. Tránh đặt chữ, nút Đăng ký ở đó; vùng này không có trong video xuất ra.')}
+        >
+          {tr('Hiện vùng an toàn YouTube')}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuItem onSelect={() => useStore.getState().openDialog('settings')}>{tr('Khung hình {info}. Đổi trong Cài đặt…', { info })}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

@@ -40,6 +40,8 @@ npm run dev:linux    # trên Linux nếu gặp lỗi "SUID sandbox helper"
 
 Không cần cài FFmpeg riêng: app dùng bản đi kèm (`ffmpeg-static`). Muốn dùng bản FFmpeg khác thì đặt biến môi trường `PVM_FFMPEG=đường/dẫn/ffmpeg`.
 
+**Giao diện** dựng bằng thư viện [momi-ui](https://github.com/HoangDuong2k/momi-ui) (React + Tailwind CSS v4 + Radix), cài theo tag git trong `package.json`. Theme thương hiệu (graphite tông ấm, màu nhấn hổ phách) đặt trong `src/renderer/src/index.css`; CSS riêng của app (`styles.css`) nằm trong layer `legacy` nên không đè lên component của momi-ui. Muốn sửa momi-ui và thấy ngay trong app: đặt hai repo cạnh nhau, đổi tạm `"momi-ui": "file:../momi-ui"` rồi chạy `npm run dev:lib` trong momi-ui; trước khi merge, ghim lại tag git mới (CI cài từ git).
+
 ## Đóng gói bộ cài
 
 | Hệ điều hành | Lệnh (chạy trên chính hệ điều hành đó) | Kết quả trong `release/` |

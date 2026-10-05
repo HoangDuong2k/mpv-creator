@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Button, Input } from 'momi-ui'
 import { formatTime } from '../../../shared/time'
 import type { Track } from '../../../shared/types'
 import { player } from '../engineHost'
@@ -40,9 +41,9 @@ export function MusicTab(): ReactNode {
     <>
       <div className="lib-bar">
         <span className="lib-bar-title">Playlist</span>
-        <button type="button" className="btn small primary" onClick={async () => importPaths(await api.openFiles('audio', true))}>
+        <Button variant="solid" tone="primary" size="xs" onClick={async () => importPaths(await api.openFiles('audio', true))}>
           <Icon name="add" size={16} /> {tr('Thêm nhạc')}
-        </button>
+        </Button>
       </div>
       {tracks.length === 0 ? (
         <div className="empty-drop">
@@ -51,7 +52,7 @@ export function MusicTab(): ReactNode {
           <p className="muted">MP3, WAV, FLAC, M4A, OGG…</p>
         </div>
       ) : (
-        <ol className="track-list">
+        <ol className="track-list momi-scrollbar">
           {timeline.entries.map((e, i) => {
             const t = e.track
             const st = status[t.path]
@@ -98,8 +99,8 @@ export function MusicTab(): ReactNode {
                     <TrackStatusBar st={st} />
                   </div>
                   <div className="track-actions">
-                    <IconButton icon="tune" title={tr('Chỉnh sửa')} onClick={() => setExpanded(expanded === t.id ? null : t.id)} active={expanded === t.id} size={15} />
-                    <IconButton icon="delete" title={tr('Xoá khỏi playlist')} onClick={() => removeTrack(t.id)} size={15} />
+                    <IconButton btnSize="xs" icon="tune" title={tr('Chỉnh sửa')} onClick={() => setExpanded(expanded === t.id ? null : t.id)} active={expanded === t.id} size={15} />
+                    <IconButton btnSize="xs" icon="delete" title={tr('Xoá khỏi playlist')} onClick={() => removeTrack(t.id)} size={15} />
                   </div>
                 </div>
                 {expanded === t.id && <TrackEditor track={t} />}
@@ -112,9 +113,9 @@ export function MusicTab(): ReactNode {
         <span>
           {tr('{n} bài', { n: tracks.length })} · {formatTime(timeline.total, withHours)}
         </span>
-        <button type="button" className="btn small" onClick={() => openDialog('chapters')} disabled={tracks.length === 0}>
+        <Button variant="outline" tone="neutral" size="xs" onClick={() => openDialog('chapters')} disabled={tracks.length === 0}>
           <Icon name="list" size={16} /> {tr('Timestamp YouTube')}
-        </button>
+        </Button>
       </div>
     </>
   )
@@ -141,11 +142,11 @@ function TrackEditor({ track }: { track: Track }): ReactNode {
     <div className="track-editor">
       <label>
         {tr('Tên bài')}
-        <input value={track.title} onChange={(e) => updateTrack(track.id, { title: e.target.value }, { coalesce: `title-${track.id}` })} />
+        <Input value={track.title} onChange={(e) => updateTrack(track.id, { title: e.target.value }, { coalesce: `title-${track.id}` })} />
       </label>
       <label>
         {tr('Ca sĩ')}
-        <input value={track.artist} onChange={(e) => updateTrack(track.id, { artist: e.target.value }, { coalesce: `artist-${track.id}` })} />
+        <Input value={track.artist} onChange={(e) => updateTrack(track.id, { artist: e.target.value }, { coalesce: `artist-${track.id}` })} />
       </label>
       <div className="two">
         <label>

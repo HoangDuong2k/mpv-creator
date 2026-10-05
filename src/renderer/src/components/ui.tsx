@@ -1,4 +1,17 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import {
+  ColorPicker,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  IconButton as MomiIconButton,
+  Input,
+  NumberField,
+  Slider,
+  Tooltip
+} from 'momi-ui'
 import { formatTimePrecise, parseTime } from '../../../shared/time'
 import { tr } from '../../../shared/i18n'
 
@@ -56,12 +69,6 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS
 
-/** Phần đã kéo của thanh trượt (CSS tô màu nhấn tới vị trí núm) */
-export function rangeFill(value: number, min: number, max: number): CSSProperties {
-  const pct = max > min ? Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100)) : 0
-  return { ['--pct' as string]: `${pct}%` }
-}
-
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }): ReactNode {
   return (
     <svg className="icon" width={size} height={size} viewBox="0 0 256 256" aria-hidden="true">
@@ -70,13 +77,19 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }): Re
   )
 }
 
+/**
+ * Nút chỉ có biểu tượng (momi-ui), kèm tooltip là `title`. `size`: cỡ biểu tượng (px); `btnSize`: cỡ nút
+ * (`sm` 32px cho thanh công cụ, `xs` 24px cho hàng trong danh sách).
+ */
 export function IconButton({
   icon,
   title,
   onClick,
   disabled,
   active,
-  size
+  size,
+  btnSize = 'sm',
+  className
 }: {
   icon: IconName
   title: string
@@ -84,33 +97,53 @@ export function IconButton({
   disabled?: boolean
   active?: boolean
   size?: number
+  btnSize?: 'xs' | 'sm' | 'md'
+  className?: string
 }): ReactNode {
-  return (
-    <button type="button" className={`icon-btn${active ? ' active' : ''}`} title={title} aria-label={title} onClick={onClick} disabled={disabled}>
-      <Icon name={icon} size={size} />
-    </button>
+  const button = (
+    <MomiIconButton
+      variant={active ? 'soft' : 'ghost'}
+      tone={active ? 'primary' : 'neutral'}
+      size={btnSize}
+      aria-label={title}
+      aria-pressed={active === undefined ? undefined : active}
+      onClick={onClick}
+      disabled={disabled}
+      className={className}
+    >
+      <Icon name={icon} size={size ?? (btnSize === 'xs' ? 14 : 18)} />
+    </MomiIconButton>
   )
+  // Nút bị tắt không nhận chuột nên không hiện tooltip: bỏ tooltip, giữ nhãn cho trình đọc màn hình
+  return disabled ? button : <Tooltip content={title}>{button}</Tooltip>
 }
 
+/** Hộp thoại (momi-ui Dialog). `wide`: hộp rộng cho lưới mẫu, bảng phím tắt */
 export function Modal({ title, onClose, children, footer, wide }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }): ReactNode {
+  // Thông báo (Toast của momi-ui, dựng trên Radix) cũng là một lớp nhận phím Esc: đang có thông báo thì Esc chỉ đóng
+  // thông báo. Khi không có menu / bảng chọn nào đang mở, Esc đóng luôn hộp thoại như người dùng mong đợi.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const toastOpen = document.querySelector('[data-slot="toaster"] [data-state="open"]')
+      const popupOpen = document.querySelector('[data-radix-popper-content-wrapper]')
+      if (!toastOpen || popupOpen) return
+      e.preventDefault()
+      onClose()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [onClose])
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal${wide ? ' wide' : ''}`} role="dialog" aria-label={title}>
-        <div className="modal-head">
-          <h2>{title}</h2>
-          <IconButton icon="close" title={tr('Đóng')} onClick={onClose} />
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent size={wide ? 'xl' : 'md'} className={`modal${wide ? ' wide' : ''}`} closeLabel={tr('Đóng')} aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
         <div className="modal-body">{children}</div>
-        {footer && <div className="modal-foot">{footer}</div>}
-      </div>
-    </div>
+        {footer && <DialogFooter className="modal-foot">{footer}</DialogFooter>}
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -124,33 +157,49 @@ export function Row({ label, children, hint }: { label: string; children: ReactN
   )
 }
 
-/** Ô số: cho gõ tự do, chỉ áp dụng khi rời ô hoặc Enter */
-export function NumberInput({ value, onChange, min, max, step }: { value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number }): ReactNode {
-  const [text, setText] = useState(String(value))
-  useEffect(() => setText(String(round(value))), [value])
-  const commit = (): void => {
-    const v = parseFloat(text.replace(',', '.'))
-    if (!Number.isFinite(v)) return setText(String(round(value)))
-    const clamped = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v))
-    if (clamped !== value) onChange(clamped)
-    setText(String(round(clamped)))
-  }
+/**
+ * Ô số (momi-ui NumberField): gõ (nhận cả "0,5" lẫn "0.5"), kéo ngang trên ô để đổi (Shift ×10, Alt ×0,1),
+ * mũi tên lên / xuống. `onChange` gọi liên tục khi kéo; nơi gọi gộp các lần đổi liền nhau thành một bước hoàn tác.
+ */
+export function NumberInput({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  unit,
+  format,
+  parse,
+  resetValue,
+  label
+}: {
+  value: number
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+  step?: number
+  unit?: ReactNode
+  format?: (v: number) => number
+  parse?: (v: number) => number
+  resetValue?: number
+  label?: string
+}): ReactNode {
   return (
-    <input
+    <NumberField
       className="num"
-      type="text"
-      inputMode="decimal"
-      value={text}
+      wrapperClassName="num-field"
+      value={value}
+      onValueChange={(v) => v !== value && onChange(v)}
+      min={min}
+      max={max}
       step={step}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => e.key === 'Enter' && commit()}
+      unit={unit}
+      format={format}
+      parse={parse}
+      resetValue={resetValue}
+      aria-label={label}
     />
   )
-}
-
-function round(v: number): number {
-  return Math.round(v * 1000) / 1000
 }
 
 /** Ô nhập thời gian dạng "1:02.5" (hoặc số giây), áp dụng khi rời ô / Enter */
@@ -164,7 +213,7 @@ export function TimeInput({ value, onChange, withHours }: { value: number; onCha
     else setText(formatTimePrecise(value, withHours))
   }
   return (
-    <input
+    <Input
       className="time-input"
       type="text"
       value={text}
@@ -178,8 +227,8 @@ export function TimeInput({ value, onChange, withHours }: { value: number; onCha
 }
 
 /**
- * Thanh trượt + ô số. `percent`: giá trị 0…1 hiện thành 0…100 %; `suffix`: đơn vị hiện sau ô số (×…);
- * `resetTo`: nhấp đúp thanh trượt để về giá trị mặc định.
+ * Thanh trượt + ô số (momi-ui Slider + NumberField). `percent`: giá trị 0…1 hiện thành 0…100 %; `suffix`: đơn vị
+ * sau ô số (×…); `resetTo`: nhấp đúp thanh trượt hoặc nhãn ô số để về mặc định. Thanh chạy từ âm sang dương tô từ 0.
  */
 export function RangeInput({
   value,
@@ -189,7 +238,8 @@ export function RangeInput({
   step,
   percent,
   suffix,
-  resetTo
+  resetTo,
+  label
 }: {
   value: number
   onChange: (v: number) => void
@@ -199,50 +249,50 @@ export function RangeInput({
   percent?: boolean
   suffix?: string
   resetTo?: number
+  label?: string
 }): ReactNode {
-  const k = percent ? 100 : 1
   const unit = percent ? '%' : suffix
   return (
     <div className="range">
-      <input
-        type="range"
+      <Slider
         min={min}
         max={max}
         step={step ?? 0.01}
-        value={value}
-        style={rangeFill(value, min, max)}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        onDoubleClick={resetTo !== undefined ? () => onChange(resetTo) : undefined}
+        value={[value]}
+        onValueChange={([v]) => v !== value && onChange(v)}
+        resetValue={resetTo}
+        origin={min < 0 && max > 0 ? 0 : undefined}
+        thumbLabels={label ? [label] : undefined}
         title={resetTo !== undefined ? tr('Nhấp đúp để về mặc định') : undefined}
       />
-      <NumberInput value={round(value * k)} onChange={(v) => onChange(v / k)} min={min * k} max={max * k} step={(step ?? 0.01) * k} />
-      {unit && <span className="range-unit">{unit}</span>}
+      <NumberInput
+        value={value}
+        onChange={onChange}
+        min={min}
+        max={max}
+        step={step ?? 0.01}
+        format={percent ? (v) => Math.round(v * 100000) / 1000 : undefined}
+        parse={percent ? (v) => v / 100 : undefined}
+        unit={unit ? <span className="range-unit">{unit}</span> : undefined}
+        resetValue={resetTo}
+        label={label}
+      />
     </div>
   )
 }
 
-function toHex(color: string): string {
-  if (/^#[0-9a-f]{6}$/i.test(color)) return color
-  if (/^#[0-9a-f]{3}$/i.test(color)) return `#${color.slice(1).split('').map((c) => c + c).join('')}`
-  const m = /rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(color)
-  if (m) return `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`
-  return '#000000'
-}
-
+/** Ô màu: nút mở bảng chọn màu (momi-ui ColorPicker, có độ trong) + ô gõ mã màu (#hex, rgba…) */
 export function ColorInput({ value, onChange }: { value: string; onChange: (v: string) => void }): ReactNode {
   const [text, setText] = useState(value)
   useEffect(() => setText(value), [value])
+  const commit = (): void => {
+    const v = text.trim()
+    if (v && v !== value) onChange(v)
+  }
   return (
     <div className="color">
-      <input type="color" value={toHex(value)} onChange={(e) => onChange(e.target.value)} />
-      <input
-        type="text"
-        value={text}
-        spellCheck={false}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={() => text.trim() && text !== value && onChange(text.trim())}
-        onKeyDown={(e) => e.key === 'Enter' && text.trim() && onChange(text.trim())}
-      />
+      <ColorPicker variant="swatch" alpha value={value} onValueChange={(v) => v !== value && onChange(v)} />
+      <Input type="text" value={text} spellCheck={false} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && commit()} />
     </div>
   )
 }

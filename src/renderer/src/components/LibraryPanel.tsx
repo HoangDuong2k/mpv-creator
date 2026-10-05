@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { Button } from 'momi-ui'
 import { FILTER_PRESETS } from '../../../shared/filterPresets'
 import { mediaKind } from '../../../shared/files'
 import { tr, trKey } from '../../../shared/i18n'
@@ -153,7 +154,7 @@ const presetBuild = (p: LayerPreset): (() => PreviewScene) => {
 
 function EffectsTab(): ReactNode {
   return (
-    <div className="lib-body">
+    <div className="lib-body momi-scrollbar">
       <LibHint>{tr('Bấm một mẫu để xem thử trên preview, bấm + để thêm cho cả video, hoặc kéo vào timeline để đặt từ chỗ thả đến hết bài.')}</LibHint>
       {EFFECT_GROUPS.map((g) => (
         <section key={g.id} className="lib-group">
@@ -177,7 +178,7 @@ function EffectsTab(): ReactNode {
 
 function TextTab(): ReactNode {
   return (
-    <div className="lib-body">
+    <div className="lib-body momi-scrollbar">
       <LibHint>{tr('Chữ tự đổi theo bài đang phát ({title}, {artist}…). Bấm để xem thử, bấm + để thêm, hoặc kéo vào timeline để đặt đúng chỗ.')}</LibHint>
       <div className="lib-grid">
         {TEXT_PRESETS.map((p) => (
@@ -199,7 +200,7 @@ function FiltersTab(): ReactNode {
   const selected = useStore((s) => s.project.layers.find((l) => l.id === s.selectedLayerId))
   const current = selected?.type === 'filter' ? selected.props.preset : null
   return (
-    <div className="lib-body">
+    <div className="lib-body momi-scrollbar">
       <LibHint>
         {current !== null
           ? tr('Đang chọn một lớp bộ lọc: bấm mẫu để xem thử, bấm + để đổi bộ lọc của lớp đó')
@@ -289,16 +290,16 @@ function MediaTab(): ReactNode {
 
   return (
     <div
-      className={`lib-body media-drop${over ? ' drop-over' : ''}`}
+      className={`lib-body momi-scrollbar media-drop${over ? ' drop-over' : ''}`}
       onDragOver={onDragOver}
       onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOver(false)}
       onDrop={onDrop}
     >
       <div className="lib-bar">
         <span className="lib-bar-title">{tr('Ảnh & video')}</span>
-        <button type="button" className="btn small primary" onClick={() => void importMedia()}>
+        <Button variant="solid" tone="primary" size="xs" onClick={() => void importMedia()}>
           <Icon name="add" size={16} /> {tr('Nhập')}
-        </button>
+        </Button>
       </div>
       {items.length === 0 ? (
         <div className="empty-drop">

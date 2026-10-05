@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Button, Input } from 'momi-ui'
 import { formatTime, formatTimePrecise } from '../../../shared/time'
 import type { Track } from '../../../shared/types'
 import { player } from '../engineHost'
@@ -30,10 +31,10 @@ export function TrackInspector({ track }: { track: Track }): ReactNode {
       </div>
       {track.coverPath && <img className="track-cover-lg" src={api.fileUrl(track.coverPath)} alt="" />}
       <Row label={tr('Tên bài')}>
-        <input value={track.title} onChange={(e) => updateTrack(track.id, { title: e.target.value }, { coalesce: `title-${track.id}` })} />
+        <Input value={track.title} onChange={(e) => updateTrack(track.id, { title: e.target.value }, { coalesce: `title-${track.id}` })} />
       </Row>
       <Row label={tr('Ca sĩ')}>
-        <input value={track.artist} onChange={(e) => updateTrack(track.id, { artist: e.target.value }, { coalesce: `artist-${track.id}` })} />
+        <Input value={track.artist} onChange={(e) => updateTrack(track.id, { artist: e.target.value }, { coalesce: `artist-${track.id}` })} />
       </Row>
       <div className="section-title">{tr('Cắt bài')}</div>
       <div className="two">
@@ -56,18 +57,18 @@ export function TrackInspector({ track }: { track: Track }): ReactNode {
       )}
       <div className="row-actions">
         {entry && (
-          <button type="button" className="btn small" onClick={() => seek(entry.index === 0 ? 0 : entry.displayStart)}>
+          <Button variant="outline" tone="neutral" size="xs" onClick={() => seek(entry.index === 0 ? 0 : entry.displayStart)}>
             {tr('Tới đầu bài')}
-          </button>
+          </Button>
         )}
         {(track.trimStart > 0 || track.trimEnd > 0) && (
-          <button type="button" className="btn small" onClick={() => updateTrack(track.id, { trimStart: 0, trimEnd: 0 })}>
+          <Button variant="outline" tone="neutral" size="xs" onClick={() => updateTrack(track.id, { trimStart: 0, trimEnd: 0 })}>
             {tr('Bỏ cắt')}
-          </button>
+          </Button>
         )}
-        <button type="button" className="btn small danger" onClick={() => removeTrack(track.id)}>
+        <Button variant="soft" tone="danger" size="xs" onClick={() => removeTrack(track.id)}>
           {tr('Xoá khỏi playlist')}
-        </button>
+        </Button>
       </div>
       <p className="muted small">{tr('Trên timeline: kéo clip để đổi thứ tự, kéo mép clip để cắt đầu/cuối, chọn clip rồi bấm Delete để xoá.')}</p>
     </div>

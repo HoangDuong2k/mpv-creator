@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Button, Checkbox } from 'momi-ui'
 import { tr } from '../../../shared/i18n'
 import { builtinTemplates, hasMediaBackground, projectFromTemplate, type StyleTemplate } from '../../../shared/templates'
 import { player } from '../engineHost'
@@ -130,37 +131,35 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
   const footer =
     mode === 'welcome' ? (
       <>
-        <label className="toggle tpl-start">
-          <input
-            type="checkbox"
-            checked={showOnStart}
-            onChange={(e) => {
-              setShowOnStart(e.target.checked)
-              setWelcomeEnabled(e.target.checked)
-            }}
-          />
-          <span>{tr('Hiện màn hình này khi mở ứng dụng')}</span>
-        </label>
+        <Checkbox
+          size="sm"
+          wrapperClassName="toggle-row tpl-start"
+          checked={showOnStart}
+          onCheckedChange={(on) => {
+            setShowOnStart(on === true)
+            setWelcomeEnabled(on === true)
+          }}
+          label={tr('Hiện màn hình này khi mở ứng dụng')}
+        />
         {onOpenProject && (
-          <button
-            type="button"
-            className="btn"
+          <Button
+            variant="outline" tone="neutral" size="sm"
             onClick={() => {
               close()
               onOpenProject()
             }}
           >
             <Icon name="folder" size={16} /> {tr('Mở project…')}
-          </button>
+          </Button>
         )}
-        <button type="button" className="btn primary" onClick={close}>
+        <Button variant="solid" tone="primary" size="sm" onClick={close}>
           {tr('Bắt đầu với mẫu mặc định')}
-        </button>
+        </Button>
       </>
     ) : (
-      <button type="button" className="btn" onClick={close}>
+      <Button variant="outline" tone="neutral" size="sm" onClick={close}>
         {tr('Đóng')}
-      </button>
+      </Button>
     )
 
   if (started)
@@ -169,9 +168,9 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
         title={tr('Video mới theo mẫu "{name}"', { name: tr(started.name) })}
         onClose={close}
         footer={
-          <button type="button" className="btn primary" onClick={close}>
+          <Button variant="solid" tone="primary" size="sm" onClick={close}>
             {tr('Xong')}
-          </button>
+          </Button>
         }
         wide
       >
@@ -185,19 +184,22 @@ export function TemplatesDialog({ mode, onOpenProject }: { mode: TemplatesMode; 
       <div className="tpl-dialog" data-mode={mode}>
         <p className="muted">{lead}</p>
         {mode === 'styles' && mediaBg && (
-          <label className="toggle">
-            <input type="checkbox" checked={keepBg} onChange={(e) => setKeepBg(e.target.checked)} />
-            <span>{tr('Giữ ảnh / video nền đang dùng (chỉ thay cột sóng, chữ, hiệu ứng)')}</span>
-          </label>
+          <Checkbox
+            size="sm"
+            wrapperClassName="toggle-row"
+            checked={keepBg}
+            onCheckedChange={(on) => setKeepBg(on === true)}
+            label={tr('Giữ ảnh / video nền đang dùng (chỉ thay cột sóng, chữ, hiệu ứng)')}
+          />
         )}
         {(mode === 'styles' || hasCustom) && (
           <section className="tpl-custom">
             <div className="tpl-custom-head">
               <h4>{tr('Mẫu của bạn')}</h4>
               {mode === 'styles' && !creating && (
-                <button type="button" className="btn small" onClick={() => setCreating(true)}>
+                <Button variant="outline" tone="neutral" size="xs" onClick={() => setCreating(true)}>
                   <Icon name="save" size={15} /> {tr('Tạo mẫu từ video này')}
-                </button>
+                </Button>
               )}
             </div>
             {creating && (

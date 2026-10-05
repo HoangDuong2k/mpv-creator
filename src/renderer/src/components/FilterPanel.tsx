@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Button } from 'momi-ui'
 import { AudioSampler, Renderer } from '../../../engine'
 import { FULL_TIMING } from '../../../shared/defaults'
 import { FILTER_PRESETS } from '../../../shared/filterPresets'
@@ -84,16 +85,15 @@ export function FilterPanel({ layer }: { layer: Layer }): ReactNode {
       <div className="section-title">{tr('Phạm vi tác động')}</div>
       <p className="muted small">{tr('Bộ lọc áp dụng cho các lớp nằm dưới nó trong danh sách lớp.')}</p>
       <div className="row-actions">
-        <button
-          type="button"
-          className={`btn small${scope === 'background' ? ' primary' : ''}`}
+        <Button
+          variant={scope === 'background' ? 'solid' : 'outline'} tone={scope === 'background' ? 'primary' : 'neutral'} size="xs"
           onClick={() => moveLayerTo(layer.id, bgIndex > index ? bgIndex - 1 : bgIndex)}
         >
           {tr('Chỉ lọc ảnh nền')}
-        </button>
-        <button type="button" className={`btn small${scope === 'all' ? ' primary' : ''}`} onClick={() => moveLayerTo(layer.id, project.layers.length - 1)}>
+        </Button>
+        <Button variant={scope === 'all' ? 'solid' : 'outline'} tone={scope === 'all' ? 'primary' : 'neutral'} size="xs" onClick={() => moveLayerTo(layer.id, project.layers.length - 1)}>
           {tr('Lọc cả khung hình')}
-        </button>
+        </Button>
       </div>
     </>
   )

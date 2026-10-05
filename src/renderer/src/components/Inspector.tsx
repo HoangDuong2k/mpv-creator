@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Button, Input, NativeSelect, Switch, Textarea } from 'momi-ui'
 import { FULL_TIMING, LAYER_DEFAULTS, LAYER_LABELS } from '../../../shared/defaults'
 import { isFullLength } from '../../../shared/timing'
 import type { Layer } from '../../../shared/types'
@@ -28,7 +29,7 @@ export function Inspector({ layer }: { layer: Layer }): ReactNode {
   return (
     <div className="inspector">
       <div className="inspector-head">
-        <input className="layer-name" value={tr(layer.name)} onChange={(e) => renameLayer(layer.id, e.target.value)} aria-label={tr('Tên lớp')} />
+        <Input className="layer-name" value={tr(layer.name)} onChange={(e) => renameLayer(layer.id, e.target.value)} aria-label={tr('Tên lớp')} />
         <span className="badge">{tr(LAYER_LABELS[layer.type])}</span>
       </div>
       {layer.type === 'cta' ? (
@@ -106,6 +107,7 @@ function FieldView({
             percent={percent}
             suffix={!percent && TIMES_KEYS.includes(f.key) ? '×' : undefined}
             resetTo={typeof def === 'number' ? def : undefined}
+            label={label}
           />
         </Row>
       )
@@ -113,19 +115,27 @@ function FieldView({
     case 'number':
       return (
         <Row label={f.unit ? `${label} (${tr(f.unit)})` : label}>
-          <NumberInput value={Number(value)} min={f.min} max={f.max} step={f.step} onChange={(v) => set(f.key, v)} />
+          <NumberInput
+            value={Number(value)}
+            min={f.min}
+            max={f.max}
+            step={f.step}
+            onChange={(v) => set(f.key, v, true)}
+            resetValue={typeof def === 'number' ? def : undefined}
+            label={label}
+          />
         </Row>
       )
     case 'select':
       return (
         <Row label={label}>
-          <select value={String(value)} onChange={(e) => set(f.key, e.target.value)}>
+          <NativeSelect value={String(value)} onChange={(e) => set(f.key, e.target.value)}>
             {f.options.map(([v, text]) => (
               <option key={v} value={v}>
                 {tr(text)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </Row>
       )
     case 'color':
@@ -136,37 +146,33 @@ function FieldView({
       )
     case 'toggle':
       return (
-        <label className="toggle">
-          <input type="checkbox" checked={!!value} onChange={(e) => set(f.key, e.target.checked)} />
-          <span>{label}</span>
-        </label>
+        <Switch className="toggle" wrapperClassName="toggle-row" label={label} checked={!!value} onCheckedChange={(on) => set(f.key, on)} />
       )
     case 'text':
       return (
         <Row label={label}>
-          <input type="text" value={String(value)} placeholder={f.placeholder ? tr(f.placeholder) : undefined} onChange={(e) => set(f.key, e.target.value, true)} />
+          <Input type="text" value={String(value)} placeholder={f.placeholder ? tr(f.placeholder) : undefined} onChange={(e) => set(f.key, e.target.value, true)} />
         </Row>
       )
     case 'textarea':
       return (
         <Row label={label} hint={f.hint ? tr(f.hint) : undefined}>
-          <textarea rows={2} value={String(value)} onChange={(e) => set(f.key, e.target.value, true)} />
+          <Textarea rows={2} autoResize value={String(value)} onChange={(e) => set(f.key, e.target.value, true)} />
         </Row>
       )
     case 'file':
       return (
         <Row label={label}>
           <div className="file-pick">
-            <button
-              type="button"
-              className="btn small"
+            <Button
+              variant="outline" tone="neutral" size="xs"
               onClick={async () => {
                 const [p] = await api.openFiles(f.accept, false)
                 if (p) set(f.key, p)
               }}
             >
               {tr('Chọn…')}
-            </button>
+            </Button>
             <span className="file-name" title={String(value)}>
               {value ? fileName(String(value)) : tr('Chưa chọn')}
             </span>
@@ -208,14 +214,13 @@ function TimingFields({ layer, set, total, withHours }: { layer: Layer; set: (pa
           )}
         </Row>
       </div>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={t.end === null}
-          onChange={(e) => set(e.target.checked ? { end: null } : { end: Math.round(range.end * 100) / 100 })}
-        />
-        <span>{tr('Kéo dài đến hết video (tự dài theo khi thêm bài)')}</span>
-      </label>
+      <Switch
+        className="toggle"
+        wrapperClassName="toggle-row"
+        label={tr('Kéo dài đến hết video (tự dài theo khi thêm bài)')}
+        checked={t.end === null}
+        onCheckedChange={(on) => set(on ? { end: null } : { end: Math.round(range.end * 100) / 100 })}
+      />
       <div className="two">
         <Row label={tr('Hiện dần (giây)')}>
           <NumberInput value={t.fadeIn} min={0} step={0.1} onChange={(v) => set(dragRange('fadeIn', t, total, range.start + v))} />
@@ -225,9 +230,9 @@ function TimingFields({ layer, set, total, withHours }: { layer: Layer; set: (pa
         </Row>
       </div>
       {!isFullLength(t) && (
-        <button type="button" className="btn small" onClick={() => set({ ...FULL_TIMING })}>
+        <Button variant="outline" tone="neutral" size="xs" onClick={() => set({ ...FULL_TIMING })}>
           {tr('Hiện suốt video')}
-        </button>
+        </Button>
       )}
     </>
   )

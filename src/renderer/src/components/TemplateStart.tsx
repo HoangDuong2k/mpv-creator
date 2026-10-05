@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { Button } from 'momi-ui'
 import { mediaKind } from '../../../shared/files'
 import { tr } from '../../../shared/i18n'
 import { formatTime } from '../../../shared/time'
@@ -67,9 +68,9 @@ export function TemplateStart(): ReactNode {
             {bgText}
           </span>
         </div>
-        <button type="button" className="btn" onClick={() => void chooseBackground()}>
+        <Button variant="outline" tone="neutral" size="sm" onClick={() => void chooseBackground()}>
           <Icon name="image" size={16} /> {tr('Chọn ảnh / video…')}
-        </button>
+        </Button>
       </div>
       <div className="start-step" data-step="music">
         <span className="start-thumb icon-only">
@@ -79,9 +80,9 @@ export function TemplateStart(): ReactNode {
           <b>{tr('Nhạc')}</b>
           <span className="muted">{tracks.length ? tr('{n} bài, dài {time}', { n: tracks.length, time: formatTime(tl.total, tl.total >= 3600) }) : tr('Chưa có bài nào')}</span>
         </div>
-        <button type="button" className={`btn${tracks.length ? '' : ' primary'}`} onClick={async () => importPaths(await api.openFiles('audio', true))}>
+        <Button variant={!(tracks.length) ? 'solid' : 'outline'} tone={!(tracks.length) ? 'primary' : 'neutral'} size="sm" onClick={async () => importPaths(await api.openFiles('audio', true))}>
           <Icon name="add" size={16} /> {tr('Thêm nhạc…')}
-        </button>
+        </Button>
       </div>
     </div>
   )

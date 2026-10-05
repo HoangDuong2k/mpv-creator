@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Button, Toaster, ToggleGroup, ToggleGroupItem, toast } from 'momi-ui'
 import { ChaptersDialog } from './components/ChaptersDialog'
 import { ExportDialog, ShutdownCountdown, useExportStore } from './components/ExportDialog'
 import { LayersPanel } from './components/LayersPanel'
@@ -21,7 +22,7 @@ import { clearLibraryPreview, useLibPreview } from './libraryPreview'
 import { isMac } from './platform'
 import { CollapsedRail } from './components/PanelFrame'
 import { ShortcutsDialog } from './components/ShortcutsDialog'
-import { LANGS, tr } from '../../shared/i18n'
+import { LANGS, tr, type Lang } from '../../shared/i18n'
 
 const api = window.api
 let booted = false
@@ -105,18 +106,18 @@ function TopBar(): ReactNode {
         <IconButton icon="tune" title={tr('Cài đặt project')} onClick={() => openDialog('settings')} />
         <IconButton icon="help" title={tr('Phím tắt và thao tác chuột (?)')} onClick={() => openDialog('shortcuts')} />
         <span className="sep" />
-        <button type="button" className="btn small styles-btn" onClick={() => openDialog('styles')} title={tr('Mẫu phong cách: áp cho project này (giữ nhạc) hoặc lưu phong cách đang làm')}>
+        <Button variant="outline" tone="neutral" size="xs" className="styles-btn" onClick={() => openDialog('styles')} title={tr('Mẫu phong cách: áp cho project này (giữ nhạc) hoặc lưu phong cách đang làm')}>
           <Icon name="palette" size={16} /> {tr('Mẫu phong cách')}
-        </button>
+        </Button>
       </div>
       <div className="project-name" title={tr('Nhấn để đổi tên')} onClick={() => openDialog('settings')}>
         {tr(name)}
         {dirty && <span className="dirty">●</span>}
       </div>
       <LangSwitch />
-      <button type="button" className="btn primary" onClick={() => openDialog('export')}>
+      <Button variant="solid" tone="primary" size="sm" data-action="export" onClick={() => openDialog('export')}>
         <Icon name="movie" size={18} /> {exporting ? tr('Đang xuất {pct}%', { pct: exportPct }) : tr('Xuất video')}
-      </button>
+      </Button>
     </header>
   )
 }
@@ -126,13 +127,13 @@ function LangSwitch(): ReactNode {
   const lang = useStore((s) => s.lang)
   const setLanguage = useStore((s) => s.setLanguage)
   return (
-    <div className="lang-switch" role="group" aria-label={tr('Ngôn ngữ')}>
+    <ToggleGroup type="single" variant="segmented" size="xs" className="lang-switch" aria-label={tr('Ngôn ngữ')} value={lang} onValueChange={(v) => v && setLanguage(v as Lang)}>
       {LANGS.map((l) => (
-        <button key={l.id} type="button" className={lang === l.id ? 'on' : ''} onClick={() => setLanguage(l.id)} title={l.label} aria-pressed={lang === l.id}>
+        <ToggleGroupItem key={l.id} value={l.id} title={l.label}>
           {l.short}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   )
 }
 
@@ -169,18 +170,19 @@ function Workspace(): ReactNode {
   )
 }
 
+/** Thông báo ngắn (momi-ui Toaster): đọc hàng đợi thông báo trong store, mỗi thông báo hiện một lần */
 function Toasts(): ReactNode {
   const toasts = useStore((s) => s.toasts)
-  const dismiss = useStore((s) => s.dismissToast)
-  return (
-    <div className="toasts">
-      {toasts.map((t) => (
-        <div key={t.id} className={`toast ${t.kind}`} onClick={() => dismiss(t.id)}>
-          {t.text}
-        </div>
-      ))}
-    </div>
-  )
+  const shown = useRef(new Set<number>())
+  useEffect(() => {
+    for (const t of toasts) {
+      if (shown.current.has(t.id)) continue
+      shown.current.add(t.id)
+      const show = t.kind === 'error' ? toast.error : t.kind === 'success' ? toast.success : toast.info
+      show(t.text, { duration: t.kind === 'error' ? 8000 : 3000 })
+    }
+  }, [toasts])
+  return <Toaster position="bottom-left" visibleToasts={2} clearAll={false} className="app-toaster" />
 }
 
 export function App(): ReactNode {

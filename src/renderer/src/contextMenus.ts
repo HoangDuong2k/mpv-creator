@@ -4,7 +4,7 @@ import { ctaStartTimes } from '../../engine/layers/cta'
 import { tr } from '../../shared/i18n'
 import { buildTimeline, type Timeline } from '../../shared/timeline'
 import { player } from './engineHost'
-import type { MenuItem } from './components/ContextMenu'
+import { DELETE_SHORTCUT, type MenuItem } from './components/ContextMenu'
 import { hasClipboard, useStore } from './store'
 import { copySelection, deleteSelection, pasteAtPlayhead, seekTo, splitAtPlayhead } from './timelineActions'
 import { addAppearance, layerRange, removeAppearance, ROW_COLORS, splitTiming } from './timelineModel'
@@ -31,10 +31,10 @@ export function layerMenu(layerId: string): MenuItem[] {
   const many = layers.length > 1
   const index = s.project.layers.findIndex((l) => l.id === layerId)
   return [
-    { label: tr('Tách tại đầu phát'), icon: 'split', shortcut: 'Ctrl+B', onClick: splitAtPlayhead, disabled: !canSplit },
+    { label: tr('Tách tại đầu phát'), icon: 'split', shortcut: 'mod+b', onClick: splitAtPlayhead, disabled: !canSplit },
     { kind: 'separator' },
-    { label: many ? tr('Chép {n} mục', { n: layers.length }) : tr('Chép'), icon: 'copy', shortcut: 'Ctrl+C', onClick: copySelection },
-    { label: tr('Dán tại đầu phát'), shortcut: 'Ctrl+V', onClick: pasteAtPlayhead, disabled: !hasClipboard() },
+    { label: many ? tr('Chép {n} mục', { n: layers.length }) : tr('Chép'), icon: 'copy', shortcut: 'mod+c', onClick: copySelection },
+    { label: tr('Dán tại đầu phát'), shortcut: 'mod+v', onClick: pasteAtPlayhead, disabled: !hasClipboard() },
     { label: tr('Nhân bản'), icon: 'duplicate', onClick: () => useStore.getState().duplicateLayers(ids) },
     { kind: 'separator' },
     {
@@ -56,7 +56,7 @@ export function layerMenu(layerId: string): MenuItem[] {
     {
       label: many ? tr('Xoá {n} mục', { n: layers.length }) : tr('Xoá lớp'),
       icon: 'delete',
-      shortcut: 'Delete',
+      shortcut: DELETE_SHORTCUT,
       danger: true,
       onClick: () => void deleteSelection(),
       disabled: allLocked
@@ -75,14 +75,14 @@ export function trackMenu(trackId: string): MenuItem[] {
   const entry = tl.entries.find((e) => e.track.id === trackId)
   const trimmed = !!entry && (entry.track.trimStart > 0 || entry.track.trimEnd > 0)
   return [
-    { label: many ? tr('Chép {n} mục', { n: ids.length + s.selectedLayerIds.length }) : tr('Chép'), icon: 'copy', shortcut: 'Ctrl+C', onClick: copySelection },
-    { label: tr('Dán tại đầu phát'), shortcut: 'Ctrl+V', onClick: pasteAtPlayhead, disabled: !hasClipboard() },
+    { label: many ? tr('Chép {n} mục', { n: ids.length + s.selectedLayerIds.length }) : tr('Chép'), icon: 'copy', shortcut: 'mod+c', onClick: copySelection },
+    { label: tr('Dán tại đầu phát'), shortcut: 'mod+v', onClick: pasteAtPlayhead, disabled: !hasClipboard() },
     { label: ids.length > 1 ? tr('Nhân bản {n} bài', { n: ids.length }) : tr('Nhân bản bài'), icon: 'duplicate', onClick: () => useStore.getState().duplicateTracks(ids) },
     { kind: 'separator' },
     { label: tr('Tới đầu bài'), onClick: () => entry && seekTo(entry.index === 0 ? 0 : entry.displayStart), disabled: !entry },
     { label: tr('Bỏ cắt'), onClick: () => useStore.getState().updateTrack(trackId, { trimStart: 0, trimEnd: 0 }), disabled: !trimmed },
     { kind: 'separator' },
-    { label: many ? tr('Xoá {n} mục', { n: ids.length + s.selectedLayerIds.length }) : tr('Xoá khỏi playlist'), icon: 'delete', shortcut: 'Delete', danger: true, onClick: () => void deleteSelection() }
+    { label: many ? tr('Xoá {n} mục', { n: ids.length + s.selectedLayerIds.length }) : tr('Xoá khỏi playlist'), icon: 'delete', shortcut: DELETE_SHORTCUT, danger: true, onClick: () => void deleteSelection() }
   ]
 }
 
@@ -115,7 +115,7 @@ export function laneMenu(t: number, row: string | null): MenuItem[] {
   const items: MenuItem[] = [
     {
       label: tr('Dán tại đây'),
-      shortcut: 'Ctrl+V',
+      shortcut: 'mod+v',
       onClick: () => {
         seekTo(t)
         pasteAtPlayhead()
@@ -124,7 +124,7 @@ export function laneMenu(t: number, row: string | null): MenuItem[] {
     },
     {
       label: tr('Chọn tất cả'),
-      shortcut: 'Ctrl+A',
+      shortcut: 'mod+a',
       onClick: () =>
         useStore.getState().setSelection(
           s.project.layers.filter((l) => l.type !== 'cta').map((l) => l.id),

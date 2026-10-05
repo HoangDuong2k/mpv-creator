@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Button, Input } from 'momi-ui'
 import { createDefaultProject, LAYER_LABELS } from '../../../shared/defaults'
 import { tr } from '../../../shared/i18n'
 import { planTemplate, templateFromProject, type StyleTemplate } from '../../../shared/templates'
@@ -90,7 +91,7 @@ export function SaveTemplateForm({ onDone, onCancel }: { onDone: (saved: StyleTe
       <div className="tpl-save-body">
         <label className="field">
           <span className="field-label">{tr('Tên mẫu')}</span>
-          <input autoFocus value={name} maxLength={80} placeholder={tr('Tên mẫu, vd. Kênh lofi của tôi')} onChange={(e) => setName(e.target.value)} />
+          <Input size="sm" autoFocus value={name} maxLength={80} placeholder={tr('Tên mẫu, vd. Kênh lofi của tôi')} onChange={(e) => setName(e.target.value)} />
           {same && <span className="field-hint">{tr('Đã có mẫu tên này. Lưu sẽ thay mẫu cũ bằng phong cách của video này.')}</span>}
         </label>
         <section>
@@ -115,12 +116,12 @@ export function SaveTemplateForm({ onDone, onCancel }: { onDone: (saved: StyleTe
           {tr('Lưu kèm khung hình {w}×{h}, {fps} fps, {transition} và chất lượng xuất.', { w: s.width, h: s.height, fps: s.fps, transition: transitionText(s.transition) })}
         </p>
         <div className="tpl-save-actions">
-          <button type="button" className="btn" onClick={onCancel}>
+          <Button variant="outline" tone="neutral" size="sm" onClick={onCancel}>
             {tr('Huỷ')}
-          </button>
-          <button type="submit" className="btn primary" disabled={!trimmed || busy}>
+          </Button>
+          <Button type="submit" variant="solid" tone="primary" size="sm" disabled={!trimmed || busy}>
             <Icon name="save" size={16} /> {same ? tr('Lưu đè mẫu') : tr('Lưu mẫu')}
-          </button>
+          </Button>
         </div>
       </div>
     </form>

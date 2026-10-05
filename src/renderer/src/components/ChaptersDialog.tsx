@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { Button, NativeSelect, Textarea } from 'momi-ui'
 import { safeFileName } from '../../../shared/files'
 import { buildChapters } from '../../../shared/time'
 import { useTimeline } from '../hooks'
@@ -34,9 +35,8 @@ export function ChaptersDialog(): ReactNode {
       wide
       footer={
         <>
-          <button
-            type="button"
-            className="btn"
+          <Button
+            variant="outline" tone="neutral" size="sm"
             onClick={async () => {
               const p = await api.saveFile('text', `${safeFileName(tr(project.name))} - timestamp.txt`)
               if (p) {
@@ -46,30 +46,29 @@ export function ChaptersDialog(): ReactNode {
             }}
           >
             {tr('Lưu file .txt')}
-          </button>
-          <button
-            type="button"
-            className="btn primary"
+          </Button>
+          <Button
+            variant="solid" tone="primary" size="sm"
             onClick={async () => {
               await api.copyText(text)
               toast('success', tr('Đã copy timestamp, giờ dán vào phần mô tả video'))
             }}
           >
             <Icon name="copy" size={16} /> Copy
-          </button>
+          </Button>
         </>
       }
     >
       <Row label={tr('Định dạng')}>
-        <select value={template} onChange={(e) => setTemplate(e.target.value)}>
+        <NativeSelect size="sm" value={template} onChange={(e) => setTemplate(e.target.value)}>
           {TEMPLATES.map(([v, label]) => (
             <option key={v} value={v}>
               {tr(label)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </Row>
-      <textarea className="chapters" readOnly value={text} rows={Math.min(18, Math.max(6, timeline.entries.length + 1))} />
+      <Textarea className="chapters" readOnly value={text} rows={Math.min(18, Math.max(6, timeline.entries.length + 1))} />
       {warnings.map((w) => (
         <p key={w} className="warn">
           {w}

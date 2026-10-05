@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Button, Input, NativeSelect } from 'momi-ui'
 import { RESOLUTION_PRESETS } from '../../../shared/defaults'
 import type { TransitionType } from '../../../shared/types'
 import { player } from '../engineHost'
@@ -12,7 +13,8 @@ export function ResolutionSelect({ disabled }: { disabled?: boolean }): ReactNod
   const s = useStore((st) => st.project.settings)
   const presetId = RESOLUTION_PRESETS.find((p) => p.width === s.width && p.height === s.height)?.id ?? 'custom'
   return (
-    <select
+    <NativeSelect
+      size="sm"
       value={presetId}
       disabled={disabled}
       onChange={(e) => {
@@ -30,7 +32,7 @@ export function ResolutionSelect({ disabled }: { disabled?: boolean }): ReactNod
           {tr('Tuỳ chỉnh {w}×{h}', { w: s.width, h: s.height })}
         </option>
       )}
-    </select>
+    </NativeSelect>
   )
 }
 
@@ -38,13 +40,13 @@ export function ResolutionSelect({ disabled }: { disabled?: boolean }): ReactNod
 export function FpsSelect({ disabled }: { disabled?: boolean }): ReactNode {
   const fps = useStore((st) => st.project.settings.fps)
   return (
-    <select value={fps} disabled={disabled} onChange={(e) => useStore.getState().setSettings({ fps: Number(e.target.value) })}>
+    <NativeSelect size="sm" value={fps} disabled={disabled} onChange={(e) => useStore.getState().setSettings({ fps: Number(e.target.value) })}>
       {[24, 25, 30, 50, 60].map((f) => (
         <option key={f} value={f}>
           {f} fps{f === 30 ? tr(' (khuyên dùng)') : ''}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   )
 }
 
@@ -57,16 +59,17 @@ export function SettingsDialog(): ReactNode {
   return (
     <Modal title={tr('Cài đặt project')} onClose={() => openDialog(null)}>
       <Row label={tr('Ngôn ngữ giao diện / Language')}>
-        <select value={lang} onChange={(e) => useStore.getState().setLanguage(e.target.value as Lang)}>
+        <NativeSelect size="sm" value={lang} onChange={(e) => useStore.getState().setLanguage(e.target.value as Lang)}>
           {LANGS.map((l) => (
             <option key={l.id} value={l.id}>
               {l.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </Row>
       <Row label={tr('Tên project')}>
-        <input
+        <Input
+          size="sm"
           value={tr(project.name)}
           onChange={(e) =>
             update(
@@ -97,11 +100,11 @@ export function SettingsDialog(): ReactNode {
       <div className="section-title">{tr('Chuyển bài')}</div>
       <div className="two">
         <Row label={tr('Kiểu chuyển')}>
-          <select value={s.transition.type} onChange={(e) => setSettings({ transition: { ...s.transition, type: e.target.value as TransitionType } })}>
+          <NativeSelect size="sm" value={s.transition.type} onChange={(e) => setSettings({ transition: { ...s.transition, type: e.target.value as TransitionType } })}>
             <option value="crossfade">{tr('Crossfade (hoà tiếng)')}</option>
             <option value="gap">{tr('Khoảng lặng')}</option>
             <option value="none">{tr('Nối liền')}</option>
-          </select>
+          </NativeSelect>
         </Row>
         <Row label={s.transition.type === 'gap' ? tr('Khoảng lặng (giây)') : tr('Thời gian crossfade (giây)')}>
           <NumberInput
@@ -182,12 +185,12 @@ function CacheSection(): ReactNode {
         )}
       </div>
       <div className="row-actions">
-        <button type="button" className="btn small" onClick={() => api.openCacheDir()}>
+        <Button variant="outline" tone="neutral" size="xs" onClick={() => api.openCacheDir()}>
           {tr('Mở thư mục')}
-        </button>
-        <button type="button" className="btn small danger" disabled={busy} onClick={clear}>
+        </Button>
+        <Button variant="soft" tone="danger" size="xs" disabled={busy} onClick={clear}>
           {busy ? tr('Đang xoá…') : tr('Xoá bộ nhớ đệm')}
-        </button>
+        </Button>
       </div>
     </>
   )

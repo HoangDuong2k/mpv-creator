@@ -48,3 +48,76 @@
   --surface-raised: #211f1d;
   --border-strong: #3b3834;
 }
+
+/*
+ * Cỡ của component momi-ui ở vài chỗ trong app. Không nằm trong layer nào nên thắng class tiện ích của momi-ui
+ * (quy tắc trong layer legacy thì thua).
+ */
+.range > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.num-field {
+  flex: none;
+  width: 78px;
+}
+.color > :last-child {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+.volume .volume-slider {
+  flex: none;
+  width: 80px;
+}
+@container (max-width: 520px) {
+  .volume .volume-slider {
+    display: none;
+  }
+}
+.tl-zoom {
+  flex: none;
+  width: 104px;
+  margin: 0 4px;
+}
+
+/*
+ * Thông báo (Toaster của momi-ui) ở góc dưới bên trái vùng làm việc, gọn trong cột thư viện: không che preview,
+ * timeline hay nút Phát; nằm dưới hộp thoại.
+ */
+.workspace .app-toaster {
+  position: absolute;
+  top: auto;
+  right: auto;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  max-width: var(--left-w, 300px);
+  padding: 12px;
+}
+/* Thông báo chỉ để đọc: không chặn chuột (kéo mẫu thư viện, bấm nút bên dưới vẫn được) và không dừng đếm giờ khi rê qua */
+.app-toaster [data-slot='toast'] {
+  pointer-events: none;
+}
+.workspace.left-collapsed .app-toaster {
+  left: 34px;
+  bottom: 48px;
+  max-width: 360px;
+}
+
+/* Hộp thoại: đầu và chân cố định, chỉ phần giữa cuộn (Dialog của momi-ui cuộn cả khối) */
+.modal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -24px;
+  padding: 2px 24px;
+}
+.modal.wide:has(.tpl-dialog) {
+  max-width: min(940px, calc(100vw - 32px));
+}

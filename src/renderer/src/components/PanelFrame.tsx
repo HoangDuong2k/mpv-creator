@@ -1,7 +1,7 @@
 import type { PointerEvent, ReactNode } from 'react'
 import { tr } from '../../../shared/i18n'
 import { useLayout } from '../layout'
-import { Icon, type IconName } from './ui'
+import { Icon, IconButton, type IconName } from './ui'
 
 /** Vạch kéo đổi độ rộng cột (mép trong của cột); nhấp đúp để thu gọn cột */
 export function ColumnResizer({ side }: { side: 'left' | 'right' }): ReactNode {
@@ -40,15 +40,13 @@ export function ColumnResizer({ side }: { side: 'left' | 'right' }): ReactNode {
 /** Nút thu gọn cột, đặt ở đầu cột */
 export function CollapseButton({ side }: { side: 'left' | 'right' }): ReactNode {
   return (
-    <button
-      type="button"
-      className="icon-btn collapse-btn"
+    <IconButton
+      className="collapse-btn"
+      icon={side === 'left' ? 'chevronLeft' : 'chevronRight'}
+      size={16}
       title={tr('Thu gọn cột')}
-      aria-label={tr('Thu gọn cột')}
       onClick={() => useLayout.getState().setOpen(side, false)}
-    >
-      <Icon name={side === 'left' ? 'chevronLeft' : 'chevronRight'} size={16} />
-    </button>
+    />
   )
 }
 
