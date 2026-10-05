@@ -1,3 +1,5 @@
+// Đầu tiên: phím tắt hiện theo hệ điều hành (⌘ trên Mac) trước khi các module giao diện dùng tr()
+import './platform'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'

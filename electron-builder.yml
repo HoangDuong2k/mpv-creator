@@ -42,5 +42,18 @@ linux:
   category: AudioVideo
   maintainer: Playlist Video Maker
 mac:
+  # Mỗi máy build đóng gói cho đúng loại chip của nó (Mac chip Apple: arm64, Mac Intel: x64) vì FFmpeg và thư viện
+  # vẽ @napi-rs/canvas được npm tải theo chip của máy build
   target: [dmg]
   category: public.app-category.video
+  # Chưa có chứng chỉ Apple Developer ID: ký ad-hoc. Mac chip Apple bắt buộc ứng dụng phải được ký (dù là ad-hoc)
+  # mới chạy được; lần đầu mở cần cho phép trong Cài đặt hệ thống (xem README). Có chứng chỉ thì thay "-" bằng tên
+  # chứng chỉ, bật hardenedRuntime và notarize.
+  identity: '-'
+  hardenedRuntime: false
+  extendInfo:
+    # Tuỳ chọn "Tắt máy khi xuất xong" gửi lệnh tắt máy tới System Events (macOS hỏi quyền lần đầu)
+    NSAppleEventsUsageDescription: Playlist Video Maker cần quyền này để tắt máy khi xuất video xong (chỉ khi bạn chọn).
+  artifactName: ${productName}-${version}-${arch}.${ext}
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}

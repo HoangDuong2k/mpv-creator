@@ -934,5 +934,8 @@ export const EN: Record<string, string> = {
   'Tỉ lệ khung giữa': 'Aspect ratio of the middle',
   'Trượt vào (giây)': 'Slide in (seconds)',
   'Trái tim bay lên': 'Hearts floating up',
-  'Nhiều màu (mỗi hạt một màu)': 'Multicolor (each particle its own color)'
+  'Nhiều màu (mỗi hạt một màu)': 'Multicolor (each particle its own color)',
+  // ---------- macOS ----------
+  'Apple VideoToolbox (chip đồ hoạ của Mac)': "Apple VideoToolbox (Mac's graphics chip)",
+  'macOS chưa cho phép tắt máy. Vào Cài đặt hệ thống → Quyền riêng tư & Bảo mật → Tự động hoá, bật System Events cho Playlist Video Maker.': 'macOS has not allowed shutting down. Go to System Settings → Privacy & Security → Automation and turn on System Events for Playlist Video Maker.'
 }

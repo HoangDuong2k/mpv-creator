@@ -74,6 +74,8 @@ export interface PvmApi {
   listEncoders(): Promise<EncoderOption[]>
   startExport(project: Project, range?: { start: number; duration: number }): Promise<ExportResultInfo>
   cancelExport(): Promise<void>
+  /** Vừa tích "Tắt máy khi xuất xong": xin quyền tắt máy ngay (macOS); false nếu bị từ chối */
+  prepareShutdown(): Promise<boolean>
   /** Tắt máy (sau khi xuất xong, người dùng đã chọn và không huỷ) */
   shutdown(): Promise<void>
   /** Ngôn ngữ giao diện → main dùng cho hộp thoại, thông báo, lỗi */

@@ -1,6 +1,6 @@
 # Playlist Video Maker
 
-Ứng dụng desktop (Windows / Linux / macOS, giao diện **tiếng Việt / English**) dựng **video playlist nhạc cho YouTube**: ghép nhiều bài hát trên một nền, thêm cột sóng nhạc, hiệu ứng nháy theo beat, tên bài tự đổi, nút **Đăng ký / Like / Chuông**, rồi xuất MP4 kèm timestamp cho phần mô tả.
+Ứng dụng desktop (Windows / macOS / Linux, giao diện **tiếng Việt / English**) dựng **video playlist nhạc cho YouTube**: ghép nhiều bài hát trên một nền, thêm cột sóng nhạc, hiệu ứng nháy theo beat, tên bài tự đổi, nút **Đăng ký / Like / Chuông**, rồi xuất MP4 kèm timestamp cho phần mô tả.
 
 ## Tính năng
 
@@ -45,11 +45,12 @@ Không cần cài FFmpeg riêng: app dùng bản đi kèm (`ffmpeg-static`). Mu�
 | Hệ điều hành | Lệnh (chạy trên chính hệ điều hành đó) | Kết quả trong `release/` |
 |---|---|---|
 | **Windows** | `npm ci` rồi `npm run dist:win` | `Playlist Video Maker-Setup-x.y.z.exe` (bộ cài) và bản Portable `.exe` |
+| **macOS** | `npm ci` rồi `npm run dist:mac` | `Playlist Video Maker-x.y.z-arm64.dmg` (Mac chip Apple M1 trở lên) hoặc `-x64.dmg` (Mac Intel), theo chip của máy build |
 | Linux | `npm ci` rồi `npm run dist:linux` | `.AppImage`, `.deb` |
 
-Bản Windows phải build trên Windows (hoặc GitHub Actions) vì `npm ci` cần tải đúng `ffmpeg.exe` và thư viện vẽ `@napi-rs/canvas` cho Windows.
+Bản Windows phải build trên Windows, bản Mac phải build trên Mac (hoặc dùng GitHub Actions), vì `npm ci` tải FFmpeg và thư viện vẽ `@napi-rs/canvas` đúng cho hệ điều hành và loại chip của máy build.
 
-**GitHub Actions** (`.github/workflows/build.yml`) chạy trên **máy Windows và Linux thật** mỗi khi push lên `main`, mở pull request, push tag `v*` hoặc bấm *Run workflow*:
+**GitHub Actions** (`.github/workflows/build.yml`) chạy trên **máy Windows, Linux và Mac thật** (Mac chip Apple và Mac Intel) mỗi khi push lên `main`, mở pull request, push tag `v*` hoặc bấm *Run workflow*:
 
 1. Kiểm tra kiểu, unit test, build.
 2. Chạy e2e: mở app, điều khiển bằng chuột thật và xuất thử video.
@@ -67,6 +68,16 @@ Bộ cài và ảnh chụp các bước kiểm thử nằm trong mục *Artifact
   - Bộ nhớ đệm âm thanh ở `%LOCALAPPDATA%\PlaylistVideoMaker\Cache`, không nằm trong Roaming. Xem dung lượng, mở thư mục hoặc xoá ở *Cài đặt project → Bộ nhớ đệm âm thanh*. Gỡ app sẽ xoá luôn thư mục này (cập nhật phiên bản thì giữ lại).
 - **Card đồ hoạ:** app tự dò và cho chọn NVIDIA (NVENC), Intel (Quick Sync), AMD (AMF) khi xuất video; máy không có thì dùng CPU (x264).
 - **File đang mở ở chương trình khác:** nếu file MP4 định ghi đè đang mở trong trình xem video (Windows khoá file), app báo ngay trước khi render thay vì báo lỗi sau khi render xong.
+
+## Dùng trên macOS
+
+- **Yêu cầu:** macOS 12 trở lên. Tải đúng bản theo chip của máy (menu Apple → *Giới thiệu về máy Mac*): chip Apple (M1, M2, M3…) dùng bản **arm64**, chip Intel dùng bản **x64**.
+- **Cài đặt:** mở file `.dmg`, kéo *Playlist Video Maker* vào thư mục *Applications*.
+- **Lần đầu mở:** app chưa được ký bằng chứng chỉ Apple Developer nên macOS chặn và báo *"Playlist Video Maker" Not Opened*. Bấm *Done*, rồi vào *Cài đặt hệ thống → Quyền riêng tư & Bảo mật*, kéo xuống bấm **Open Anyway** (Vẫn mở) và xác nhận. Những lần sau mở bình thường. Muốn hết cảnh báo cần tài khoản Apple Developer (99 USD/năm) để ký và notarize, cấu hình ở mục `mac` trong `electron-builder.yml`.
+- **Phím tắt:** dùng ⌘ thay cho Ctrl (⌘S lưu, ⌘Z / ⇧⌘Z hoàn tác / làm lại, ⌘B tách thanh…), ⌘ + nhấp để chọn nhiều thanh, **⌃⌘F** xem preview toàn màn hình (phím F11 trên Mac dành cho hệ điều hành). Phím delete trên bàn phím Mac xoá mục đang chọn.
+- **Xuất nhanh bằng chip đồ hoạ:** chọn bộ mã hoá *Apple VideoToolbox* trong hộp *Xuất video*.
+- **Tắt máy khi xuất xong:** lần đầu tích ô này, macOS hỏi cho phép app điều khiển *System Events*, hãy bấm *OK* (đổi lại ở *Quyền riêng tư & Bảo mật → Tự động hoá*).
+- **Dữ liệu:** project tự lưu và mẫu phong cách ở `~/Library/Application Support/Playlist Video Maker`, bộ nhớ đệm âm thanh ở `~/Library/Caches/PlaylistVideoMaker`.
 
 ## Cách dùng nhanh
 

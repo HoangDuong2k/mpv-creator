@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { keyLabel } from '../../../shared/i18n'
 import { Icon, type IconName } from './ui'
 
 export type MenuItem =
@@ -124,7 +125,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
           >
             <span className="ctx-icon">{it.icon && <Icon name={it.icon} size={15} />}</span>
             <span className="ctx-label">{it.label}</span>
-            {it.shortcut && <kbd>{it.shortcut}</kbd>}
+            {it.shortcut && <kbd>{keyLabel(it.shortcut)}</kbd>}
           </button>
         )
       })}

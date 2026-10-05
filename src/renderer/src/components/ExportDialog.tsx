@@ -45,6 +45,13 @@ api.on('export:progress', (p) => useExportStore.setState({ progress: p }))
 
 function setShutdownAfter(on: boolean): void {
   useExportStore.setState({ shutdownAfter: on })
+  if (!on) return
+  // macOS hỏi quyền tắt máy ngay lúc tích (người dùng còn ở máy), không đợi tới lúc xuất xong
+  void api.prepareShutdown().then((ok) => {
+    if (ok) return
+    useExportStore.setState({ shutdownAfter: false })
+    useStore.getState().toast('error', tr('macOS chưa cho phép tắt máy. Vào Cài đặt hệ thống → Quyền riêng tư & Bảo mật → Tự động hoá, bật System Events cho Playlist Video Maker.'))
+  })
 }
 
 const SHUTDOWN_SECONDS = 60
@@ -140,7 +147,15 @@ export function ExportDialog(): ReactNode {
       assets.pauseVideos()
       useStore.getState().setPlaying(false)
     }
-    api.listEncoders().then(setEncoders).catch(() => setEncoders([]))
+    api
+      .listEncoders()
+      .then((list) => {
+        setEncoders(list)
+        // Project làm trên máy khác (vd. NVENC trên Windows) mở trên máy này (Mac): về CPU (x264)
+        if (list.length && !list.some((e) => e.id === useStore.getState().project.export.encoder)) setExport({ encoder: 'libx264' })
+      })
+      .catch(() => setEncoders([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const setExport = (patch: Partial<ExportSettings>): void =>

@@ -15,6 +15,7 @@ const api: PvmApi = {
   listEncoders: () => invoke('export:encoders'),
   startExport: (project, range) => invoke('export:start', project, range),
   cancelExport: () => invoke('export:cancel'),
+  prepareShutdown: () => invoke('system:prepare-shutdown'),
   shutdown: () => invoke('system:shutdown'),
   setLanguage: (lang) => invoke('app:set-language', lang),
   listTemplates: () => invoke('templates:list'),

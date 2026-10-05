@@ -18,6 +18,7 @@ import { useStore } from './store'
 import { copySelection, pasteAtPlayhead, splitAtPlayhead } from './timelineActions'
 import { RAIL_W, useLayout } from './layout'
 import { clearLibraryPreview, useLibPreview } from './libraryPreview'
+import { isMac } from './platform'
 import { CollapsedRail } from './components/PanelFrame'
 import { ShortcutsDialog } from './components/ShortcutsDialog'
 import { LANGS, tr } from '../../shared/i18n'
@@ -258,7 +259,8 @@ export function App(): ReactNode {
       } else if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         st.undo()
-      } else if (e.key === 'F11' && !st.dialog) {
+      } else if ((e.key === 'F11' || (isMac && e.ctrlKey && e.metaKey && e.key.toLowerCase() === 'f')) && !st.dialog) {
+        // Trên Mac F11 là phím của hệ điều hành (hiện màn hình nền): dùng ⌃⌘F như các app Mac
         e.preventDefault()
         togglePreviewMax()
       } else if (e.key === 'Escape' && useLibPreview.getState().preview && !st.dialog) {

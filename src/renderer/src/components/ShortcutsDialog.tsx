@@ -76,7 +76,7 @@ export function ShortcutsDialog(): ReactNode {
 }
 
 /** Phím thật hiện trong ô phím; thao tác chuột ("Chuột phải", "Kéo thanh"…) là chữ thường */
-const KEY = /^(Ctrl|Shift|Alt|Cmd|Space|Home|End|Esc|Delete|Enter|Tab|F\d{1,2}|[←→↑↓?]|[A-Z])(\+\S+)*$/
+const KEY = /^(Ctrl|Shift|Alt|Cmd|Space|Home|End|Esc|Delete|Enter|Tab|F\d{1,2}|[←→↑↓?]|[A-Z]|[⌘⇧⌃⌥]+\S*)(\+\S+)*$/
 
 function Keys({ text }: { text: string }): ReactNode {
   // Các cách bấm tương đương cách nhau bằng " · " trong dữ liệu, hiện thành "/"

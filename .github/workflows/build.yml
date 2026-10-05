@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Kiểm thử trên máy Windows và Linux thật: kiểu, unit test, e2e (điều khiển app bằng chuột thật)
+  # Kiểm thử trên máy Windows, Linux và Mac thật: kiểu, unit test, e2e (điều khiển app bằng chuột thật)
   test:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +32,9 @@ jobs:
       - name: E2E (Linux, màn hình ảo)
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run e2e
+      - name: E2E (macOS)
+        if: runner.os == 'macOS'
+        run: npm run e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -39,13 +42,14 @@ jobs:
           path: test-output/e2e/*.png
           if-no-files-found: ignore
 
-  # Đóng gói bộ cài, rồi chạy e2e lần nữa trên chính bản đã đóng gói
+  # Đóng gói bộ cài, rồi chạy e2e lần nữa trên chính bản đã đóng gói.
+  # Mac: macos-latest là máy chip Apple (bản arm64), macos-15-intel là máy Intel (bản x64)
   build:
     needs: test
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -62,11 +66,18 @@ jobs:
       - name: E2E trên bản đóng gói (Linux)
         if: runner.os == 'Linux'
         run: PVM_E2E_EXE="$PWD/release/linux-unpacked/playlist-video-maker" xvfb-run -a npm run e2e
+      - name: E2E trên bản đóng gói (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP=$(ls -d release/mac*/"Playlist Video Maker.app" | head -n 1)
+          codesign --verify --deep --verbose=2 "$APP"
+          PVM_E2E_EXE="$PWD/$APP/Contents/MacOS/Playlist Video Maker" npm run e2e
       - uses: actions/upload-artifact@v4
         with:
-          name: playlist-video-maker-${{ runner.os }}
+          name: playlist-video-maker-${{ matrix.os }}
           path: |
             release/*.exe
             release/*.AppImage
             release/*.deb
+            release/*.dmg
           if-no-files-found: error

@@ -238,7 +238,7 @@ export async function exportVideo(opts: ExportOptions): Promise<ExportResult> {
   const totalFrames = Math.max(1, Math.ceil(rangeDur * fps))
   const workerCount = Math.max(1, Math.min(opts.workers ?? defaultWorkerCount(settings.encoder), Math.ceil(totalFrames / (fps * 3))))
   const threads = Math.max(2, Math.floor((cpus().length * 1.5) / workerCount))
-  const { pre, post } = encoderArgs(settings.encoder, settings.quality, fps)
+  const { pre, post } = encoderArgs(settings.encoder, settings.quality, fps, project.settings.width * project.settings.height)
 
   const outputPath = settings.outputPath
   if (!outputPath) throw new Error(tr('Chưa chọn nơi lưu video'))

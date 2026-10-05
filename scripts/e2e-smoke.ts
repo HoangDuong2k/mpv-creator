@@ -13,6 +13,8 @@ import { makeTestAudio } from './make-test-audio'
 import { ROW_COLORS } from '../src/renderer/src/timelineModel'
 
 const ROOT = resolve(__dirname, '..')
+/** Phím Ctrl của app: ⌘ trên Mac (Ctrl + nhấp trên Mac là chuột phải) */
+const MOD = process.platform === 'darwin' ? 'Meta' : 'Control'
 const OUT = join(ROOT, 'test-output', 'e2e')
 const AUDIO = join(ROOT, 'test-output', 'audio')
 
@@ -226,7 +228,7 @@ async function main(): Promise<void> {
     await page.screenshot({ path: join(OUT, '2a-drag.png') })
     // Mỗi lần kéo là một bước hoàn tác
     await page.locator('.panel.right .panel-head h3').click()
-    for (let i = 0; i < 3; i++) await page.keyboard.press('Control+z')
+    for (let i = 0; i < 3; i++) await page.keyboard.press(`${MOD}+z`)
     const undoOk = await until(async () => Number(await num('Vị trí ngang').inputValue()) === x0 && Number(await num('Chiều rộng').inputValue()) === w0)
     assert(undoOk, 'Ctrl+Z ×3 trả về vị trí và kích thước ban đầu')
 
@@ -285,7 +287,7 @@ async function main(): Promise<void> {
     assert(after > before, `phát tiếng ngay sau khi đổi thứ tự (${after - before} đoạn mới)`)
     await page.screenshot({ path: join(OUT, '4-timeline-reorder.png') })
     await page.locator('.timeline').focus()
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await titles())[0] === 'Nắng Ấm Xa Dần'), 'Ctrl+Z trả lại thứ tự bài')
 
     // Cắt cuối bài 1 bằng cách kéo mép phải
@@ -293,7 +295,7 @@ async function main(): Promise<void> {
     await dragBy(edge, -60)
     const trimmed = (await state()).tracks[0].trimEnd
     assert(trimmed > 1, `kéo mép phải clip để cắt cuối bài: cắt ${trimmed.toFixed(2)}s`)
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await state()).tracks[0].trimEnd === 0), 'Ctrl+Z bỏ cắt bài')
 
     // Thanh cột sóng: kéo mép trái để bắt đầu muộn hơn
@@ -310,7 +312,7 @@ async function main(): Promise<void> {
     assert((await page.locator('.sel-box').count()) === 0, 'không có khung chọn khi lớp đang ẩn')
     await page.screenshot({ path: join(OUT, '5-timeline-range.png') })
     await page.locator('.timeline').focus()
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await state()).layers.find((l) => l.type === 'visualizer')!.timing.start === 0), 'Ctrl+Z trả lại thanh cột sóng')
 
     // Kéo THÂN thanh flicker đang chạy suốt video → bắt đầu muộn hơn, vẫn kéo dài đến hết video
@@ -321,7 +323,7 @@ async function main(): Promise<void> {
     const flick = (await state()).layers.find((l) => l.type === 'flicker')!.timing
     assert(flick.start > 5 && flick.end === null, `kéo thân thanh flicker: bắt đầu từ ${flick.start}s, vẫn đến hết video`)
     await page.locator('.timeline').focus()
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await state()).layers.find((l) => l.type === 'flicker')!.timing.start === 0), 'Ctrl+Z trả lại thanh flicker')
 
     // Tách thanh flicker tại đầu phát (Ctrl+B) → hai đoạn nằm chung một hàng
@@ -335,7 +337,7 @@ async function main(): Promise<void> {
       await page.mouse.click(first.x + (full.x + full.width - first.x) * frac, rulerBox.y + rulerBox.height / 2)
     }
     await seekAt(0.4)
-    await page.keyboard.press('Control+b')
+    await page.keyboard.press(`${MOD}+b`)
     assert(await until(async () => (await flickers()).length === 2), 'Ctrl+B tách thanh flicker tại đầu phát')
     const [fA, fB] = await flickers()
     assert(
@@ -347,9 +349,9 @@ async function main(): Promise<void> {
       [await boxOf(flickRow.locator('.tl-clip').nth(0)), await boxOf(flickRow.locator('.tl-clip').nth(1))].sort((a, b) => a.x - b.x)
     const selectedIds = async (): Promise<string[]> => (await page.evaluate('window.__pvm.store.getState().selectedLayerIds')) as string[]
     let [leftBox] = await flickBoxes()
-    await page.keyboard.down('Control')
+    await page.keyboard.down(MOD)
     await page.mouse.click(leftBox.x + leftBox.width / 2, leftBox.y + leftBox.height / 2)
-    await page.keyboard.up('Control')
+    await page.keyboard.up(MOD)
     assert(await until(async () => (await selectedIds()).length === 2), 'Ctrl + nhấp chọn thêm đoạn thứ hai')
     const starts0 = (await flickers()).map((l) => l.timing.start)
     ;[leftBox] = await flickBoxes()
@@ -357,14 +359,14 @@ async function main(): Promise<void> {
     const starts1 = (await flickers()).map((l) => l.timing.start)
     const dA = starts1[0] - starts0[0]
     assert(dA > 1 && Math.abs(dA - (starts1[1] - starts0[1])) < 0.02, `kéo một thanh dời cả nhóm (+${dA.toFixed(2)}s mỗi đoạn)`)
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await flickers())[0].timing.start === starts0[0]), 'Ctrl+Z trả lại cả nhóm')
     // Chép cả nhóm, dán ở đầu video
-    await page.keyboard.press('Control+c')
+    await page.keyboard.press(`${MOD}+c`)
     await seekAt(0.05)
-    await page.keyboard.press('Control+v')
+    await page.keyboard.press(`${MOD}+v`)
     assert(await until(async () => (await flickers()).length === 4), 'Ctrl+C / Ctrl+V chép và dán cả nhóm tại đầu phát')
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await flickers()).length === 2), 'Ctrl+Z bỏ lần dán')
     // Khoá hàng flicker: không kéo, không xoá được
     await flickRow.locator('.tl-head').getByRole('button', { name: /^Khoá lớp/ }).click()
@@ -484,7 +486,7 @@ async function main(): Promise<void> {
       })()`)) as boolean
     assert(await until(bluish, 4000), 'preview hiện ảnh vừa thả tại đúng thời điểm')
     await page.locator('.timeline').focus()
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await dropped()).length === 0), 'Ctrl+Z bỏ các nền vừa thả')
     // Video nền: thanh hiện dải khung hình trích bằng FFmpeg
     const vid = join(OUT, 'nen.mp4')
@@ -498,41 +500,41 @@ async function main(): Promise<void> {
       'thanh nền video hiện dải khung hình'
     )
     await page.locator('.timeline').focus()
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await dropped()).length === 0), 'Ctrl+Z bỏ video nền vừa thả')
     // Thả 1 bài nhạc vào đầu timeline → chèn vào vị trí 1
     const ids0 = await trackIds()
     await page.evaluate(`window.__pvm.dropFiles(${JSON.stringify([files[2]])}, 1, null)`)
     assert(await until(async () => (await trackIds()).length === 4 && !ids0.includes((await trackIds())[0])), 'thả nhạc vào đầu timeline: chèn vào vị trí 1')
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await trackIds()).join() === ids0.join()), 'Ctrl+Z bỏ bài vừa chèn')
     // Ctrl + nhấp chọn 2 clip nhạc, kéo cả nhóm lên đầu
-    await page.keyboard.down('Control')
+    await page.keyboard.down(MOD)
     for (const i of [1, 2]) {
       const b = await boxOf(audioClips.nth(i))
       await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2)
     }
-    await page.keyboard.up('Control')
+    await page.keyboard.up(MOD)
     assert(await until(async () => (await selTracks()).length === 2), 'Ctrl + nhấp chọn 2 clip nhạc')
     const first = await boxOf(audioClips.nth(0))
     await dragBy(await boxOf(audioClips.nth(2)), first.x + 5 - ((await boxOf(audioClips.nth(2))).x + (await boxOf(audioClips.nth(2))).width / 2))
     assert(await until(async () => (await trackIds()).join() === [ids0[1], ids0[2], ids0[0]].join()), 'kéo cả nhóm 2 bài lên đầu, giữ thứ tự giữa chúng')
     await page.locator('.timeline').focus()
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await trackIds()).join() === ids0.join()), 'Ctrl+Z trả lại thứ tự')
     // Chép 1 clip nhạc, dán ở đầu video (lặp bài)
     const b0 = await boxOf(audioClips.nth(0))
     await page.mouse.click(b0.x + b0.width / 2, b0.y + b0.height / 2)
-    await page.keyboard.press('Control+c')
+    await page.keyboard.press(`${MOD}+c`)
     await seekAt(0.02)
-    await page.keyboard.press('Control+v')
+    await page.keyboard.press(`${MOD}+v`)
     assert(await until(async () => (await trackIds()).length === 4), 'Ctrl+C / Ctrl+V chép và dán clip nhạc')
     assert(
       await until(async () => (await page.evaluate('window.__pvm.store.getState().project.tracks.every((t) => t.analysisKey)')) as boolean),
       'bài dán ra dùng ngay dữ liệu âm thanh sẵn có'
     )
     await page.locator('.timeline').focus()
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await trackIds()).length === 3), 'Ctrl+Z bỏ bài vừa dán')
     // Kéo khung trên vùng trống (sau cuối video) để khoanh nhiều thanh + clip nhạc
     // Đo khi bố cục đã đứng yên: sau Ctrl+Z video ngắn lại, timeline tự chỉnh mức zoom "vừa khung" ở khung hình kế tiếp
@@ -576,7 +578,7 @@ async function main(): Promise<void> {
     await ctxItem(/^Nhân bản bài$/).click()
     assert(await until(async () => (await trackIds()).length === 4 && (await trackIds())[1] === ids1[1] && !ids1.includes((await trackIds())[2])), 'chuột phải clip nhạc → Nhân bản bài (bản sao ngay sau bài gốc)')
     await page.locator('.timeline').focus()
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await trackIds()).length === 3), 'Ctrl+Z bỏ bài nhân bản')
     const endBox = await stableBox(audioClips.nth(2))
     const band = (await boxOf(page.locator('.tl-ruler'))).y + RULER_BAR_H
@@ -682,7 +684,7 @@ async function main(): Promise<void> {
 
     // Undo
     await page.locator('.panel.right .panel-head h3').click() // bỏ focus khỏi ô chọn
-    await page.keyboard.press('Control+z')
+    await page.keyboard.press(`${MOD}+z`)
     await page.waitForTimeout(200)
     assert(await until(async () => (await page.locator('.inspector select').first().inputValue()) === 'bars'), 'Ctrl+Z hoàn tác')
 

@@ -516,7 +516,7 @@ export type Layer<T extends LayerType = LayerType> = T extends LayerType
     }
   : never
 
-export type EncoderId = 'libx264' | 'h264_nvenc' | 'h264_qsv' | 'h264_amf' | 'h264_vaapi'
+export type EncoderId = 'libx264' | 'h264_nvenc' | 'h264_qsv' | 'h264_amf' | 'h264_vaapi' | 'h264_videotoolbox'
 
 export interface ExportSettings {
   encoder: EncoderId

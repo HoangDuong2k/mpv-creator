@@ -19,6 +19,7 @@
     "test-audio": "tsx scripts/make-test-audio.ts",
     "dist:win": "electron-vite build && electron-builder --win",
     "dist:linux": "electron-vite build && electron-builder --linux",
+    "dist:mac": "electron-vite build && electron-builder --mac",
     "dev:linux": "electron-vite dev --noSandbox"
   },
   "dependencies": {

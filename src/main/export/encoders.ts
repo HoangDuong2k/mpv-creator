@@ -6,15 +6,25 @@ export interface EncoderInfo {
   id: EncoderId
   label: string
   hardware: boolean
+  /** Chỉ có trên các hệ điều hành này (không ghi: mọi hệ điều hành) */
+  platforms?: NodeJS.Platform[]
 }
 
-export const ENCODERS: EncoderInfo[] = [
+const ALL_ENCODERS: EncoderInfo[] = [
   { id: 'libx264', label: trKey('CPU (x264), luôn dùng được, chất lượng tốt'), hardware: false },
-  { id: 'h264_nvenc', label: trKey('NVIDIA NVENC (card rời NVIDIA)'), hardware: true },
-  { id: 'h264_qsv', label: 'Intel Quick Sync', hardware: true },
-  { id: 'h264_amf', label: trKey('AMD AMF (card AMD, Windows)'), hardware: true },
-  { id: 'h264_vaapi', label: 'VAAPI (Linux, Intel/AMD)', hardware: true }
+  { id: 'h264_videotoolbox', label: trKey('Apple VideoToolbox (chip đồ hoạ của Mac)'), hardware: true, platforms: ['darwin'] },
+  { id: 'h264_nvenc', label: trKey('NVIDIA NVENC (card rời NVIDIA)'), hardware: true, platforms: ['win32', 'linux'] },
+  { id: 'h264_qsv', label: 'Intel Quick Sync', hardware: true, platforms: ['win32', 'linux'] },
+  { id: 'h264_amf', label: trKey('AMD AMF (card AMD, Windows)'), hardware: true, platforms: ['win32'] },
+  { id: 'h264_vaapi', label: 'VAAPI (Linux, Intel/AMD)', hardware: true, platforms: ['linux'] }
 ]
+
+/** Các bộ mã hoá có thể có trên hệ điều hành này (Mac không có NVENC, AMF…) */
+export function encodersFor(platform: NodeJS.Platform): EncoderInfo[] {
+  return ALL_ENCODERS.filter((e) => !e.platforms || e.platforms.includes(platform))
+}
+
+export const ENCODERS: EncoderInfo[] = encodersFor(process.platform)
 
 const VAAPI_DEVICE = '/dev/dri/renderD128'
 
@@ -29,10 +39,22 @@ export interface EncoderArgs {
   post: string[]
 }
 
-export function encoderArgs(id: EncoderId, quality: ExportSettings['quality'], fps: number): EncoderArgs {
+/**
+ * Tham số FFmpeg của bộ mã hoá. `pixels`: số điểm ảnh mỗi khung hình (rộng × cao), để tính bitrate cho bộ mã hoá
+ * không có chế độ chất lượng cố định trên mọi máy (VideoToolbox trên Mac Intel).
+ */
+export function encoderArgs(id: EncoderId, quality: ExportSettings['quality'], fps: number, pixels = 1920 * 1080): EncoderArgs {
   const q = { fast: 0, balanced: 1, high: 2 }[quality]
   const gop = ['-g', String(Math.round(fps * 2))]
   switch (id) {
+    case 'h264_videotoolbox': {
+      // Bitrate theo khung hình: 1080p30 khoảng 8 / 12 / 17 Mbps (YouTube khuyên 8–12 Mbps cho 1080p30)
+      const bps = Math.round(Math.min(90e6, pixels * fps * [0.13, 0.19, 0.27][q]))
+      return {
+        pre: [],
+        post: ['-vf', `${TO_YUV709},format=nv12`, '-c:v', 'h264_videotoolbox', '-b:v', String(bps), '-profile:v', 'high', ...gop, ...COLOR_TAGS]
+      }
+    }
     case 'h264_nvenc':
       return {
         pre: [],
@@ -78,9 +100,7 @@ export function detectEncoders(): Promise<EncoderId[]> {
     detected = (async () => {
       const ok: EncoderId[] = []
       for (const enc of ENCODERS) {
-        if (enc.id === 'h264_vaapi' && process.platform !== 'linux') continue
-        if (enc.id === 'h264_amf' && process.platform !== 'win32') continue
-        const { pre, post } = encoderArgs(enc.id, 'fast', 30)
+        const { pre, post } = encoderArgs(enc.id, 'fast', 30, 320 * 240)
         const args = ['-v', 'error', ...pre, '-f', 'lavfi', '-i', 'color=c=black:s=320x240:r=30:d=0.3,format=rgba', ...post, '-f', 'null', '-']
         try {
           const run = runFfmpeg(args)

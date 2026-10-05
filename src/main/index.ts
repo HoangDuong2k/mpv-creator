@@ -15,7 +15,7 @@ import { exportVideo } from './export/exporter'
 import { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, isAudioFile, readTrackInfo, videoThumbStrip } from './media'
 import { asarUnpacked, defaultCacheDir } from './paths'
 import { registerFileProtocol, registerSchemePrivileges } from './protocol'
-import { shutdownCommand, type ShellCommand } from './shutdown'
+import { shutdownCommand, type ShellCommand, shutdownPermissionCommand } from './shutdown'
 import { Workspace, removeLegacyCache } from './workspace'
 import { TemplateStore } from './templates'
 import type { StyleTemplate } from '../shared/templates'
@@ -242,6 +242,17 @@ function registerIpc(): void {
 
   handle('app:set-language', (lang: unknown) => {
     if (isLang(lang)) setLang(lang)
+  })
+
+  handle('system:prepare-shutdown', async (): Promise<boolean> => {
+    const c = shutdownPermissionCommand(process.platform)
+    if (!c || process.env.PVM_DRY_SHUTDOWN) return true
+    // true: đã được phép (hoặc không cần); false: người dùng từ chối quyền điều khiển System Events
+    return new Promise<boolean>((resolve) => {
+      const child = spawn(c.cmd, c.args, { stdio: 'ignore' })
+      child.on('error', () => resolve(false))
+      child.on('exit', (code) => resolve(code === 0))
+    })
   })
 
   handle('system:shutdown', async () => {
