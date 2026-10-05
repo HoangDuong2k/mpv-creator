@@ -247,9 +247,15 @@ input.num,
 }
 .col-resize:hover,
 .col-resize.active,
+.col-resize:focus-visible,
 .split-resize:hover,
-.split-resize.active {
+.split-resize.active,
+.split-resize:focus-visible {
   background: color-mix(in srgb, var(--amber) 40%, transparent);
+}
+.col-resize:focus-visible,
+.split-resize:focus-visible {
+  outline: none;
 }
 .panel-head-tools {
   display: flex;

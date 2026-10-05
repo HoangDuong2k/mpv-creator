@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { Button, SortableList } from 'momi-ui'
 import { LAYER_LABELS } from '../../../shared/defaults'
 import { formatTime } from '../../../shared/time'
@@ -11,7 +11,7 @@ import { TrackInspector } from './TrackInspector'
 import { Icon, IconButton, SORTABLE_ROW, keepRowFocusOff } from './ui'
 import { tr } from '../../../shared/i18n'
 import { useLayout } from '../layout'
-import { CollapseButton, ColumnResizer } from './PanelFrame'
+import { CollapseButton, ColumnResizer, RESIZE_STEP, RESIZE_STEP_BIG } from './PanelFrame'
 import { layerMenu } from '../contextMenus'
 import { ContextMenu, type MenuState } from './ContextMenu'
 
@@ -133,8 +133,18 @@ export function LayersPanel(): ReactNode {
   )
 }
 
-/** Vạch kéo chia chỗ giữa danh sách lớp và bảng thuộc tính; nhấp đúp để về mặc định */
+/** Chiều cao danh sách lớp trong giới hạn: ít nhất 64px, chừa 180px cho bảng thuộc tính */
+function clampListH(list: HTMLElement, h: number): number {
+  const panelH = list.parentElement?.getBoundingClientRect().height ?? 600
+  return Math.min(panelH - 180, Math.max(64, h))
+}
+
+/**
+ * Vạch kéo chia chỗ giữa danh sách lớp và bảng thuộc tính; nhấp đúp để về mặc định.
+ * Bàn phím: mũi tên lên / xuống, Home / End: thấp nhất / cao nhất, Enter: về mặc định.
+ */
 function SplitResizer({ listRef }: { listRef: RefObject<HTMLUListElement | null> }): ReactNode {
+  const listH = useLayout((s) => s.listH)
   const onPointerDown = (e: PointerEvent<HTMLDivElement>): void => {
     const list = listRef.current
     if (e.button !== 0 || !list) return
@@ -142,10 +152,9 @@ function SplitResizer({ listRef }: { listRef: RefObject<HTMLUListElement | null>
     const el = e.currentTarget
     const y0 = e.clientY
     const h0 = list.getBoundingClientRect().height
-    const panelH = list.parentElement?.getBoundingClientRect().height ?? 600
     el.setPointerCapture(e.pointerId)
     el.classList.add('active')
-    const move = (ev: globalThis.PointerEvent): void => useLayout.getState().setListH(Math.min(panelH - 180, Math.max(64, h0 + ev.clientY - y0)))
+    const move = (ev: globalThis.PointerEvent): void => useLayout.getState().setListH(clampListH(list, h0 + ev.clientY - y0))
     const up = (): void => {
       el.classList.remove('active')
       el.removeEventListener('pointermove', move)
@@ -154,14 +163,32 @@ function SplitResizer({ listRef }: { listRef: RefObject<HTMLUListElement | null>
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
   }
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    const list = listRef.current
+    if (!list || e.ctrlKey || e.metaKey || e.altKey) return
+    const { setListH } = useLayout.getState()
+    const h = list.getBoundingClientRect().height
+    const step = e.shiftKey ? RESIZE_STEP_BIG : RESIZE_STEP
+    if (e.key === 'ArrowDown') setListH(clampListH(list, h + step))
+    else if (e.key === 'ArrowUp') setListH(clampListH(list, h - step))
+    else if (e.key === 'Home') setListH(clampListH(list, 0))
+    else if (e.key === 'End') setListH(clampListH(list, Infinity))
+    else if (e.key === 'Enter') setListH(null)
+    else return
+    e.preventDefault()
+  }
   return (
     <div
       className="split-resize"
       onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
       onDoubleClick={() => useLayout.getState().setListH(null)}
       title={tr('Kéo để chia chỗ cho danh sách lớp và bảng thuộc tính. Nhấp đúp để về mặc định.')}
       role="separator"
+      tabIndex={0}
+      aria-label={tr('Chiều cao danh sách lớp')}
       aria-orientation="horizontal"
+      aria-valuenow={listH ?? undefined}
     />
   )
 }

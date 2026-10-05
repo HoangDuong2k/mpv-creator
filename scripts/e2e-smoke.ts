@@ -515,6 +515,29 @@ async function main(): Promise<void> {
     const rightW1 = (await boxOf(page.locator('.panel.right'))).width
     // Cửa sổ hẹp: cột không rộng hết mức kéo vì preview luôn giữ tối thiểu 380px
     assert(rightW1 > rightW0 + 20, `kéo mép cột lớp hiệu ứng: ${Math.round(rightW0)} → ${Math.round(rightW1)}px`)
+    // Bàn phím trên vạch kéo: mũi tên đổi độ rộng (không tua video), Home / End hẹp nhất / rộng nhất, Enter thu gọn
+    const colSep = page.locator('.col-resize.right')
+    const sepVal = async (): Promise<number> => Number(await colSep.getAttribute('aria-valuenow'))
+    await colSep.focus()
+    const sepW0 = await sepVal()
+    const tSep = await playTime()
+    await page.keyboard.press('ArrowLeft')
+    assert(await until(async () => (await sepVal()) === Math.min(560, sepW0 + 16)), `← trên vạch kéo cột phải: rộng thêm 16px (${sepW0} → ${await sepVal()})`)
+    await page.keyboard.press('ArrowRight')
+    assert((await until(async () => (await sepVal()) === sepW0)) && Math.abs((await playTime()) - tSep) < 0.01, '→ trên vạch kéo: hẹp lại, không tua video')
+    await page.keyboard.press('End')
+    assert(await until(async () => (await sepVal()) === 560), 'End trên vạch kéo: cột rộng nhất')
+    await page.keyboard.press('Home')
+    assert(await until(async () => (await sepVal()) === 280), 'Home trên vạch kéo: cột hẹp nhất')
+    for (let i = 0; i < Math.round((sepW0 - 280) / 16); i++) await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('Enter')
+    assert(
+      await until(async () => (await page.locator('.panel-rail.right').count()) === 1 && (await page.evaluate(() => document.activeElement?.matches('.panel-rail.right') ?? false))),
+      'Enter trên vạch kéo: thu gọn cột, focus sang dải dọc'
+    )
+    await page.keyboard.press('Enter')
+    assert(await until(async () => (await page.locator('.panel.right').count()) === 1), 'Enter trên dải dọc: mở lại cột')
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     // Nhóm thuộc tính đóng / mở; số hiện theo %
     await page.locator('.layer', { hasText: 'Cột sóng nhạc' }).click()
     const colorTitle = page.locator('button.section-title', { hasText: /Màu sắc/ })
