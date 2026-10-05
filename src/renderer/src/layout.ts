@@ -8,6 +8,10 @@ export const RIGHT_W = { min: 280, max: 560, def: 340 }
 /** Bề ngang cột khi thu gọn (dải dọc có nút mở lại) */
 export const RAIL_W = 34
 
+/** Màu nhấn của giao diện (Cài đặt → Màu giao diện); CSS ở index.css theo html[data-accent] */
+export type Accent = 'lavender' | 'orchid' | 'aqua'
+export const ACCENTS: Accent[] = ['lavender', 'orchid', 'aqua']
+
 /** Các thẻ của cột Thư viện (bên trái) */
 export type LibraryTab = 'music' | 'media' | 'effects' | 'filters' | 'text'
 const LIB_TABS: LibraryTab[] = ['music', 'media', 'effects', 'filters', 'text']
@@ -25,6 +29,7 @@ interface Saved {
   safeArea: boolean
   /** Thẻ đang mở của cột Thư viện */
   libTab: LibraryTab
+  accent: Accent
 }
 
 interface LayoutState extends Saved {
@@ -40,19 +45,26 @@ interface LayoutState extends Saved {
   setPreviewMax(on: boolean): void
   toggleSafeArea(): void
   setLibTab(tab: LibraryTab): void
+  setAccent(accent: Accent): void
 }
 
 /** Màn hình hẹp (laptop 1366 px trở xuống): hai cột mặc định hẹp hơn để preview đủ lớn */
 function defaults(): Saved {
   const narrow = typeof window !== 'undefined' && window.innerWidth < 1400
-  return { leftW: narrow ? 240 : LEFT_W.def, rightW: narrow ? 300 : RIGHT_W.def, leftOpen: true, rightOpen: true, listH: null, closed: [], safeArea: false, libTab: 'music' }
+  return { leftW: narrow ? 240 : LEFT_W.def, rightW: narrow ? 300 : RIGHT_W.def, leftOpen: true, rightOpen: true, listH: null, closed: [], safeArea: false, libTab: 'music', accent: 'lavender' }
 }
 
 function load(): Saved {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Saved> | null
     if (v && typeof v === 'object')
-      return { ...defaults(), ...v, closed: Array.isArray(v.closed) ? v.closed : [], libTab: LIB_TABS.includes(v.libTab as LibraryTab) ? (v.libTab as LibraryTab) : 'music' }
+      return {
+        ...defaults(),
+        ...v,
+        closed: Array.isArray(v.closed) ? v.closed : [],
+        libTab: LIB_TABS.includes(v.libTab as LibraryTab) ? (v.libTab as LibraryTab) : 'music',
+        accent: ACCENTS.includes(v.accent as Accent) ? (v.accent as Accent) : 'lavender'
+      }
   } catch {
     // bộ nhớ trình duyệt không dùng được
   }
@@ -70,6 +82,9 @@ export const useLayout = create<LayoutState>((set, get) => ({
   },
   toggleSafeArea() {
     set({ safeArea: !get().safeArea })
+  },
+  setAccent(accent) {
+    set({ accent })
   },
   setLibTab(tab) {
     set({ libTab: tab, ...(get().leftOpen ? {} : { leftOpen: true, beforeFocus: null }) })
@@ -97,9 +112,18 @@ export const useLayout = create<LayoutState>((set, get) => ({
 // Lưu mỗi khi đổi (bỏ trạng thái tạm thời)
 useLayout.subscribe((s) => {
   try {
-    const saved: Saved = { leftW: s.leftW, rightW: s.rightW, leftOpen: s.leftOpen, rightOpen: s.rightOpen, listH: s.listH, closed: s.closed, safeArea: s.safeArea, libTab: s.libTab }
+    const saved: Saved = { leftW: s.leftW, rightW: s.rightW, leftOpen: s.leftOpen, rightOpen: s.rightOpen, listH: s.listH, closed: s.closed, safeArea: s.safeArea, libTab: s.libTab, accent: s.accent }
     localStorage.setItem(KEY, JSON.stringify(saved))
   } catch {
     // bỏ qua
   }
+})
+
+/** Màu nhấn lên thẻ <html> (CSS chọn theo data-accent): đặt ngay khi nạp, đổi theo Cài đặt */
+function applyAccent(accent: Accent): void {
+  if (typeof document !== 'undefined') document.documentElement.dataset.accent = accent
+}
+applyAccent(useLayout.getState().accent)
+useLayout.subscribe((s, prev) => {
+  if (s.accent !== prev.accent) applyAccent(s.accent)
 })

@@ -544,7 +544,7 @@ async function main(): Promise<void> {
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     // Nhóm thuộc tính đóng / mở; số hiện theo %
     await page.locator('.layer', { hasText: 'Cột sóng nhạc' }).click()
-    const colorTitle = page.locator('button.section-title', { hasText: /Màu sắc/ })
+    const colorTitle = page.locator('.inspector-section', { hasText: /Màu sắc/ })
     await colorTitle.click()
     assert(await until(async () => (await page.locator('label.field', { hasText: 'Màu chính' }).count()) === 0), 'đóng nhóm "Màu sắc" trong bảng thuộc tính')
     await colorTitle.click()
@@ -848,6 +848,16 @@ async function main(): Promise<void> {
     page.once('dialog', (d) => void d.accept())
     await page.getByRole('button', { name: 'Xoá bộ nhớ đệm' }).click()
     assert(await until(async () => /KB/.test((await cacheInfo.textContent()) ?? ''), 10000), 'xoá bộ nhớ đệm')
+    // Màu giao diện: đổi ngay (html[data-accent] → màu nút chính), lưu cho lần mở sau, rồi trả về Tím
+    const accentOf = (): Promise<string> => page.evaluate(() => `${document.documentElement.dataset.accent}|${getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()}`)
+    const lavender = await accentOf()
+    await page.locator('[data-accent-option="orchid"]').click()
+    assert(
+      await until(async () => (await accentOf()).startsWith('orchid|') && (await accentOf()) !== lavender && (await page.evaluate(() => localStorage.getItem('pvm.layout') ?? '')).includes('"accent":"orchid"')),
+      `chọn màu giao diện Hồng: đổi màu nhấn, lưu lại (${lavender} → ${await accentOf()})`
+    )
+    await page.locator('[data-accent-option="lavender"]').click()
+    assert(await until(async () => (await accentOf()) === lavender), 'trả về màu Tím')
     await page.keyboard.press('Escape')
     await page.locator('.chip.ok').waitFor({ timeout: 60000 })
     assert(true, 'các bài được phân tích lại, âm thanh sẵn sàng trở lại')

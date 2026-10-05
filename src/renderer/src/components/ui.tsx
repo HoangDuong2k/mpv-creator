@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type MouseEvent, type ReactNode } from 'react'
 import {
   ColorPicker,
   Dialog,
@@ -77,6 +77,25 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }): Re
   )
 }
 
+/** Cỡ ô nhập: `sm` (32px) cho bảng thuộc tính; không đặt thì theo DensityProvider của app (`xs`, 24px) */
+export type ControlSizeName = 'xs' | 'sm'
+const ControlSizeContext = createContext<ControlSizeName | undefined>(undefined)
+
+/** Đặt cỡ cho các ô nhập bên trong (NumberInput, RangeInput, ColorInput, TimeInput và nơi gọi `useControlSize`) */
+export function ControlSize({ size, children }: { size: ControlSizeName; children: ReactNode }): ReactNode {
+  return <ControlSizeContext value={size}>{children}</ControlSizeContext>
+}
+
+export function useControlSize(): ControlSizeName | undefined {
+  return useContext(ControlSizeContext)
+}
+
+/** Thanh trượt, công tắc to hơn ô nhập một bậc để cân với ô 32px (giống momi-ui ở mật độ thường) */
+export function useToggleSize(): 'sm' | 'md' | undefined {
+  const size = useControlSize()
+  return size === 'sm' ? 'md' : size === 'xs' ? 'sm' : undefined
+}
+
 /**
  * Nút chỉ có biểu tượng (momi-ui), kèm tooltip là `title`. `size`: cỡ biểu tượng (px); `btnSize`: cỡ nút
  * (`sm` 32px cho thanh công cụ, `xs` 24px cho hàng trong danh sách).
@@ -142,8 +161,10 @@ export function Modal({ title, onClose, children, footer, wide }: { title: strin
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="modal-body">{children}</div>
-        {footer && <DialogFooter className="modal-foot">{footer}</DialogFooter>}
+        <ControlSize size="sm">
+          <div className="modal-body">{children}</div>
+          {footer && <DialogFooter className="modal-foot">{footer}</DialogFooter>}
+        </ControlSize>
       </DialogContent>
     </Dialog>
   )
@@ -186,8 +207,10 @@ export function NumberInput({
   resetValue?: number
   label?: string
 }): ReactNode {
+  const size = useControlSize()
   return (
     <NumberField
+      size={size}
       className="num"
       wrapperClassName="num-field"
       value={value}
@@ -214,8 +237,10 @@ export function TimeInput({ value, onChange, withHours }: { value: number; onCha
     if (Math.abs(v - value) > 1e-6) onChange(v)
     else setText(formatTimePrecise(value, withHours))
   }
+  const size = useControlSize()
   return (
     <Input
+      size={size}
       className="time-input"
       type="text"
       value={text}
@@ -254,9 +279,11 @@ export function RangeInput({
   label?: string
 }): ReactNode {
   const unit = percent ? '%' : suffix
+  const sliderSize = useToggleSize()
   return (
     <div className="range">
       <Slider
+        size={sliderSize}
         min={min}
         max={max}
         step={step ?? 0.01}
@@ -291,10 +318,11 @@ export function ColorInput({ value, onChange }: { value: string; onChange: (v: s
     const v = text.trim()
     if (v && v !== value) onChange(v)
   }
+  const size = useControlSize()
   return (
     <div className="color">
-      <ColorPicker variant="swatch" alpha value={value} onValueChange={(v) => v !== value && onChange(v)} />
-      <Input type="text" value={text} spellCheck={false} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && commit()} />
+      <ColorPicker variant="swatch" size={size} alpha value={value} onValueChange={(v) => v !== value && onChange(v)} />
+      <Input size={size} type="text" value={text} spellCheck={false} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && commit()} />
     </div>
   )
 }

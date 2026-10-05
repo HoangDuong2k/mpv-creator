@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Button, Input, NativeSelect } from 'momi-ui'
+import { Button, Input, NativeSelect, ToggleGroup, ToggleGroupItem } from 'momi-ui'
 import { RESOLUTION_PRESETS } from '../../../shared/defaults'
 import type { TransitionType } from '../../../shared/types'
 import { player } from '../engineHost'
 import { errorText } from '../hooks'
 import { useStore } from '../store'
+import { ACCENTS, useLayout, type Accent } from '../layout'
 import { Modal, NumberInput, Row } from './ui'
-import { LANGS, tr, type Lang } from '../../../shared/i18n'
+import { LANGS, tr, trKey, type Lang } from '../../../shared/i18n'
 
 /** Chọn độ phân giải của video (dùng ở Cài đặt project và hộp Xuất video) */
 export function ResolutionSelect({ disabled }: { disabled?: boolean }): ReactNode {
@@ -67,6 +68,7 @@ export function SettingsDialog(): ReactNode {
           ))}
         </NativeSelect>
       </Row>
+      <AccentPicker />
       <Row label={tr('Tên project')}>
         <Input
           size="sm"
@@ -193,5 +195,33 @@ function CacheSection(): ReactNode {
         </Button>
       </div>
     </>
+  )
+}
+
+const ACCENT_NAMES: Record<Accent, string> = { lavender: trKey('Tím'), orchid: trKey('Hồng'), aqua: trKey('Xanh neon') }
+
+/** Màu giao diện (màu nhấn): áp ngay, lưu cho lần mở app sau; không thuộc project */
+function AccentPicker(): ReactNode {
+  const accent = useLayout((s) => s.accent)
+  return (
+    <div className="field">
+      <span className="field-label">{tr('Màu giao diện')}</span>
+      <ToggleGroup
+        type="single"
+        variant="segmented"
+        size="sm"
+        className="accent-picker"
+        aria-label={tr('Màu giao diện')}
+        value={accent}
+        onValueChange={(v) => v && useLayout.getState().setAccent(v as Accent)}
+      >
+        {ACCENTS.map((a) => (
+          <ToggleGroupItem key={a} value={a} data-accent-option={a}>
+            <span className="accent-dot" data-accent={a} aria-hidden="true" />
+            {tr(ACCENT_NAMES[a])}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
   )
 }

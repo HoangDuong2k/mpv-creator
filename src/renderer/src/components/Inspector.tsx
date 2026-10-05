@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Button, Input, NativeSelect, Switch, Textarea } from 'momi-ui'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, Badge, Button, Input, NativeSelect, Switch, Textarea } from 'momi-ui'
 import { FULL_TIMING, LAYER_DEFAULTS, LAYER_LABELS } from '../../../shared/defaults'
 import { isFullLength } from '../../../shared/timing'
 import type { Layer } from '../../../shared/types'
@@ -9,7 +9,7 @@ import { FilterPanel } from './FilterPanel'
 import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { dragRange, layerRange } from '../timelineModel'
-import { ColorInput, Icon, NumberInput, RangeInput, Row, TimeInput, fileName } from './ui'
+import { ColorInput, ControlSize, NumberInput, RangeInput, Row, TimeInput, fileName, useControlSize, useToggleSize } from './ui'
 import { useLayout } from '../layout'
 import { tr } from '../../../shared/i18n'
 
@@ -27,54 +27,80 @@ export function Inspector({ layer }: { layer: Layer }): ReactNode {
   }
 
   return (
-    <div className="inspector">
-      <div className="inspector-head">
-        <Input className="layer-name" value={tr(layer.name)} onChange={(e) => renameLayer(layer.id, e.target.value)} aria-label={tr('Tên lớp')} />
-        <span className="badge">{tr(LAYER_LABELS[layer.type])}</span>
+    <ControlSize size="sm">
+      <div className="inspector">
+        <div className="inspector-head">
+          <Input size="sm" className="layer-name" value={tr(layer.name)} onChange={(e) => renameLayer(layer.id, e.target.value)} aria-label={tr('Tên lớp')} />
+          <Badge size="sm" shape="rounded">
+            {tr(LAYER_LABELS[layer.type])}
+          </Badge>
+        </div>
+        {layer.type === 'cta' && (
+          <p className="muted small">
+            {tr('Trên timeline: kéo các ô đỏ để dời thời điểm hiện, kéo mép phải để đổi thời lượng, nhấp đúp vào hàng để thêm lần hiện, chọn ô rồi bấm Delete để xoá.')}
+          </p>
+        )}
+        <Sections layer={layer} props={props} set={set} />
       </div>
-      {layer.type === 'cta' ? (
-        <p className="muted small">
-          {tr('Trên timeline: kéo các ô đỏ để dời thời điểm hiện, kéo mép phải để đổi thời lượng, nhấp đúp vào hàng để thêm lần hiện, chọn ô rồi bấm Delete để xoá.')}
-        </p>
-      ) : (
-        <TimingSection layer={layer} />
+    </ControlSize>
+  )
+}
+
+interface FieldSection {
+  id: string
+  label: string
+  fields: Array<Exclude<Field, { kind: 'section' }>>
+}
+
+/** Chia thuộc tính theo nhóm; nhóm ẩn (theo `show`) bỏ luôn các ô của nó, nhóm không còn ô nào thì không hiện */
+function fieldSections(layer: Layer, props: Record<string, unknown>): FieldSection[] {
+  const fields = FIELDS[layer.type]
+  const out: FieldSection[] = []
+  let cur: FieldSection | null = null
+  if (fields[0]?.kind !== 'section') out.push((cur = { id: `${layer.type}:props`, label: tr('Thuộc tính'), fields: [] }))
+  for (const f of fields) {
+    const shown = !f.show || f.show(props)
+    if (f.kind === 'section') {
+      cur = shown ? { id: `${layer.type}:${f.label}`, label: tr(f.label), fields: [] } : null
+      if (cur) out.push(cur)
+    } else if (shown && cur) cur.fields.push(f)
+  }
+  return out.filter((sec) => sec.fields.length > 0)
+}
+
+/** Các nhóm thuộc tính (Accordion của momi-ui): đóng / mở từng nhóm, nhớ cho lần sau (layout.closed) */
+function Sections({ layer, props, set }: { layer: Layer; props: Record<string, unknown>; set: (k: string, v: unknown, coalesce?: boolean) => void }): ReactNode {
+  const closed = useLayout((s) => s.closed)
+  const defaults = LAYER_DEFAULTS[layer.type] as unknown as Record<string, unknown>
+  const sections = fieldSections(layer, props)
+  const ids = [...(layer.type === 'cta' ? [] : ['timing']), ...sections.map((sec) => sec.id)]
+  const open = ids.filter((id) => !closed.includes(id))
+  const onValueChange = (next: string[]): void => {
+    for (const id of ids) if (open.includes(id) !== next.includes(id)) useLayout.getState().toggleSection(id)
+  }
+  return (
+    <Accordion type="multiple" className="inspector-sections" value={open} onValueChange={onValueChange}>
+      {layer.type !== 'cta' && (
+        <AccordionItem value="timing">
+          <AccordionTrigger className="inspector-section py-3">{tr('Thời gian hiển thị')}</AccordionTrigger>
+          <AccordionContent className="inspector-fields grid gap-4 pt-0.5 pb-5 leading-normal text-foreground">
+            <TimingFields layer={layer} />
+          </AccordionContent>
+        </AccordionItem>
       )}
       {layer.type === 'filter' && <FilterPanel layer={layer} />}
-      <FieldList layer={layer} props={props} set={set} />
-    </div>
+      {sections.map((sec) => (
+        <AccordionItem key={sec.id} value={sec.id}>
+          <AccordionTrigger className="inspector-section py-3">{sec.label}</AccordionTrigger>
+          <AccordionContent className="inspector-fields grid gap-4 pt-0.5 pb-5 leading-normal text-foreground">
+            {sec.fields.map((f, i) => (
+              <FieldView key={`${f.kind}-${f.key}-${i}`} field={f} props={props} set={set} def={defaults[f.key]} />
+            ))}
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
   )
-}
-
-/** Tiêu đề nhóm thuộc tính: bấm để đóng / mở (nhớ cho lần sau) */
-function SectionTitle({ id, label }: { id: string; label: string }): ReactNode {
-  const closed = useLayout((s) => s.closed.includes(id))
-  return (
-    <button type="button" className={`section-title collapsible${closed ? ' closed' : ''}`} onClick={() => useLayout.getState().toggleSection(id)} aria-expanded={!closed}>
-      <Icon name="expand" size={16} />
-      {label}
-    </button>
-  )
-}
-
-/** Các thuộc tính của lớp, chia theo nhóm; nhóm đang đóng thì ẩn các ô bên trong */
-function FieldList({ layer, props, set }: { layer: Layer; props: Record<string, unknown>; set: (k: string, v: unknown, coalesce?: boolean) => void }): ReactNode {
-  const closed = useLayout((s) => s.closed)
-  const fields = FIELDS[layer.type]
-  const defaults = LAYER_DEFAULTS[layer.type] as unknown as Record<string, unknown>
-  let group = `${layer.type}:props`
-  const out: ReactNode[] = []
-  if (fields[0]?.kind !== 'section') out.push(<SectionTitle key="props" id={group} label={tr('Thuộc tính')} />)
-  fields.forEach((f, i) => {
-    if (f.show && !f.show(props)) return
-    if (f.kind === 'section') {
-      group = `${layer.type}:${f.label}`
-      out.push(<SectionTitle key={`s-${f.label}-${i}`} id={group} label={tr(f.label)} />)
-      return
-    }
-    if (closed.includes(group)) return
-    out.push(<FieldView key={`${f.kind}-${f.key}-${i}`} field={f} props={props} set={set} def={defaults[f.key]} />)
-  })
-  return <>{out}</>
 }
 
 /** Thông số tỉ lệ (0…1): hiện theo %; hệ số (cỡ, độ nhạy, tốc độ…): hiện "×" */
@@ -93,6 +119,8 @@ function FieldView({
 }): ReactNode {
   const label = tr(f.label)
   const value = props[f.key]
+  const size = useControlSize()
+  const toggleSize = useToggleSize()
   switch (f.kind) {
     case 'range': {
       const percent = !f.unit && f.min >= -1 && f.max <= 1
@@ -129,7 +157,7 @@ function FieldView({
     case 'select':
       return (
         <Row label={label}>
-          <NativeSelect value={String(value)} onChange={(e) => set(f.key, e.target.value)}>
+          <NativeSelect size={size} value={String(value)} onChange={(e) => set(f.key, e.target.value)}>
             {f.options.map(([v, text]) => (
               <option key={v} value={v}>
                 {tr(text)}
@@ -146,12 +174,12 @@ function FieldView({
       )
     case 'toggle':
       return (
-        <Switch className="toggle" wrapperClassName="toggle-row" label={label} checked={!!value} onCheckedChange={(on) => set(f.key, on)} />
+        <Switch size={toggleSize} className="toggle" wrapperClassName="toggle-row" label={label} checked={!!value} onCheckedChange={(on) => set(f.key, on)} />
       )
     case 'text':
       return (
         <Row label={label}>
-          <Input type="text" value={String(value)} placeholder={f.placeholder ? tr(f.placeholder) : undefined} onChange={(e) => set(f.key, e.target.value, true)} />
+          <Input size={size} type="text" value={String(value)} placeholder={f.placeholder ? tr(f.placeholder) : undefined} onChange={(e) => set(f.key, e.target.value, true)} />
         </Row>
       )
     case 'textarea':
@@ -165,7 +193,7 @@ function FieldView({
         <Row label={label}>
           <div className="file-pick">
             <Button
-              variant="outline" tone="neutral" size="xs"
+              variant="outline" tone="neutral" size={size}
               onClick={async () => {
                 const [p] = await api.openFiles(f.accept, false)
                 if (p) set(f.key, p)
@@ -183,21 +211,12 @@ function FieldView({
 }
 
 /** Khoảng thời gian layer hiện trong video (đồng bộ với thanh trên timeline) */
-function TimingSection({ layer }: { layer: Layer }): ReactNode {
+function TimingFields({ layer }: { layer: Layer }): ReactNode {
   const total = useTimeline().total
   const setLayerTiming = useStore((s) => s.setLayerTiming)
   const withHours = total >= 3600
   const set = (patch: Partial<Layer['timing']>): void => setLayerTiming(layer.id, patch)
-  const closed = useLayout((s) => s.closed.includes('timing'))
-  return (
-    <>
-      <SectionTitle id="timing" label={tr('Thời gian hiển thị')} />
-      {!closed && <TimingFields layer={layer} set={set} total={total} withHours={withHours} />}
-    </>
-  )
-}
-
-function TimingFields({ layer, set, total, withHours }: { layer: Layer; set: (patch: Partial<Layer['timing']>) => void; total: number; withHours: boolean }): ReactNode {
+  const toggleSize = useToggleSize()
   const t = layer.timing
   const range = layerRange(t, total)
   return (
@@ -215,6 +234,7 @@ function TimingFields({ layer, set, total, withHours }: { layer: Layer; set: (pa
         </Row>
       </div>
       <Switch
+        size={toggleSize}
         className="toggle"
         wrapperClassName="toggle-row"
         label={tr('Kéo dài đến hết video (tự dài theo khi thêm bài)')}
@@ -230,7 +250,7 @@ function TimingFields({ layer, set, total, withHours }: { layer: Layer; set: (pa
         </Row>
       </div>
       {!isFullLength(t) && (
-        <Button variant="outline" tone="neutral" size="xs" onClick={() => set({ ...FULL_TIMING })}>
+        <Button variant="outline" tone="neutral" size="sm" className="justify-self-start" onClick={() => set({ ...FULL_TIMING })}>
           {tr('Hiện suốt video')}
         </Button>
       )}
