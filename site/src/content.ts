@@ -17,7 +17,7 @@ export interface Chapter {
 export interface Copy {
   htmlLang: string
   meta: { title: string; description: string }
-  nav: { download: string; otherLang: string; otherLangLabel: string; menu: string }
+  nav: { download: string; menu: string }
   chapters: {
     intro: Chapter
     demo: Chapter
@@ -82,7 +82,7 @@ const vi: Copy = {
     description:
       'App miễn phí cho Windows, macOS và Linux: thả nhạc vào, chọn mẫu phong cách, xuất video playlist có cột sóng, hiệu ứng nhảy theo nhạc và timestamp chương YouTube.'
   },
-  nav: { download: 'Tải miễn phí', otherLang: '/en/', otherLangLabel: 'English', menu: 'Mở menu' },
+  nav: { download: 'Tải miễn phí', menu: 'Mở menu' },
   chapters: {
     intro: { id: 'gioi-thieu', time: '0:00', label: 'Giới thiệu' },
     demo: { id: 'video-demo', time: '0:20', label: 'Video demo' },
@@ -280,7 +280,7 @@ const en: Copy = {
     description:
       'A free app for Windows, macOS and Linux: drop in your music, pick a style, and export a playlist video with audio-reactive visualizers, effects and YouTube chapter timestamps.'
   },
-  nav: { download: 'Free download', otherLang: '/', otherLangLabel: 'Tiếng Việt', menu: 'Open menu' },
+  nav: { download: 'Free download', menu: 'Open menu' },
   chapters: {
     intro: { id: 'intro', time: '0:00', label: 'Intro' },
     demo: { id: 'demo-video', time: '0:20', label: 'Demo video' },

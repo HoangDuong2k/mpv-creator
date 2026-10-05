@@ -8,7 +8,7 @@ on:
     branches: [main]
     paths:
       - 'site/**'
-      - 'src/shared/theme.css'
+      - 'src/shared/**'
       - 'src/engine/**'
       - '.github/workflows/site.yml'
   workflow_dispatch:

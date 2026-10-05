@@ -35,12 +35,11 @@
       animation-timeline: scroll(root);
       animation-range: 0 900px;
     }
-    /* Dải sóng dưới đầu trang dâng cao dần khi cuộn qua */
-    .wave-line {
-      animation: wave-swell linear both;
+    /* Dải cột sóng dưới đầu trang mờ dần khi cuộn qua */
+    .wave-wrap {
+      animation: fade-out linear both;
       animation-timeline: view();
-      animation-range: cover 30% exit 100%;
-      transform-origin: 50% 50%;
+      animation-range: exit 0% exit 100%;
     }
     /* Phần tử tĩnh (thẻ tải về, ghi chú phát hành, ô mẫu phong cách) hiện dần khi cuộn tới */
     .sd-reveal,
@@ -72,12 +71,9 @@
     opacity: 0.6;
   }
 }
-@keyframes wave-swell {
-  from {
-    transform: scaleY(1);
-  }
+@keyframes fade-out {
   to {
-    transform: scaleY(2.4);
+    opacity: 0;
   }
 }
 @keyframes fade-up {

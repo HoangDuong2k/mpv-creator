@@ -52,30 +52,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Dải sóng trang trí dưới đầu trang (vẽ bằng SVG, chạy nhẹ; tắt khi người dùng chọn giảm chuyển động) */
-.wave-line {
-  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
-  opacity: 0.8;
-}
-.wave-line path {
-  stroke: url(#wave-grad);
-  stroke-width: 2;
-  fill: none;
-  stroke-linecap: round;
-}
-.wave-line .wave-move {
-  transform-box: fill-box;
-  animation: wave-drift 14s linear infinite;
-}
-@keyframes wave-drift {
-  to {
-    transform: translateX(-50%);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wave-line .wave-move {
-    animation: none;
-  }
+/* Dải cột sóng dưới đầu trang (canvas, vẽ bằng engine của app): mờ dần hai đầu và mép trên / dưới */
+.wave-stage {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
 }
 
 /* Nút tải: dải màu nhấn, như nút Xuất video trong app */

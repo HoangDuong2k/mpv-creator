@@ -20,6 +20,15 @@ export const WindowsIcon = ({ size = 18 }: { size?: number }): ReactNode => (
   </svg>
 )
 
+/** Quả địa cầu (chọn ngôn ngữ) */
+export const GlobeIcon = ({ size = 16 }: { size?: number }): ReactNode => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
+    <circle cx="12" cy="12" r="9" />
+    <ellipse cx="12" cy="12" rx="4" ry="9" />
+    <path d="M3.5 9h17M3.5 15h17" />
+  </svg>
+)
+
 /** Biểu tượng nét mảnh (Phosphor Icons, MIT), cùng bộ với app */
 const PATHS = {
   music:

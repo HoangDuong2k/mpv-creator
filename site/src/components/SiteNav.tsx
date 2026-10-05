@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { buttonVariants, cn, Navbar } from 'momi-ui'
-import { BrandName } from './icons'
+import { buttonVariants, cn, Navbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from 'momi-ui'
+import { BrandName, GlobeIcon } from './icons'
 
 /** Thanh điều hướng (island: menu trên điện thoại cần JavaScript) */
 export function SiteNav({
   home,
   links,
-  langHref,
+  lang,
+  langHrefs,
   langLabel,
   downloadHref,
   downloadLabel,
@@ -14,7 +15,10 @@ export function SiteNav({
 }: {
   home: string
   links: Array<{ label: string; href: string }>
-  langHref: string
+  lang: 'vi' | 'en'
+  /** Trang của từng ngôn ngữ */
+  langHrefs: { vi: string; en: string }
+  /** Nhãn cho trình đọc màn hình: "Ngôn ngữ" / "Language" */
   langLabel: string
   downloadHref: string
   downloadLabel: string
@@ -47,9 +51,17 @@ export function SiteNav({
       links={links.map((l) => ({ ...l, active: l.href === active }))}
       actions={
         <>
-          <a href={langHref} className={buttonVariants({ variant: 'ghost', tone: 'neutral', size: 'sm' })} hrefLang={langHref.startsWith('/en') || langHref.endsWith('/en/') ? 'en' : 'vi'}>
-            {langLabel}
-          </a>
+          {/* Chọn ngôn ngữ: chuyển sang trang của ngôn ngữ đó */}
+          <Select value={lang} onValueChange={(v) => v !== lang && window.location.assign(langHrefs[v as 'vi' | 'en'])}>
+            <SelectTrigger size="sm" aria-label={langLabel} className="lang-select w-auto gap-2">
+              <GlobeIcon />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="vi">Tiếng Việt</SelectItem>
+              <SelectItem value="en">English</SelectItem>
+            </SelectContent>
+          </Select>
           <a href={downloadHref} className={cn(buttonVariants({ variant: 'solid', tone: 'primary', size: 'sm' }), 'download-btn')}>
             {downloadLabel}
           </a>
