@@ -2,18 +2,22 @@
 /**
  * Toàn bộ trang landing cho một ngôn ngữ. Đầu trang viết bằng Astro (HTML tĩnh, ảnh app tối ưu bằng <Picture>);
  * các phần khác là block của momi-ui. Island (chạy JavaScript): thanh điều hướng, nút tải theo hệ điều hành,
- * và các phần có hiệu ứng hiện dần / bấm mở (Tính năng, Cách dùng, Hỏi đáp, lời kêu gọi cuối trang).
+ * video demo, thư viện mẫu (Lightbox) và các phần có hiệu ứng hiện dần / bấm mở (Tính năng, Cách dùng, Hỏi đáp,
+ * lời kêu gọi cuối trang). Hiệu ứng khi cuộn còn lại là CSS (global.css), không cần JavaScript.
  */
 import { getImage, Picture } from 'astro:assets'
-import { AppWindowFrame, BackgroundPattern, Badge, buttonVariants, Container } from 'momi-ui'
+import { AppWindowFrame, BackgroundPattern, Badge, Container } from 'momi-ui'
+import { marked } from 'marked'
 import Base from '../layouts/Base.astro'
-import { COPY, REPO_URL, type Lang } from '../content'
-import { latestRelease, pickDownloads } from '../release'
+import { COPY, REPO_URL, TEMPLATE_IDS, type Lang, type TemplateId } from '../content'
+import { notesFor, pickDownloads, releases } from '../release'
 import { withBase } from '../paths'
 import { SiteNav } from './SiteNav'
 import { DownloadButton } from './DownloadButton'
 import { FaqSection, Features, FinalCta, HowItWorks, type Img } from './Sections'
 import { DownloadSection, SiteFooter } from './DownloadSection'
+import { DemoVideo, TemplateGallery, type TemplateImage } from './Media'
+import { ChangelogSection, type ReleaseNote } from './ChangelogSection'
 import appShot from '../assets/shots/app.png'
 import libraryShot from '../assets/shots/library.png'
 import timelineShot from '../assets/shots/timeline.png'
@@ -21,6 +25,7 @@ import chaptersShot from '../assets/shots/chapters.png'
 import exportShot from '../assets/shots/export.png'
 import stylesShot from '../assets/shots/styles.png'
 import inspectorShot from '../assets/shots/inspector.png'
+import demoPoster from '../assets/demo-poster.jpg'
 
 interface Props {
   lang: Lang
@@ -29,12 +34,15 @@ const { lang } = Astro.props
 const c = COPY[lang]
 const ch = c.chapters
 const home = withBase(lang === 'vi' ? '/' : '/en/')
-const release = await latestRelease()
+const all = await releases()
+const release = all[0] ?? null
 const downloads = pickDownloads(release)
-const versionLine = release
-  ? c.download.version(release.version, new Date(release.date).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }))
-  : null
-const links = [ch.features, ch.how, ch.download, ch.faq].map((x) => ({ label: x.label, href: `#${x.id}` }))
+const dateText = (iso: string): string => new Date(iso).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+const versionLine = release ? c.download.version(release.version, dateText(release.date)) : null
+const notes: ReleaseNote[] = await Promise.all(
+  all.map(async (r) => ({ version: r.version, date: r.date, url: r.url, html: await marked.parse(notesFor(r.notes, lang)) }))
+)
+const links = [ch.features, ch.styles, ch.how, ch.download, ch.faq].map((x) => ({ label: x.label, href: `#${x.id}` }))
 const labels = {
   generic: c.download.generic,
   forWindows: c.download.forWindows,
@@ -44,7 +52,7 @@ const labels = {
   otherSystems: c.download.otherSystems
 }
 
-/** Ảnh tính năng: WebP, chiều ngang gấp đôi cỡ hiển thị (màn hình độ nét cao) */
+/** Ảnh WebP, chiều ngang gấp đôi cỡ hiển thị (màn hình độ nét cao) */
 const webp = async (src: ImageMetadata, width: number): Promise<Img> => {
   const r = await getImage({ src, width: Math.min(width, src.width), format: 'webp', quality: 82 })
   return { src: r.src, width: Number(r.attributes.width), height: Number(r.attributes.height) }
@@ -57,6 +65,15 @@ const images = {
   styles: await webp(stylesShot, 1400),
   inspector: await webp(inspectorShot, 680)
 }
+const templateFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/templates/*.jpg', { eager: true })
+const templateImages: TemplateImage[] = await Promise.all(
+  TEMPLATE_IDS.map(async (id: TemplateId, i) => {
+    const src = templateFiles[`../assets/templates/${id}.jpg`].default
+    // Mẫu đầu hiện lớn (2×2) nên ảnh nhỏ cần rộng hơn
+    return { id, thumb: await webp(src, i === 0 ? 1280 : 720), full: await webp(src, 1920) }
+  })
+)
+const poster = await webp(demoPoster, 1280)
 
 /**
  * Dải sóng trang trí dưới đầu trang: tổng vài sóng sin lặp đúng chu kỳ 1200 đơn vị, vẽ hai chu kỳ để trượt
@@ -74,6 +91,7 @@ const wavePath = (() => {
 ---
 
 <Base lang={lang} copy={c} version={release?.version}>
+  <div class="scroll-progress" aria-hidden="true"></div>
   <SiteNav
     client:load
     home={home}
@@ -85,47 +103,42 @@ const wavePath = (() => {
     menuLabel={c.nav.menu}
   />
   <main>
-    <section id={ch.intro.id} class="relative isolate overflow-hidden pt-14 sm:pt-20">
+    <section id={ch.intro.id} class="relative isolate overflow-clip pt-14 sm:pt-20">
       <BackgroundPattern variant="grid" fade="radial" />
       <Container size="xl">
         <div class="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-          <a
-            href={release?.url ?? `#${ch.download.id}`}
-            class="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 py-1 ps-1 pe-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Badge variant="solid" tone="primary" size="sm">{release?.version ?? c.hero.badge}</Badge>
-            {c.hero.badgeLabel}
+          <a href={`#${ch.changelog.id}`} class="rounded-full transition-opacity hover:opacity-85" aria-label={ch.changelog.label}>
+            <Badge variant="solid" tone="primary" size="md">{release?.version ?? c.hero.badge}</Badge>
           </a>
           <h1 class="text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-6xl lg:text-7xl">
             {c.hero.titleStart} <span class="text-brand-grad">{c.hero.titleHighlight}</span>
           </h1>
           <p class="max-w-2xl text-lg text-pretty text-muted-foreground sm:text-xl">{c.hero.description}</p>
-          <div class="flex flex-wrap items-start justify-center gap-3">
-            <DownloadButton client:load downloads={downloads} labels={labels} anchor={ch.download.id} />
-            <a href={`#${ch.how.id}`} class={buttonVariants({ variant: 'outline', tone: 'neutral', size: 'lg' })}>{c.hero.secondary}</a>
-          </div>
+          <DownloadButton client:load downloads={downloads} labels={labels} anchor={ch.download.id} secondary={{ href: `#${ch.how.id}`, label: c.hero.secondary }} />
           <p class="text-sm text-muted-foreground">{c.hero.footnote}</p>
         </div>
 
         <div class="relative mx-auto mt-14 max-w-6xl sm:mt-20">
           <div class="hero-glow"></div>
-          <AppWindowFrame variant="macos" title="Playlist Video Maker" glow>
-            <Picture
-              src={appShot}
-              formats={['avif', 'webp']}
-              fallbackFormat="webp"
-              widths={[960, 1440, 2160, 2880]}
-              sizes="(min-width: 1200px) 1152px, 100vw"
-              alt={c.hero.shotAlt}
-              loading="eager"
-              fetchpriority="high"
-              class="block h-auto w-full"
-            />
-          </AppWindowFrame>
+          <div class="hero-shot">
+            <AppWindowFrame variant="macos" title="Playlist Video Maker" glow>
+              <Picture
+                src={appShot}
+                formats={['avif', 'webp']}
+                fallbackFormat="webp"
+                widths={[960, 1440, 2160, 2880]}
+                sizes="(min-width: 1200px) 1152px, 100vw"
+                alt={c.hero.shotAlt}
+                loading="eager"
+                fetchpriority="high"
+                class="block h-auto w-full"
+              />
+            </AppWindowFrame>
+          </div>
           <!-- Như phần mô tả dưới video YouTube: danh sách chương, cũng là lối tắt tới từng phần -->
-          <nav aria-label={lang === 'vi' ? 'Các phần của trang' : 'Page sections'} class="mx-auto mt-6 flex max-w-3xl flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
+          <nav aria-label={lang === 'vi' ? 'Các phần của trang' : 'Page sections'} class="mx-auto mt-6 flex max-w-4xl flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
             {
-              [ch.intro, ch.features, ch.how, ch.download, ch.faq].map((x) => (
+              [ch.intro, ch.demo, ch.features, ch.styles, ch.how, ch.download, ch.changelog, ch.faq].map((x) => (
                 <a href={`#${x.id}`} class="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground">
                   <span class="chapter-time">{x.time}</span>
                   {x.label}
@@ -150,9 +163,12 @@ const wavePath = (() => {
       </svg>
     </section>
 
+    <DemoVideo client:visible copy={c.demo} chapter={ch.demo} poster={poster} video={withBase('/demo/demo.mp4')} />
     <Features client:idle copy={c.features} chapter={ch.features} images={images} />
+    <TemplateGallery client:visible copy={c.styles} chapter={ch.styles} images={templateImages} lang={lang} />
     <HowItWorks client:idle copy={c.how} chapter={ch.how} />
     <DownloadSection copy={c.download} chapter={ch.download} downloads={downloads} versionLine={versionLine} />
+    <ChangelogSection copy={c.changelog} chapter={ch.changelog} notes={notes} lang={lang} />
     <FaqSection client:idle copy={c.faq} chapter={ch.faq} />
     <FinalCta client:idle copy={c.cta} downloads={downloads} labels={labels} anchor={ch.download.id} repoUrl={REPO_URL} />
   </main>

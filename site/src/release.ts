@@ -30,39 +30,60 @@ export interface Downloads {
   page: string
 }
 
-let cached: Promise<Release | null> | undefined
+interface ApiRelease {
+  tag_name: string
+  published_at: string
+  html_url: string
+  body?: string
+  draft: boolean
+  prerelease: boolean
+  assets: Array<{ name: string; browser_download_url: string; size: number }>
+}
 
-export function latestRelease(): Promise<Release | null> {
+let cached: Promise<Release[]> | undefined
+
+/** Các bản phát hành chính thức, mới nhất trước (đọc một lần cho cả hai ngôn ngữ) */
+export function releases(): Promise<Release[]> {
   cached ??= (async () => {
     try {
       const headers: Record<string, string> = { Accept: 'application/vnd.github+json' }
       // Trên CI có GITHUB_TOKEN: không bị giới hạn 60 lượt / giờ của API không đăng nhập
       if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
-      const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers })
+      const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=10`, { headers })
       if (!res.ok) {
         console.warn(`[release] GitHub trả ${res.status}: dùng link trang Releases`)
-        return null
+        return []
       }
-      const d = (await res.json()) as {
-        tag_name: string
-        published_at: string
-        html_url: string
-        body?: string
-        assets: Array<{ name: string; browser_download_url: string; size: number }>
-      }
-      return {
-        version: d.tag_name,
-        date: d.published_at,
-        url: d.html_url,
-        notes: d.body ?? '',
-        assets: d.assets.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size }))
-      }
+      const list = (await res.json()) as ApiRelease[]
+      return list
+        .filter((d) => !d.draft && !d.prerelease)
+        .map((d) => ({
+          version: d.tag_name,
+          date: d.published_at,
+          url: d.html_url,
+          notes: d.body ?? '',
+          assets: d.assets.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size }))
+        }))
     } catch (err) {
-      console.warn('[release] không đọc được bản phát hành mới nhất:', err)
-      return null
+      console.warn('[release] không đọc được các bản phát hành:', err)
+      return []
     }
   })()
   return cached
+}
+
+export async function latestRelease(): Promise<Release | null> {
+  return (await releases())[0] ?? null
+}
+
+/**
+ * Ghi chú phát hành theo ngôn ngữ: CHANGELOG.md viết tiếng Việt trước, đoạn "**English:** …" ở cuối.
+ * Trang tiếng Việt bỏ đoạn tiếng Anh; trang tiếng Anh chỉ lấy đoạn đó (không có thì dùng cả ghi chú).
+ */
+export function notesFor(notes: string, lang: 'vi' | 'en'): string {
+  const i = notes.indexOf('**English:**')
+  if (i < 0) return notes
+  return lang === 'vi' ? notes.slice(0, i).trim() : notes.slice(i + '**English:**'.length).trim()
 }
 
 /** Chọn file cho từng hệ điều hành theo tên (đặt trong electron-builder.yml) */

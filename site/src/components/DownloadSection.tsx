@@ -23,7 +23,7 @@ function FileLink({ asset, label, page }: { asset?: Asset; label: string; page: 
 
 function OsCard({ icon, name, requirement, note, children }: { icon: ReactNode; name: string; requirement: string; note: string; children: ReactNode }): ReactNode {
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
+    <div className="sd-reveal flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center gap-3">
         <span className="grid size-10 place-items-center rounded-lg border border-border bg-[var(--bg-0)] text-foreground">{icon}</span>
         <div>

@@ -1,0 +1,92 @@
+/*
+ * Hiệu ứng khi cuộn trang. Đặt trong public/ (phục vụ nguyên văn): bộ tối ưu CSS khi build gộp animation-timeline
+ * vào thuộc tính viết tắt `animation`, Chrome coi là sai và bỏ cả hiệu ứng.
+ */
+/* Dùng scroll-driven animation của CSS (chạy trên GPU, không cần JavaScript). Trình duyệt chưa hỗ trợ hoặc người
+ * xem bật "giảm chuyển động" thấy trang tĩnh như bình thường.
+ */
+.scroll-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 60;
+  height: 2px;
+  background: var(--brand-grad);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  pointer-events: none;
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* Thanh tiến trình trên cùng như thanh tua video: chạy theo vị trí cuộn */
+    .scroll-progress {
+      animation: grow-x linear both;
+      animation-timeline: scroll(root);
+    }
+    /* Ảnh app ở đầu trang: nghiêng nhẹ rồi thẳng dần khi cuộn tới */
+    .hero-shot {
+      animation: hero-tilt linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 45%;
+      transform-origin: 50% 100%;
+    }
+    /* Quầng sáng sau ảnh trôi chậm hơn trang (chiều sâu) */
+    .hero-glow {
+      animation: drift-down linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 900px;
+    }
+    /* Dải sóng dưới đầu trang dâng cao dần khi cuộn qua */
+    .wave-line {
+      animation: wave-swell linear both;
+      animation-timeline: view();
+      animation-range: cover 30% exit 100%;
+      transform-origin: 50% 50%;
+    }
+    /* Phần tử tĩnh (thẻ tải về, ghi chú phát hành, ô mẫu phong cách) hiện dần khi cuộn tới */
+    .sd-reveal,
+    .tpl-tile {
+      animation: fade-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+}
+@keyframes grow-x {
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes hero-tilt {
+  from {
+    transform: perspective(1600px) rotateX(12deg) scale(0.95);
+    opacity: 0.85;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes drift-down {
+  to {
+    transform: translateY(160px) scale(1.15);
+    opacity: 0.6;
+  }
+}
+@keyframes wave-swell {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(2.4);
+  }
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -4,7 +4,8 @@ import '@fontsource-variable/hanken-grotesk'
 import '@fontsource-variable/jetbrains-mono'
 import '../styles/global.css'
 import { getImage } from 'astro:assets'
-import appShot from '../assets/shots/app.png'
+import ogVi from '../assets/og-vi.png'
+import ogEn from '../assets/og-en.png'
 import type { Copy, Lang } from '../content'
 import { RELEASES_URL } from '../release'
 import { withBase } from '../paths'
@@ -18,7 +19,8 @@ const { lang, copy, version } = Astro.props
 const site = Astro.site ?? new URL('https://hoangduong2k.github.io')
 const url = (path: string): string => new URL(withBase(path), site).href
 const canonical = url(lang === 'vi' ? '/' : '/en/')
-const og = await getImage({ src: appShot, width: 1200, format: 'jpg', quality: 82 })
+// Ảnh chia sẻ 1200×630 theo ngôn ngữ (tạo bằng npm run site:shots)
+const og = await getImage({ src: lang === 'vi' ? ogVi : ogEn, width: 1200, format: 'jpg', quality: 85 })
 const ogUrl = new URL(og.src, site).href
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -48,6 +50,8 @@ const jsonLd = {
     <link rel="alternate" hreflang="en" href={url('/en/')} />
     <link rel="alternate" hreflang="x-default" href={url('/')} />
     <link rel="icon" type="image/png" href={withBase('/favicon.png')} />
+    <!-- Hiệu ứng khi cuộn: file trong public/, không qua bộ tối ưu CSS (xem chú thích đầu file) -->
+    <link rel="stylesheet" href={withBase('/scroll.css')} />
     <meta name="theme-color" content="#100f16" />
     <meta name="color-scheme" content="dark" />
 

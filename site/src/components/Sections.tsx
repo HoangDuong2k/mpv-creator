@@ -3,11 +3,10 @@
  * (Hỏi đáp) được Astro chạy như island (client:idle); phần còn lại render sẵn thành HTML tĩnh.
  */
 import type { ReactNode } from 'react'
-import { BentoCard, BentoGrid, Container, Cta, Faq, SectionHeader, Steps, buttonVariants } from 'momi-ui'
+import { BentoCard, BentoGrid, Container, Cta, Faq, SectionHeader, Steps } from 'momi-ui'
 import type { Chapter, Copy } from '../content'
 import type { Downloads } from '../release'
 import { DownloadButton, type DownloadLabels } from './DownloadButton'
-import { GithubIcon } from './icons'
 
 /** Ảnh đã tối ưu (Astro getImage) truyền vào island: chỉ dữ liệu thuần */
 export interface Img {
@@ -116,15 +115,7 @@ export function FinalCta({
           variant="card"
           title={copy.title}
           description={copy.description}
-          actions={
-            <div className="flex flex-wrap items-start justify-center gap-3">
-              <DownloadButton downloads={downloads} labels={labels} anchor={anchor} />
-              <a href={repoUrl} className={buttonVariants({ variant: 'outline', tone: 'neutral', size: 'lg' })}>
-                <GithubIcon />
-                {copy.github}
-              </a>
-            </div>
-          }
+          actions={<DownloadButton downloads={downloads} labels={labels} anchor={anchor} secondary={{ href: repoUrl, label: copy.github, github: true }} />}
         />
       </Container>
     </section>

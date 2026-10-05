@@ -16,6 +16,7 @@
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.5",
+    "marked": "^18.0.14",
     "momi-ui": "github:HoangDuong2k/momi-ui#v0.2.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

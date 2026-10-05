@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { buttonVariants, cn, usePlatform } from 'momi-ui'
 import type { Downloads } from '../release'
 import { formatSize } from '../release'
-import { AppleIcon, Icon, LinuxIcon, WindowsIcon } from './icons'
+import { AppleIcon, GithubIcon, Icon, LinuxIcon, WindowsIcon } from './icons'
 
 export interface DownloadLabels {
   generic: string
@@ -22,13 +22,14 @@ export function DownloadButton({
   downloads: d,
   labels,
   anchor,
-  align = 'center'
+  secondary
 }: {
   downloads: Downloads
   labels: DownloadLabels
   /** id của phần Tải về */
   anchor: string
-  align?: 'center' | 'start'
+  /** Nút phụ cùng hàng (Xem cách làm, Xem trên GitHub…); dòng thông tin file nằm dưới, căn giữa cả hai nút */
+  secondary?: { href: string; label: string; github?: boolean }
 }): ReactNode {
   const platform = usePlatform()
   const other = { href: `#${anchor}`, label: labels.otherSystems }
@@ -43,24 +44,32 @@ export function DownloadButton({
     main = { href: d.linux.appimage.url, label: labels.forLinux, icon: <LinuxIcon />, meta: `AppImage · ${formatSize(d.linux.appimage.size)}` }
   }
   return (
-    <div className={cn('flex flex-col gap-2', align === 'center' ? 'items-center' : 'items-start')}>
-      <a href={main.href} className={cn(buttonVariants({ variant: 'solid', tone: 'primary', size: 'lg' }), 'download-btn')} data-platform={platform}>
-        {main.icon}
-        {main.label}
-      </a>
-      <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-        {main.meta && <span>{main.meta}</span>}
-        {extra && (
-          <a className="underline-offset-4 hover:text-foreground hover:underline" href={extra.href}>
-            {extra.label}
+    <div className="flex flex-col items-center gap-2.5">
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <a href={main.href} className={cn(buttonVariants({ variant: 'solid', tone: 'primary', size: 'lg' }), 'download-btn')} data-platform={platform}>
+          {main.icon}
+          {main.label}
+        </a>
+        {secondary && (
+          <a href={secondary.href} className={buttonVariants({ variant: 'outline', tone: 'neutral', size: 'lg' })}>
+            {secondary.github && <GithubIcon />}
+            {secondary.label}
           </a>
         )}
-        {main.meta && (
+      </div>
+      {main.meta && (
+        <p className="flex flex-wrap items-center justify-center gap-x-2 text-xs text-muted-foreground">
+          <span>{main.meta}</span>
+          {extra && (
+            <a className="underline-offset-4 hover:text-foreground hover:underline" href={extra.href}>
+              {extra.label}
+            </a>
+          )}
           <a className="underline-offset-4 hover:text-foreground hover:underline" href={other.href}>
             {other.label}
           </a>
-        )}
-      </p>
+        </p>
+      )}
     </div>
   )
 }

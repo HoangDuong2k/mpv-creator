@@ -5,6 +5,9 @@
  */
 export type Lang = 'vi' | 'en'
 
+export type TemplateId = 'default' | 'lofi' | 'edm' | 'ballad' | 'bolero' | 'relax' | 'minimal'
+export const TEMPLATE_IDS: TemplateId[] = ['default', 'lofi', 'edm', 'ballad', 'bolero', 'relax', 'minimal']
+
 export interface Chapter {
   id: string
   time: string
@@ -15,10 +18,18 @@ export interface Copy {
   htmlLang: string
   meta: { title: string; description: string }
   nav: { download: string; otherLang: string; otherLangLabel: string; menu: string }
-  chapters: { intro: Chapter; features: Chapter; how: Chapter; download: Chapter; faq: Chapter }
+  chapters: {
+    intro: Chapter
+    demo: Chapter
+    features: Chapter
+    styles: Chapter
+    how: Chapter
+    download: Chapter
+    changelog: Chapter
+    faq: Chapter
+  }
   hero: {
     badge: string
-    badgeLabel: string
     titleStart: string
     titleHighlight: string
     description: string
@@ -47,7 +58,10 @@ export interface Copy {
     description: string
     items: Array<{ key: 'effects' | 'chapters' | 'timeline' | 'inspector' | 'export' | 'styles'; title: string; description: string; alt: string }>
   }
+  demo: { title: string; description: string; play: string; credit: string; creditLicense: string }
+  styles: { title: string; description: string; items: Record<TemplateId, { name: string; description: string }> }
   how: { title: string; description: string; steps: Array<{ title: string; description: string }> }
+  changelog: { title: string; description: string; all: string }
   faq: { title: string; description: string; items: Array<{ question: string; answer: string }> }
   cta: { title: string; description: string; github: string }
   footer: {
@@ -71,14 +85,16 @@ const vi: Copy = {
   nav: { download: 'Tải miễn phí', otherLang: '/en/', otherLangLabel: 'English', menu: 'Mở menu' },
   chapters: {
     intro: { id: 'gioi-thieu', time: '0:00', label: 'Giới thiệu' },
+    demo: { id: 'video-demo', time: '0:20', label: 'Video demo' },
     features: { id: 'tinh-nang', time: '0:42', label: 'Tính năng' },
-    how: { id: 'cach-dung', time: '1:15', label: 'Cách dùng' },
-    download: { id: 'tai-ve', time: '1:58', label: 'Tải về' },
-    faq: { id: 'hoi-dap', time: '2:30', label: 'Hỏi đáp' }
+    styles: { id: 'mau-phong-cach', time: '1:10', label: 'Mẫu phong cách' },
+    how: { id: 'cach-dung', time: '1:36', label: 'Cách dùng' },
+    download: { id: 'tai-ve', time: '2:02', label: 'Tải về' },
+    changelog: { id: 'co-gi-moi', time: '2:28', label: 'Có gì mới' },
+    faq: { id: 'hoi-dap', time: '2:47', label: 'Hỏi đáp' }
   },
   hero: {
     badge: 'v0.2.0',
-    badgeLabel: 'Bản phát hành đầu tiên',
     titleStart: 'Biến playlist nhạc thành',
     titleHighlight: 'video YouTube',
     description:
@@ -165,6 +181,26 @@ const vi: Copy = {
       }
     ]
   },
+  demo: {
+    title: 'Video này do chính app dựng',
+    description: 'Ba bài nhạc, mẫu EDM, không chỉnh tay gì thêm: cột sóng, tên bài, thanh tiến trình đổi theo từng bài.',
+    play: 'Phát video demo (có tiếng)',
+    credit: 'Nhạc: "Voxel Revolution", "Local Forecast - Elevator", "Wallpaper" của Kevin MacLeod (incompetech.com)',
+    creditLicense: 'giấy phép CC BY 4.0'
+  },
+  styles: {
+    title: '7 mẫu phong cách có sẵn',
+    description: 'Cùng một bài nhạc, bảy kiểu video. Bấm vào ảnh để xem lớn.',
+    items: {
+      default: { name: 'Mặc định', description: 'Cột sóng gradient, tên bài, hạt bụi bay, nút Đăng ký' },
+      lofi: { name: 'Lofi', description: 'Màu ấm nhạt kiểu phim, sóng âm mảnh, chữ viết tay' },
+      edm: { name: 'EDM', description: 'Neon đối xứng, nền đập mạnh theo bass, nháy sáng theo beat' },
+      ballad: { name: 'Ballad', description: 'Vòng sóng quanh ảnh bìa, đốm sáng mờ, chữ cổ điển' },
+      bolero: { name: 'Bolero', description: 'Tông vàng cổ điển, nhiễu phim cũ, cột sóng ánh kim' },
+      relax: { name: 'Thư giãn', description: 'Xanh dịu, sóng mềm ở chân khung hình, chữ mảnh' },
+      minimal: { name: 'Tối giản', description: 'Nền đen, cột sóng trắng gọn, không hiệu ứng thừa' }
+    }
+  },
   how: {
     title: 'Ba bước là có video',
     description: 'Không cần biết dựng phim.',
@@ -182,6 +218,11 @@ const vi: Copy = {
         description: 'Chọn độ phân giải, bấm Xuất. Xong thì chép timestamp chương dán vào mô tả YouTube.'
       }
     ]
+  },
+  changelog: {
+    title: 'Có gì mới',
+    description: 'Mỗi bản phát hành đều ghi rõ thay đổi.',
+    all: 'Xem mọi phiên bản trên GitHub'
   },
   faq: {
     title: 'Câu hỏi thường gặp',
@@ -242,14 +283,16 @@ const en: Copy = {
   nav: { download: 'Free download', otherLang: '/', otherLangLabel: 'Tiếng Việt', menu: 'Open menu' },
   chapters: {
     intro: { id: 'intro', time: '0:00', label: 'Intro' },
+    demo: { id: 'demo-video', time: '0:20', label: 'Demo video' },
     features: { id: 'features', time: '0:42', label: 'Features' },
-    how: { id: 'how-it-works', time: '1:15', label: 'How it works' },
-    download: { id: 'download', time: '1:58', label: 'Download' },
-    faq: { id: 'faq', time: '2:30', label: 'FAQ' }
+    styles: { id: 'styles', time: '1:10', label: 'Styles' },
+    how: { id: 'how-it-works', time: '1:36', label: 'How it works' },
+    download: { id: 'download', time: '2:02', label: 'Download' },
+    changelog: { id: 'whats-new', time: '2:28', label: "What's new" },
+    faq: { id: 'faq', time: '2:47', label: 'FAQ' }
   },
   hero: {
     badge: 'v0.2.0',
-    badgeLabel: 'First public release',
     titleStart: 'Turn a music playlist into a',
     titleHighlight: 'YouTube video',
     description:
@@ -336,6 +379,26 @@ const en: Copy = {
       }
     ]
   },
+  demo: {
+    title: 'This video was made by the app',
+    description: 'Three songs, the EDM style, no manual tweaks: the visualizer, song title and progress bar follow each song.',
+    play: 'Play the demo video (with sound)',
+    credit: 'Music: "Voxel Revolution", "Local Forecast - Elevator", "Wallpaper" by Kevin MacLeod (incompetech.com)',
+    creditLicense: 'licensed under CC BY 4.0'
+  },
+  styles: {
+    title: '7 ready-made styles',
+    description: 'One song, seven looks. Click an image to see it larger.',
+    items: {
+      default: { name: 'Default', description: 'Gradient bars, song title, floating dust, Subscribe button' },
+      lofi: { name: 'Lofi', description: 'Soft warm film look, thin waveform, handwritten title' },
+      edm: { name: 'EDM', description: 'Neon mirrored bars, background pumping with the bass, flashes on the beat' },
+      ballad: { name: 'Ballad', description: 'Circular bars around the cover, soft bokeh, classic serif text' },
+      bolero: { name: 'Bolero', description: 'Vintage golden tones, old film flicker, golden bars' },
+      relax: { name: 'Relax', description: 'Soft teal, a gentle wave along the bottom, light text' },
+      minimal: { name: 'Minimal', description: 'Black background, clean white bars, no extra effects' }
+    }
+  },
   how: {
     title: 'Three steps to a video',
     description: 'No editing experience needed.',
@@ -353,6 +416,11 @@ const en: Copy = {
         description: 'Choose a resolution and hit Export. Then copy the chapter timestamps into your YouTube description.'
       }
     ]
+  },
+  changelog: {
+    title: "What's new",
+    description: 'Every release lists what changed.',
+    all: 'See every release on GitHub'
   },
   faq: {
     title: 'Frequently asked questions',

@@ -71,7 +71,9 @@ Trang giới thiệu và tải app: Astro + momi-ui, tiếng Việt ở `/`, ti�
 `src/shared/theme.css`. Link tải lấy từ bản phát hành mới nhất lúc build.
 
 - Chạy thử: `cd site && npm ci && npm run dev` (cần Node 22.12 trở lên).
-- Ảnh chụp app trên trang: `npm run build && npm run site:shots` ở thư mục gốc (Linux không có màn hình: `xvfb-run -a npm run site:shots`), rồi commit ảnh trong `site/src/assets/shots/`.
+- Ảnh chụp app và ảnh chia sẻ trên trang: `npm run build && npm run site:shots` ở thư mục gốc (Linux không có màn hình: `xvfb-run -a npm run site:shots`), rồi commit ảnh trong `site/src/assets/`.
+- Video demo (`site/public/demo/demo.mp4`) và ảnh 7 mẫu (`site/src/assets/templates/`) dựng bằng CLI của app từ ba đoạn nhạc 13 giây của Kevin MacLeod (incompetech.com, CC BY 4.0, ghi nguồn ngay dưới video): `npm run cli -- demo --audio 01.mp3 02.mp3 03.mp3 --template edm --size 1280x720 --fps 30 --out demo.mp4` rồi nén bằng ffmpeg (`-crf 29 -preset slow -movflags +faststart`, dưới 5 MB); ảnh mẫu: `npm run cli -- frame --audio 01.mp3 02.mp3 --template <mẫu> --time 6.2 --out <mẫu>.png`. Chỉ dựng lại khi giao diện video đổi nhiều (mỗi lần commit video, repo nặng thêm).
+- Hiệu ứng khi cuộn nằm ở `site/public/scroll.css` (không qua bộ tối ưu CSS, xem chú thích trong file).
 
 ## Dùng trên Windows
 

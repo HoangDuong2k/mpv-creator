@@ -5,6 +5,8 @@
  *   npm run cli -- render --project p.pvm.json --out out.mp4 [--start s --duration d]
  *   npm run cli -- frame  --project p.pvm.json --time 12.5 --out frame.png
  *   (mọi lệnh đều nhận --audio a.mp3 ... thay cho --project để dùng project mặc định)
+ *   Với --audio: --template edm (mẫu phong cách có sẵn: default, lofi, edm, ballad, bolero, relax, minimal),
+ *   --size 1280x720 (khung hình), --fps 30
  *   npm run cli -- chapters --project p.pvm.json
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
@@ -12,6 +14,7 @@ import { dirname, join, resolve } from 'path'
 import { createCanvas } from '@napi-rs/canvas'
 import { AudioSampler, Renderer, TrackFeatures } from '../src/engine'
 import { createDefaultProject, normalizeProject } from '../src/shared/defaults'
+import { builtinTemplates, projectFromTemplate } from '../src/shared/templates'
 import { buildChapters } from '../src/shared/time'
 import { buildTimeline } from '../src/shared/timeline'
 import type { Project } from '../src/shared/types'
@@ -59,8 +62,14 @@ async function main(): Promise<void> {
 
   if (cmd === 'demo' || cmd === 'render' || cmd === 'frame' || cmd === 'chapters') {
     if (opts.audio?.length) {
-      project = createDefaultProject()
+      const tplId = opts.template?.[0]
+      const tpl = tplId ? builtinTemplates().find((t) => t.id === tplId) : undefined
+      if (tplId && !tpl) throw new Error(`Không có mẫu "${tplId}" (có: ${builtinTemplates().map((t) => t.id).join(', ')})`)
+      project = tpl ? projectFromTemplate(tpl) : createDefaultProject()
       project.name = 'Demo'
+      const size = /^(\d+)x(\d+)$/.exec(opts.size?.[0] ?? '')
+      if (size) project.settings = { ...project.settings, width: Number(size[1]), height: Number(size[2]) }
+      if (opts.fps?.[0]) project.settings = { ...project.settings, fps: Number(opts.fps[0]) }
       for (const p of opts.audio ?? []) project.tracks.push(await readTrackInfo(resolve(p), ws.coverDir))
     } else project = await loadProject(opts.project?.[0] ?? '')
     if (project.tracks.length === 0) throw new Error('Chưa có bài hát (--audio ...)')
