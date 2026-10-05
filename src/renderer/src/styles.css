@@ -1383,13 +1383,13 @@ textarea.chapters {
   min-height: 0;
   overflow: auto;
 }
-/* Thanh cuộn ngang cao hơn, dễ bấm và kéo */
+/* Thanh cuộn ngang: con trượt dày 6px (thanh chung chỉ còn 4px sau viền trong suốt), dễ bấm và kéo hơn */
 .tl-scroll::-webkit-scrollbar {
-  height: 16px;
+  height: 8px;
 }
 .tl-scroll::-webkit-scrollbar-thumb:horizontal {
-  border-width: 3px;
-  border-radius: 8px;
+  border-width: 1px;
+  border-radius: 4px;
   background-color: var(--line-2);
 }
 .tl-scroll::-webkit-scrollbar-thumb:horizontal:hover,

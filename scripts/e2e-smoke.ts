@@ -610,10 +610,10 @@ async function main(): Promise<void> {
     await page.keyboard.press('Escape')
     assert(await until(async () => (await page.locator('.preview.maximized').count()) === 0, 5000), 'Esc thoát toàn màn hình')
     assert((await seekbar.count()) === 0, 'thoát toàn màn hình: thanh tua ẩn (tua bằng timeline)')
-    // Timeline: thanh cuộn ngang đủ cao để bấm; đang phát mà tự cuộn đi chỗ khác thì không bị kéo về đầu phát
+    // Timeline: thanh cuộn ngang cao 8px; đang phát mà tự cuộn đi chỗ khác thì không bị kéo về đầu phát
     const scrollEl = page.locator('.tl-scroll')
     const barH = await scrollEl.evaluate((el) => (el as HTMLElement).offsetHeight - el.clientHeight)
-    assert(barH >= 14, `thanh cuộn ngang của timeline cao ${barH}px`)
+    assert(barH === 8, `thanh cuộn ngang của timeline cao ${barH}px`)
     await scrollEl.evaluate((el) => {
       const r = el.getBoundingClientRect()
       for (let i = 0; i < 4; i++) el.dispatchEvent(new WheelEvent('wheel', { deltaY: -600, ctrlKey: true, clientX: r.left + 300, bubbles: true, cancelable: true }))
