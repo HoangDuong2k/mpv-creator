@@ -46,8 +46,8 @@ Không cần cài FFmpeg riêng: app dùng bản đi kèm (`ffmpeg-static`). Mu�
 
 | Hệ điều hành | Lệnh (chạy trên chính hệ điều hành đó) | Kết quả trong `release/` |
 |---|---|---|
-| **Windows** | `npm ci` rồi `npm run dist:win` | `Playlist Video Maker-Setup-x.y.z.exe` (bộ cài) và bản Portable `.exe` |
-| **macOS** | `npm ci` rồi `npm run dist:mac` | `Playlist Video Maker-x.y.z-arm64.dmg` (Mac chip Apple M1 trở lên) hoặc `-x64.dmg` (Mac Intel), theo chip của máy build |
+| **Windows** | `npm ci` rồi `npm run dist:win` | `Playlist-Video-Maker-Setup-x.y.z.exe` (bộ cài) và bản Portable `.exe` |
+| **macOS** | `npm ci` rồi `npm run dist:mac` | `Playlist-Video-Maker-x.y.z-arm64.dmg` (Mac chip Apple M1 trở lên) hoặc `-x64.dmg` (Mac Intel), theo chip của máy build |
 | Linux | `npm ci` rồi `npm run dist:linux` | `.AppImage`, `.deb` |
 
 Bản Windows phải build trên Windows, bản Mac phải build trên Mac (hoặc dùng GitHub Actions), vì `npm ci` tải FFmpeg và thư viện vẽ `@napi-rs/canvas` đúng cho hệ điều hành và loại chip của máy build.

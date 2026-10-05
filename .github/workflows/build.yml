@@ -87,3 +87,35 @@ jobs:
             release/*.deb
             release/*.dmg
           if-no-files-found: error
+
+  # Đẩy tag v* (vd. v0.2.0): sau khi kiểm thử, đóng gói và e2e trên bản đóng gói đều đạt, tạo GitHub Release kèm
+  # các file cài. Ghi chú phát hành lấy từ mục của phiên bản đó trong CHANGELOG.md. Trang landing (site/) lấy link
+  # tải từ bản Release mới nhất.
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag phải khớp version trong package.json
+        run: |
+          V=$(node -p "require('./package.json').version")
+          [ "v$V" = "$GITHUB_REF_NAME" ] || { echo "::error::Tag $GITHUB_REF_NAME khác version v$V trong package.json"; exit 1; }
+      - name: Ghi chú phát hành từ CHANGELOG.md
+        run: |
+          awk -v head="## $GITHUB_REF_NAME" 'index($0, head) == 1 { on = 1; next } /^## / { if (on) exit } on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "::error::CHANGELOG.md chưa có mục $GITHUB_REF_NAME"; exit 1; }
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: playlist-video-maker-*
+          path: dist
+          merge-multiple: true
+      - run: ls -la dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Playlist Video Maker ${{ github.ref_name }}
+          body_path: notes.md
+          files: dist/*
+          fail_on_unmatched_files: true
