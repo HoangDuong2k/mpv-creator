@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AudioSampler, Renderer } from '../../../engine'
-import { entryAt } from '../../../shared/timeline'
+import { entryAt, type TimelineEntry } from '../../../shared/timeline'
 import { formatTime } from '../../../shared/time'
 import { assets, features, player } from '../engineHost'
 import { useTimeline } from '../hooks'
@@ -9,6 +9,8 @@ import { Stage } from './Stage'
 import { Icon, IconButton, rangeFill } from './ui'
 import { tr, trKey } from '../../../shared/i18n'
 import { useLayout } from '../layout'
+import { addLibraryItem, itemName } from '../libraryActions'
+import { clearLibraryPreview, layersWithPreview, useLibPreview } from '../libraryPreview'
 
 /** Kích thước tối đa của canvas preview (cạnh dài) — dự án 4K được xem trước ở 1080p */
 const PREVIEW_MAX = 1920
@@ -29,7 +31,14 @@ export function PreviewPanel(): ReactNode {
 
   const sampler = useMemo(() => new AudioSampler(timeline, (k) => features.get(k)), [timeline, featuresVersion])
   const selectedLayerId = useStore((s) => s.selectedLayerId)
-  const live = useRef({ project, timeline, sampler, scale, dirty: true, lastT: -1, lastPlaying: false })
+  // Đang xem thử một mục thư viện: vẽ project kèm mục đó (project chưa đổi)
+  const libPreview = useLibPreview((s) => s.preview)
+  const shown = useMemo(() => {
+    if (!libPreview) return { project, pin: null as string | null }
+    const r = layersWithPreview(project.layers, libPreview, selectedLayerId)
+    return { project: { ...project, layers: r.layers }, pin: r.editLayerId }
+  }, [project, libPreview, selectedLayerId])
+  const live = useRef({ project: shown.project, pin: shown.pin, timeline, sampler, scale, dirty: true, lastT: -1, lastPlaying: false })
   const renderer = useMemo(() => new Renderer(assets), [])
   // Kiểm thử tự động đọc lỗi vẽ của từng lớp trên preview
   useEffect(() => {
@@ -37,9 +46,9 @@ export function PreviewPanel(): ReactNode {
   }, [renderer])
 
   useEffect(() => {
-    live.current = { ...live.current, project, timeline, sampler, scale, dirty: true }
+    live.current = { ...live.current, project: shown.project, pin: shown.pin, timeline, sampler, scale, dirty: true }
     player.total = timeline.total
-  }, [project, timeline, sampler, scale])
+  }, [shown, timeline, sampler, scale])
 
   // Đổi layer đang chọn: vẽ lại (layer đang chỉnh luôn hiện, vd. nút Đăng ký ngoài lịch)
   useEffect(() => {
@@ -67,8 +76,8 @@ export function PreviewPanel(): ReactNode {
       const t = player.time()
       if (player.playing || s.dirty || t !== s.lastT || s.lastPlaying !== player.playing) {
         assets.playing = player.playing
-        // Khi dừng: layer đang chọn được "ghim" hiện để canh chỉnh; khi phát: xem đúng như video thật
-        const editLayerId = player.playing ? null : useStore.getState().selectedLayerId
+        // Khi dừng: layer đang chọn (hoặc mục đang xem thử) được "ghim" hiện để canh chỉnh; khi phát: xem đúng như video thật
+        const editLayerId = player.playing ? null : (s.pin ?? useStore.getState().selectedLayerId)
         renderer.render({ ctx, project: s.project, timeline: s.timeline, audio: s.sampler, t, scale: s.scale, editLayerId })
         s.dirty = false
         s.lastT = t
@@ -111,6 +120,20 @@ export function PreviewPanel(): ReactNode {
   return (
     <section className={`preview${maximized ? ' maximized' : ''}`}>
       <Stage canvasRef={canvasRef} renderer={renderer} W={W} H={H} onTogglePlay={togglePlay} />
+      {libPreview && (
+        <div className="lib-preview-bar" role="status">
+          <Icon name="eye" size={15} />
+          <span className="lib-preview-name">{tr('Đang xem thử "{name}"', { name: itemName(libPreview.item) })}</span>
+          <button type="button" className="btn small primary" onClick={() => addLibraryItem(libPreview.item)}>
+            <Icon name="add" size={15} /> {libPreview.item.kind === 'media' ? tr('Đặt làm nền') : tr('Thêm vào video')}
+          </button>
+          <button type="button" className="icon-btn" onClick={clearLibraryPreview} title={tr('Thôi xem thử (Esc)')} aria-label={tr('Thôi xem thử (Esc)')}>
+            <Icon name="close" size={15} />
+          </button>
+        </div>
+      )}
+      {/* Toàn màn hình không còn timeline: thanh tua ngay trên các nút điều khiển */}
+      {maximized && <SeekBar total={timeline.total} entries={timeline.entries} withHours={withHours} onSeek={seek} />}
       <div className="transport">
         <IconButton icon="prev" title={tr('Bài trước')} onClick={() => jump(-1)} disabled={!cur} />
         <button type="button" className="play-btn" onClick={togglePlay} title={playing ? tr('Tạm dừng (Space)') : tr('Phát (Space)')} aria-label={playing ? tr('Tạm dừng') : tr('Phát')}>
@@ -148,6 +171,80 @@ export function PreviewPanel(): ReactNode {
         />
       </div>
     </section>
+  )
+}
+
+/**
+ * Thanh tua (khi xem toàn màn hình): bấm hoặc kéo để tua, rê chuột để xem thời điểm và tên bài, vạch mờ là chỗ đổi bài.
+ * (Phím ← → tua 5 giây như mọi lúc.) Vị trí cập nhật 60 lần / giây bằng style trực tiếp (không render lại React).
+ */
+function SeekBar({ total, entries, withHours, onSeek }: { total: number; entries: TimelineEntry[]; withHours: boolean; onSeek: (t: number) => void }): ReactNode {
+  const barRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const fillRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLDivElement>(null)
+  const [hover, setHover] = useState<{ x: number; t: number } | null>(null)
+  const dragging = useRef(false)
+
+  useEffect(() => {
+    let raf = 0
+    const tick = (): void => {
+      raf = requestAnimationFrame(tick)
+      const k = total > 0 ? Math.min(1, Math.max(0, player.time() / total)) : 0
+      if (fillRef.current) fillRef.current.style.transform = `scaleX(${k})`
+      if (knobRef.current) knobRef.current.style.left = `${k * 100}%`
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [total])
+
+  /** Thời điểm dưới con trỏ; `x`: chỗ đặt ô thời gian (trong thanh tua, không tràn ra mép) */
+  const timeAt = (clientX: number): { x: number; t: number } => {
+    const r = trackRef.current!.getBoundingClientRect()
+    const bar = barRef.current!.getBoundingClientRect()
+    const k = r.width > 0 ? Math.min(1, Math.max(0, (clientX - r.left) / r.width)) : 0
+    return { x: Math.min(bar.width - 80, Math.max(80, r.left - bar.left + k * r.width)), t: k * total }
+  }
+  const hoverEntry = hover ? entries.find((e) => hover.t >= e.displayStart && hover.t < e.displayEnd) : undefined
+  return (
+    <div
+      className={`seekbar${total > 0 ? '' : ' disabled'}`}
+      ref={barRef}
+      role="slider"
+      aria-label={tr('Tua video')}
+      aria-valuemin={0}
+      aria-valuemax={Math.round(total)}
+      aria-valuenow={Math.round(player.time())}
+      aria-valuetext={formatTime(player.time(), withHours)}
+      onPointerDown={(e) => {
+        if (total <= 0 || e.button !== 0) return
+        dragging.current = true
+        e.currentTarget.setPointerCapture(e.pointerId)
+        onSeek(timeAt(e.clientX).t)
+      }}
+      onPointerMove={(e) => {
+        if (total <= 0) return
+        const h = timeAt(e.clientX)
+        setHover(h)
+        if (dragging.current) onSeek(h.t)
+      }}
+      onPointerUp={() => (dragging.current = false)}
+      onPointerCancel={() => (dragging.current = false)}
+      onPointerLeave={() => !dragging.current && setHover(null)}
+    >
+      <div className="seek-track" ref={trackRef}>
+        <div className="seek-fill" ref={fillRef} />
+        {total > 0 &&
+          entries.slice(1).map((e) => <span key={e.track.id + e.index} className="seek-mark" style={{ left: `${(e.displayStart / total) * 100}%` }} />)}
+        <div className="seek-knob" ref={knobRef} />
+      </div>
+      {hover && (
+        <span className="seek-tip" style={{ left: hover.x }}>
+          <b>{formatTime(hover.t, withHours)}</b>
+          {hoverEntry && <span>{hoverEntry.track.title}</span>}
+        </span>
+      )}
+    </div>
   )
 }
 

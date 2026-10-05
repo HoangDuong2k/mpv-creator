@@ -1,4 +1,5 @@
-// Thư viện (cột trái): bấm một mục để thêm vào cả video, hoặc kéo vào timeline để đặt đúng chỗ (như CapCut).
+// Thư viện (cột trái): bấm một mục để xem thử trên preview, bấm + để thêm vào cả video, hoặc kéo vào timeline
+// để đặt đúng chỗ (như CapCut).
 import type { DragEvent } from 'react'
 import { presetById } from '../../shared/filterPresets'
 import { mediaKind } from '../../shared/files'
@@ -6,13 +7,14 @@ import { tr } from '../../shared/i18n'
 import { findPreset } from '../../shared/presets'
 import { buildTimeline } from '../../shared/timeline'
 import { formatTimePrecise } from '../../shared/time'
+import { clearLibraryPreview, type LibraryItem } from './libraryPreview'
 import { useStore } from './store'
 import { dropFiles } from './timelineActions'
 
 /** Kiểu dữ liệu kéo thả của mục thư viện (khác file kéo từ ngoài vào) */
 export const LIB_MIME = 'application/x-pvm-library'
 
-export type LibraryItem = { kind: 'media'; path: string } | { kind: 'preset'; id: string } | { kind: 'filter'; id: string }
+export type { LibraryItem }
 
 /** Mục đang kéo — lúc kéo ngang qua timeline chưa đọc được dữ liệu kéo thả, chỉ biết kiểu */
 let dragging: LibraryItem | null = null
@@ -68,6 +70,7 @@ export function libraryDropTip(item: LibraryItem, t: number, targetLayerId: stri
 /** Thả mục thư viện vào timeline tại `at` (thả trúng hàng của một lớp: `targetLayerId`) */
 export function dropLibraryItem(item: LibraryItem, at: number, targetLayerId: string | null): void {
   const st = useStore.getState()
+  clearLibraryPreview()
   if (item.kind === 'media') {
     void dropFiles([item.path], at, targetLayerId)
     return
@@ -101,11 +104,12 @@ export function applyFilterPreset(layerId: string, presetId: string): void {
 }
 
 /**
- * Bấm một mục thư viện: hiệu ứng / chữ → thêm cho cả video; bộ lọc → đổi mẫu của lớp bộ lọc đang chọn,
+ * Bấm + của một mục thư viện: hiệu ứng / chữ → thêm cho cả video; bộ lọc → đổi mẫu của lớp bộ lọc đang chọn,
  * chưa chọn lớp bộ lọc thì thêm mới; ảnh / video → đặt làm nền cho cả video.
  */
 export function addLibraryItem(item: LibraryItem): void {
   const st = useStore.getState()
+  clearLibraryPreview()
   if (item.kind === 'media') {
     const kind = mediaKind(item.path)
     if (kind !== 'image' && kind !== 'video') return

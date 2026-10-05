@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { FILTER_PRESETS } from '../../../shared/filterPresets'
 import { mediaKind } from '../../../shared/files'
 import { tr, trKey } from '../../../shared/i18n'
@@ -6,6 +6,7 @@ import { EFFECT_GROUPS, localizePresetProps, TEXT_PRESETS, type LayerPreset } fr
 import { player } from '../engineHost'
 import { useLayout, type LibraryTab } from '../layout'
 import { addImageLayer, addLibraryItem, endLibraryDrag, itemName, startLibraryDrag, type LibraryItem } from '../libraryActions'
+import { clearLibraryPreview, sameItem, toggleLibraryPreview, useLibPreview } from '../libraryPreview'
 import { presetScene, sceneLayer, type PreviewScene } from '../previewRender'
 import { useStore } from '../store'
 import { layerMediaPaths, useMediaThumbUrl } from '../thumbs'
@@ -28,10 +29,12 @@ const TABS: Array<{ id: LibraryTab; icon: IconName; label: string; title: string
   { id: 'text', icon: 'text', label: trKey('Chữ'), title: trKey('Chữ mẫu: tên bài, ca sĩ, tên kênh…') }
 ]
 
-/** Cột trái: Thư viện nhạc, ảnh / video, hiệu ứng, bộ lọc và chữ mẫu — bấm để thêm, kéo vào timeline để đặt đúng chỗ */
+/** Cột trái: Thư viện nhạc, ảnh / video, hiệu ứng, bộ lọc và chữ mẫu — bấm để xem thử, bấm + để thêm, kéo vào timeline để đặt đúng chỗ */
 export function LibraryPanel(): ReactNode {
   const tab = useLayout((s) => s.libTab)
   const setTab = useLayout((s) => s.setLibTab)
+  // Đổi thẻ hoặc thu gọn cột: thôi xem thử
+  useEffect(() => clearLibraryPreview, [tab])
   return (
     <aside className="panel left library">
       <ColumnResizer side="left" />
@@ -69,21 +72,64 @@ function LibHint({ children }: { children: ReactNode }): ReactNode {
   return <p className="lib-hint">{children}</p>
 }
 
-/**
- * Ô mẫu: ảnh xem trước (rê chuột để xem chuyển động), bấm để thêm, kéo vào timeline để đặt đúng chỗ.
- * `selected`: mẫu đang dùng của lớp đang chọn (bộ lọc).
- */
-function LibCard({ item, name, scene, selected, title }: { item: LibraryItem; name: string; scene: () => PreviewScene; selected?: boolean; title?: string }): ReactNode {
-  const [hover, setHover] = useState(false)
-  const id = item.kind === 'media' ? item.path : item.id
+/** Mục đang được xem thử trên preview */
+function usePreviewing(item: LibraryItem): boolean {
+  return useLibPreview((s) => sameItem(s.preview?.item, item))
+}
+
+/** Bấm ô mẫu (chuột hoặc Enter / Space): xem thử trên preview */
+function cardHandlers(item: LibraryItem): { onClick: () => void; onDoubleClick: () => void; onKeyDown: (e: KeyboardEvent) => void } {
+  return {
+    onClick: () => toggleLibraryPreview(item, player.time()),
+    // Nhấp đúp: thêm luôn
+    onDoubleClick: () => addLibraryItem(item),
+    onKeyDown: (e) => {
+      if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+      // Không để phím Space tới phím tắt phát / dừng của app
+      e.preventDefault()
+      e.stopPropagation()
+      toggleLibraryPreview(item, player.time())
+    }
+  }
+}
+
+/** Nút + ở góc ô mẫu: thêm vào video */
+function AddButton({ item, title }: { item: LibraryItem; title: string }): ReactNode {
   return (
     <button
       type="button"
-      className={`lib-card${selected ? ' selected' : ''}`}
+      className="lib-card-add"
+      title={title}
+      aria-label={title}
+      onClick={(e) => {
+        e.stopPropagation()
+        addLibraryItem(item)
+      }}
+      onDoubleClick={(e) => e.stopPropagation()}
+    >
+      <Icon name="add" size={14} />
+    </button>
+  )
+}
+
+/**
+ * Ô mẫu: ảnh xem trước (rê chuột để xem chuyển động), bấm để xem thử trên preview, bấm + để thêm,
+ * kéo vào timeline để đặt đúng chỗ. `selected`: mẫu đang dùng của lớp đang chọn (bộ lọc).
+ */
+function LibCard({ item, name, scene, selected, title, addTitle }: { item: LibraryItem; name: string; scene: () => PreviewScene; selected?: boolean; title?: string; addTitle?: string }): ReactNode {
+  const [hover, setHover] = useState(false)
+  const previewing = usePreviewing(item)
+  const id = item.kind === 'media' ? item.path : item.id
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={previewing}
+      className={`lib-card${selected ? ' selected' : ''}${previewing ? ' previewing' : ''}`}
       draggable
       data-item={id}
-      title={title ?? tr('Bấm để thêm vào video, hoặc kéo vào timeline để đặt từ chỗ thả đến hết bài')}
-      onClick={() => addLibraryItem(item)}
+      title={title ?? tr('Bấm để xem thử trên preview, bấm + để thêm vào video, hoặc kéo vào timeline để đặt từ chỗ thả đến hết bài')}
+      {...cardHandlers(item)}
       onDragStart={(e) => {
         setHover(false)
         startLibraryDrag(e, item)
@@ -94,10 +140,8 @@ function LibCard({ item, name, scene, selected, title }: { item: LibraryItem; na
     >
       <PreviewThumb id={`${item.kind}:${id}`} build={scene} hover={hover} />
       <span className="lib-card-name">{name}</span>
-      <span className="lib-card-add" aria-hidden="true">
-        <Icon name="add" size={14} />
-      </span>
-    </button>
+      <AddButton item={item} title={addTitle ?? tr('Thêm vào video')} />
+    </div>
   )
 }
 
@@ -110,7 +154,7 @@ const presetBuild = (p: LayerPreset): (() => PreviewScene) => {
 function EffectsTab(): ReactNode {
   return (
     <div className="lib-body">
-      <LibHint>{tr('Bấm để thêm cho cả video, hoặc kéo vào timeline để đặt từ chỗ thả đến hết bài. Rê chuột lên mẫu để xem chuyển động.')}</LibHint>
+      <LibHint>{tr('Bấm một mẫu để xem thử trên preview, bấm + để thêm cho cả video, hoặc kéo vào timeline để đặt từ chỗ thả đến hết bài.')}</LibHint>
       {EFFECT_GROUPS.map((g) => (
         <section key={g.id} className="lib-group">
           <h4>{tr(g.name)}</h4>
@@ -121,7 +165,7 @@ function EffectsTab(): ReactNode {
                 item={{ kind: 'preset', id: p.id }}
                 name={tr(p.name)}
                 scene={presetBuild(p)}
-                title={p.type === 'cta' ? tr('Bấm để thêm theo lịch mặc định, hoặc kéo vào timeline để hiện một lần tại chỗ thả') : undefined}
+                title={p.type === 'cta' ? tr('Bấm để xem thử, bấm + để thêm theo lịch mặc định, hoặc kéo vào timeline để hiện một lần tại chỗ thả') : undefined}
               />
             ))}
           </div>
@@ -134,7 +178,7 @@ function EffectsTab(): ReactNode {
 function TextTab(): ReactNode {
   return (
     <div className="lib-body">
-      <LibHint>{tr('Chữ tự đổi theo bài đang phát ({title}, {artist}…). Bấm để thêm, hoặc kéo vào timeline để đặt đúng chỗ.')}</LibHint>
+      <LibHint>{tr('Chữ tự đổi theo bài đang phát ({title}, {artist}…). Bấm để xem thử, bấm + để thêm, hoặc kéo vào timeline để đặt đúng chỗ.')}</LibHint>
       <div className="lib-grid">
         {TEXT_PRESETS.map((p) => (
           <LibCard key={p.id} item={{ kind: 'preset', id: p.id }} name={tr(p.name)} scene={presetBuild(p)} />
@@ -158,12 +202,19 @@ function FiltersTab(): ReactNode {
     <div className="lib-body">
       <LibHint>
         {current !== null
-          ? tr('Đang chọn một lớp bộ lọc: bấm mẫu để đổi bộ lọc của lớp đó')
-          : tr('Bấm để lọc cả video. Kéo vào timeline để lọc một đoạn, hoặc thả lên hàng bộ lọc có sẵn để đổi mẫu.')}
+          ? tr('Đang chọn một lớp bộ lọc: bấm mẫu để xem thử, bấm + để đổi bộ lọc của lớp đó')
+          : tr('Bấm để xem thử, bấm + để lọc cả video. Kéo vào timeline để lọc một đoạn, hoặc thả lên hàng bộ lọc có sẵn để đổi mẫu.')}
       </LibHint>
       <div className="lib-grid">
         {FILTER_PRESETS.filter((p) => p.id !== 'none').map((p) => (
-          <LibCard key={p.id} item={{ kind: 'filter', id: p.id }} name={tr(p.name)} scene={filterScene(p.id)} selected={current === p.id} />
+          <LibCard
+            key={p.id}
+            item={{ kind: 'filter', id: p.id }}
+            name={tr(p.name)}
+            scene={filterScene(p.id)}
+            selected={current === p.id}
+            addTitle={current !== null ? tr('Đổi bộ lọc của lớp đang chọn') : tr('Thêm vào video')}
+          />
         ))}
       </div>
     </div>
@@ -257,7 +308,7 @@ function MediaTab(): ReactNode {
         </div>
       ) : (
         <>
-          <LibHint>{tr('Bấm + để làm nền cho cả video, hoặc kéo vào timeline để làm nền từ chỗ thả. Chuột phải để xem thêm.')}</LibHint>
+          <LibHint>{tr('Bấm để xem thử làm nền, bấm + để làm nền cho cả video, hoặc kéo vào timeline để làm nền từ chỗ thả. Chuột phải để xem thêm.')}</LibHint>
           <div className="lib-grid">
             {items.map((m) => (
               <MediaCard key={m.path} path={m.path} used={m.used} onMenu={(e) => openMenu(e, m.path, m.used, m.inLibrary)} />
@@ -275,12 +326,17 @@ function MediaCard({ path, used, onMenu }: { path: string; used: boolean; onMenu
   const url = useMediaThumbUrl({ path, video })
   const item: LibraryItem = { kind: 'media', path }
   const name = itemName(item)
+  const previewing = usePreviewing(item)
   return (
     <div
-      className="lib-card media"
+      role="button"
+      tabIndex={0}
+      aria-pressed={previewing}
+      className={`lib-card media${previewing ? ' previewing' : ''}`}
       draggable
       data-item={path}
-      title={`${path}\n${tr('Kéo vào timeline để làm nền từ chỗ thả. Chuột phải để xem thêm.')}`}
+      title={`${path}\n${tr('Bấm để xem thử làm nền, kéo vào timeline để làm nền từ chỗ thả. Chuột phải để xem thêm.')}`}
+      {...cardHandlers(item)}
       onDragStart={(e) => startLibraryDrag(e, item)}
       onDragEnd={endLibraryDrag}
       onContextMenu={onMenu}
@@ -299,9 +355,7 @@ function MediaCard({ path, used, onMenu }: { path: string; used: boolean; onMenu
         )}
       </span>
       <span className="lib-card-name">{name}</span>
-      <button type="button" className="lib-card-add" title={tr('Đặt làm nền cho cả video')} aria-label={tr('Đặt làm nền cho cả video')} onClick={() => addLibraryItem(item)}>
-        <Icon name="add" size={14} />
-      </button>
+      <AddButton item={item} title={tr('Đặt làm nền cho cả video')} />
     </div>
   )
 }

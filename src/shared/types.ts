@@ -177,8 +177,11 @@ export interface FlickerProps {
 }
 
 export interface ParticlesProps {
-  /** orbit: bay vòng quanh tâm vùng (quanh ảnh bìa, đĩa than), bung ra theo bass */
-  style: 'dust' | 'snow' | 'bokeh' | 'rain' | 'stars' | 'orbit'
+  /**
+   * orbit: bay vòng quanh tâm vùng (quanh ảnh bìa, đĩa than), bung ra theo bass; fog: các mảng sương lớn trôi ngang;
+   * fireworks: pháo hoa nổ lần lượt (count ≈ số quả nổ cùng lúc × 25)
+   */
+  style: 'dust' | 'snow' | 'bokeh' | 'rain' | 'stars' | 'orbit' | 'hearts' | 'petals' | 'fireflies' | 'bubbles' | 'confetti' | 'fog' | 'fireworks'
   /** Vùng có hạt (tâm và kích thước, tỉ lệ theo khung hình) */
   x: number
   y: number
@@ -191,6 +194,8 @@ export interface ParticlesProps {
   opacity: number
   beatReact: number
   seed: number
+  /** Mỗi hạt một màu (bảng màu lễ hội) thay cho một màu chung */
+  multicolor: boolean
 }
 
 export interface VignetteProps {
@@ -419,6 +424,44 @@ export interface CrtProps {
   bezel: boolean
 }
 
+/** Ánh sáng phủ lên khung hình (cộng sáng kiểu "screen"): rò sáng, lóe sáng ống kính, tia sáng, cầu vồng lăng kính */
+export interface LightProps {
+  style: 'leak' | 'flare' | 'rays' | 'prism'
+  /** Nguồn sáng (lóe sáng, tia sáng) */
+  x: number
+  y: number
+  color: string
+  color2: string
+  intensity: number
+  size: number
+  speed: number
+  /** Sáng bừng theo tiếng bass / beat */
+  beatReact: number
+}
+
+/**
+ * Hiệu ứng khung hình tác động lên mọi lớp nằm dưới: phóng to / rung / phóng mờ / lệch màu / khối điểm ảnh
+ * theo nhạc, soi gương, kính vạn hoa, viền điện ảnh.
+ */
+export interface CameraProps {
+  style: 'zoom' | 'shake' | 'zoomblur' | 'chromatic' | 'pixelate' | 'mirror' | 'kaleido' | 'bars'
+  trigger: 'beat' | 'bass' | 'always'
+  amount: number
+  /** Soi gương: nửa được giữ lại (nửa kia là ảnh phản chiếu) */
+  mirror: 'left' | 'right' | 'top' | 'bottom'
+  /** Kính vạn hoa: số cánh */
+  segments: number
+  /** Kính vạn hoa: tốc độ xoay (vòng / phút) */
+  spin: number
+  /** Khối điểm ảnh: cỡ ô lớn nhất (px @1080p) */
+  pixel: number
+  /** Viền điện ảnh: tỉ lệ khung hình phần giữa (2.39 = màn ảnh rộng) */
+  ratio: number
+  barColor: string
+  /** Viền điện ảnh trượt vào khi lớp bắt đầu hiện (giây, 0 = hiện ngay) */
+  slideIn: number
+}
+
 export interface LayerPropsMap {
   background: BackgroundProps
   visualizer: VisualizerProps
@@ -438,6 +481,8 @@ export interface LayerPropsMap {
   vhs: VhsProps
   glitch: GlitchProps
   crt: CrtProps
+  light: LightProps
+  camera: CameraProps
 }
 
 export type LayerType = keyof LayerPropsMap

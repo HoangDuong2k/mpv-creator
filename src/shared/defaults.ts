@@ -137,7 +137,8 @@ export const LAYER_DEFAULTS: LayerPropsMap = {
     color: '#ffffff',
     opacity: 0.7,
     beatReact: 0.5,
-    seed: 7
+    seed: 7,
+    multicolor: false
   },
   vignette: {
     amount: 0.55,
@@ -275,6 +276,29 @@ export const LAYER_DEFAULTS: LayerPropsMap = {
     vignette: 0.6,
     glow: 0.4,
     bezel: true
+  },
+  light: {
+    style: 'leak',
+    x: 0.82,
+    y: 0.18,
+    color: '#ff8a3d',
+    color2: '#ff3d7f',
+    intensity: 0.6,
+    size: 1,
+    speed: 1,
+    beatReact: 0.4
+  },
+  camera: {
+    style: 'zoom',
+    trigger: 'beat',
+    amount: 0.6,
+    mirror: 'left',
+    segments: 6,
+    spin: 2,
+    pixel: 28,
+    ratio: 2.39,
+    barColor: '#000000',
+    slideIn: 0.8
   }
 }
 
@@ -296,7 +320,9 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   vumeter: 'Đồng hồ VU',
   vhs: 'VHS / băng từ',
   glitch: 'Glitch theo beat',
-  crt: 'Màn hình CRT'
+  crt: 'Màn hình CRT',
+  light: 'Ánh sáng',
+  camera: 'Hiệu ứng khung hình'
 }
 
 let idCounter = 0

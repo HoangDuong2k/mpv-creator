@@ -23,7 +23,7 @@ export interface DragResult {
   guides: { x?: number; y?: number }
 }
 
-const MOVABLE: LayerType[] = ['visualizer', 'text', 'image', 'progress', 'cta', 'particles', 'timer', 'vinyl', 'nowplaying', 'tracklist', 'vumeter']
+const MOVABLE: LayerType[] = ['visualizer', 'text', 'image', 'progress', 'cta', 'particles', 'timer', 'vinyl', 'nowplaying', 'tracklist', 'vumeter', 'light']
 
 export function isMovable(layer: Layer): boolean {
   return MOVABLE.includes(layer.type)

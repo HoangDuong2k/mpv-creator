@@ -14,6 +14,8 @@ import { drawVinyl } from './layers/vinyl'
 import { drawNowPlaying, drawTracklist } from './layers/playlist'
 import { drawVuMeter } from './layers/vumeter'
 import { drawCrt, drawGlitch, drawVhs } from './layers/screenfx'
+import { drawLight } from './layers/light'
+import { drawCamera } from './layers/camera'
 import { drawVisualizer } from './layers/visualizer'
 
 export { AudioSampler, TrackFeatures } from './audio'
@@ -39,7 +41,9 @@ const DRAWERS: { [K in LayerType]: LayerDrawer<K> } = {
   vumeter: drawVuMeter,
   vhs: drawVhs,
   glitch: drawGlitch,
-  crt: drawCrt
+  crt: drawCrt,
+  light: drawLight,
+  camera: drawCamera
 }
 
 export interface RenderArgs {

@@ -17,6 +17,7 @@ import { errorText, useAnalysis, useAudioSpec, useAutosave } from './hooks'
 import { useStore } from './store'
 import { copySelection, pasteAtPlayhead, splitAtPlayhead } from './timelineActions'
 import { RAIL_W, useLayout } from './layout'
+import { clearLibraryPreview, useLibPreview } from './libraryPreview'
 import { CollapsedRail } from './components/PanelFrame'
 import { ShortcutsDialog } from './components/ShortcutsDialog'
 import { LANGS, tr } from '../../shared/i18n'
@@ -260,6 +261,9 @@ export function App(): ReactNode {
       } else if (e.key === 'F11' && !st.dialog) {
         e.preventDefault()
         togglePreviewMax()
+      } else if (e.key === 'Escape' && useLibPreview.getState().preview && !st.dialog) {
+        e.preventDefault()
+        clearLibraryPreview()
       } else if (e.key === 'Escape' && useLayout.getState().previewMax && !st.dialog) {
         e.preventDefault()
         togglePreviewMax(false)

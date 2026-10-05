@@ -55,7 +55,40 @@ export const EFFECT_GROUPS: PresetGroup[] = [
       preset('pt-bokeh', trKey('Bokeh (đốm sáng mờ)'), 'particles', { style: 'bokeh', count: 36, size: 8, opacity: 0.45 }),
       preset('pt-rain', trKey('Mưa'), 'particles', { style: 'rain', count: 220, opacity: 0.5 }),
       preset('pt-stars', trKey('Sao lấp lánh'), 'particles', { style: 'stars', count: 120 }),
-      preset('pt-orbit', trKey('Vòng hạt quanh ảnh bìa'), 'particles', { style: 'orbit', x: 0.5, y: 0.5, width: 0.42, height: 0.75, count: 110, size: 3, color: '#ffd9a0', beatReact: 1.2 })
+      preset('pt-orbit', trKey('Vòng hạt quanh ảnh bìa'), 'particles', { style: 'orbit', x: 0.5, y: 0.5, width: 0.42, height: 0.75, count: 110, size: 3, color: '#ffd9a0', beatReact: 1.2 }),
+      preset('pt-hearts', trKey('Trái tim bay'), 'particles', { style: 'hearts', count: 34, size: 5, color: '#ff5c8a', opacity: 0.8 }),
+      preset('pt-petals', trKey('Hoa anh đào rơi'), 'particles', { style: 'petals', count: 70, size: 4, color: '#ffc1d3', opacity: 0.85, speed: 0.8 }),
+      preset('pt-fireflies', trKey('Đom đóm lập loè'), 'particles', { style: 'fireflies', count: 45, size: 2.5, color: '#d8ff6b', opacity: 0.9, speed: 0.8 }),
+      preset('pt-bubbles', trKey('Bong bóng'), 'particles', { style: 'bubbles', count: 40, size: 6, color: '#bfe9ff', opacity: 0.75 }),
+      preset('pt-confetti', trKey('Pháo giấy'), 'particles', { style: 'confetti', count: 120, size: 4, multicolor: true, opacity: 0.95 }),
+      preset('pt-fog', trKey('Sương mù trôi'), 'particles', { style: 'fog', count: 14, size: 5, color: '#dfe7f2', opacity: 0.6, speed: 0.6, beatReact: 0 }),
+      preset('pt-fireworks', trKey('Pháo hoa'), 'particles', { style: 'fireworks', count: 75, size: 3, multicolor: true, opacity: 1, beatReact: 0.6 })
+    ]
+  },
+  {
+    id: 'light',
+    name: trKey('Ánh sáng'),
+    items: [
+      preset('lt-leak', trKey('Rò sáng ấm'), 'light', { style: 'leak' }),
+      preset('lt-leak-cool', trKey('Rò sáng xanh tím'), 'light', { style: 'leak', color: '#4d7cff', color2: '#b44dff', intensity: 0.55 }),
+      preset('lt-flare', trKey('Lóe sáng ống kính'), 'light', { style: 'flare', color: '#ffb35c', color2: '#5cc8ff', intensity: 0.75, beatReact: 0.2 }),
+      preset('lt-flare-beat', trKey('Lóe sáng theo nhịp'), 'light', { style: 'flare', x: 0.5, y: 0.3, color: '#ff6bd5', color2: '#6bf0ff', intensity: 0.5, beatReact: 1.4 }),
+      preset('lt-rays', trKey('Tia sáng chiếu xuống'), 'light', { style: 'rays', x: 0.7, y: -0.05, color: '#fff1c9', color2: '#ffcf7a', intensity: 0.7, beatReact: 0.3 }),
+      preset('lt-prism', trKey('Cầu vồng lăng kính'), 'light', { style: 'prism', intensity: 0.7, beatReact: 0.2 })
+    ]
+  },
+  {
+    id: 'camera',
+    name: trKey('Chuyển động và ống kính'),
+    items: [
+      preset('cam-zoom', trKey('Phóng to theo nhịp'), 'camera', { style: 'zoom', trigger: 'beat', amount: 0.6 }),
+      preset('cam-shake', trKey('Rung khung hình'), 'camera', { style: 'shake', trigger: 'beat', amount: 0.55 }),
+      preset('cam-zoomblur', trKey('Phóng mờ theo beat'), 'camera', { style: 'zoomblur', trigger: 'beat', amount: 0.8 }),
+      preset('cam-chromatic', trKey('Lệch màu ống kính'), 'camera', { style: 'chromatic', trigger: 'bass', amount: 0.7 }),
+      preset('cam-pixel', trKey('Khối điểm ảnh theo beat'), 'camera', { style: 'pixelate', trigger: 'beat', amount: 0.8, pixel: 36 }),
+      preset('cam-mirror', trKey('Soi gương'), 'camera', { style: 'mirror', mirror: 'left' }),
+      preset('cam-kaleido', trKey('Kính vạn hoa'), 'camera', { style: 'kaleido', segments: 8, spin: 3 }),
+      preset('cam-bars', trKey('Viền điện ảnh'), 'camera', { style: 'bars', ratio: 2.39, slideIn: 0.8 })
     ]
   },
   {

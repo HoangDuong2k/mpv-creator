@@ -10,11 +10,11 @@ import { clamp, hash01, noise1 } from '../util'
 
 type Canvasish = CanvasImageSource & { width: number; height: number }
 
-function surface(env: RenderEnv, name: string, w: number, h: number): OffscreenSurface {
+export function surface(env: RenderEnv, name: string, w: number, h: number): OffscreenSurface {
   return cached(env, `fx-${name}|${w}x${h}`, () => env.assets.createSurface(w, h))
 }
 
-interface Snap {
+export interface Snap {
   s: OffscreenSurface
   w: number
   h: number
@@ -23,7 +23,7 @@ interface Snap {
 }
 
 /** Chụp khung hình hiện tại sang canvas phụ, thu nhỏ theo `res` (hình mềm hơn, xử lý nhanh hơn) */
-function snapshot(env: RenderEnv, name: string, res = 1, filter = 'none'): Snap {
+export function snapshot(env: RenderEnv, name: string, res = 1, filter = 'none'): Snap {
   const canvas = env.ctx.canvas as unknown as Canvasish
   const dw = canvas.width
   const dh = canvas.height
@@ -42,7 +42,7 @@ function snapshot(env: RenderEnv, name: string, res = 1, filter = 'none'): Snap 
 }
 
 /** Giữ một phần kênh màu của ảnh: nhân với màu thuần (đỏ, hoặc xanh lục + lam) */
-function channel(env: RenderEnv, name: string, snap: Snap, color: string): OffscreenSurface {
+export function channel(env: RenderEnv, name: string, snap: Snap, color: string): OffscreenSurface {
   const s = surface(env, name, snap.w, snap.h)
   const c = s.ctx
   c.setTransform(1, 0, 0, 1, 0, 0)

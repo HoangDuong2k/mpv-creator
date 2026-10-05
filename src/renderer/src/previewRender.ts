@@ -184,6 +184,9 @@ export function zoomForPreview(type: LayerType, props: Record<string, unknown>):
     case 'progress':
       return { ...props, x: 0.5, y: 0.5, width: 0.8, thickness: n('thickness') * 3, fontSize: n('fontSize') * 2.6, waveHeight: n('waveHeight') * 3 }
     case 'particles':
+      // Sương mù: cỡ là độ lớn mảng sương theo vùng, không cần phóng; pháo hoa phóng vừa phải
+      if (props.style === 'fog') return props
+      if (props.style === 'fireworks') return { ...props, size: n('size') * 2.5 }
       return { ...props, size: Math.max(n('size') * 5, 14) }
     case 'image':
       return { ...props, source: 'cover', x: 0.5, y: 0.5, width: 0.32, circle: true }
@@ -218,7 +221,7 @@ export interface PreviewScene {
 export function presetScene(id: string, type: LayerType, props: Record<string, unknown>, dim = 0.4): PreviewScene {
   const layer = { ...createLayer(type, zoomForPreview(type, props)), id: `pv-${id}`, timing: { ...FULL_TIMING } } as Layer
   // Hiệu ứng xử lý cả khung hình (VHS, glitch, CRT): thêm tên bài lên cảnh mẫu để thấy rõ tác dụng
-  const caption = type === 'vhs' || type === 'glitch' || type === 'crt' ? [{ ...createLayer('text', { y: 0.45, size: 170, animation: 'none' }), id: 'pv-caption', timing: { ...FULL_TIMING } } as Layer] : []
+  const caption = type === 'vhs' || type === 'glitch' || type === 'crt' || (type === 'camera' && props.style !== 'bars') ? [{ ...createLayer('text', { y: 0.45, size: 170, animation: 'none' }), id: 'pv-caption', timing: { ...FULL_TIMING } } as Layer] : []
   return { layers: [sceneLayer(dim), ...caption, layer], editLayerId: layer.id }
 }
 

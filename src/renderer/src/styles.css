@@ -1383,6 +1383,23 @@ textarea.chapters {
   min-height: 0;
   overflow: auto;
 }
+/* Thanh cuộn ngang cao hơn, dễ bấm và kéo */
+.tl-scroll::-webkit-scrollbar {
+  height: 16px;
+}
+.tl-scroll::-webkit-scrollbar-thumb:horizontal {
+  border-width: 3px;
+  border-radius: 8px;
+  background-color: var(--line-2);
+}
+.tl-scroll::-webkit-scrollbar-thumb:horizontal:hover,
+.tl-scroll::-webkit-scrollbar-thumb:horizontal:active {
+  background-color: var(--muted);
+}
+.tl-scroll::-webkit-scrollbar-track:horizontal {
+  background: var(--panel-2);
+  border-top: 1px solid var(--line);
+}
 .tl-inner {
   position: relative;
   user-select: none;
@@ -1831,6 +1848,12 @@ button.tl-dot:hover {
 .t-crt {
   --c: #8fae8a;
 }
+.t-light {
+  --c: #e2c06a;
+}
+.t-camera {
+  --c: #a99be0;
+}
 
 .layer-name.static {
   flex: 1;
@@ -2250,6 +2273,125 @@ kbd {
   z-index: 45;
 }
 
+/* Đang xem thử mục thư viện: thanh nổi phía trên preview, có nút thêm vào video */
+.preview {
+  position: relative;
+}
+.lib-preview-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  background: rgb(24 22 20 / 0.88);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.4);
+  backdrop-filter: blur(8px);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.lib-preview-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-preview-bar .btn {
+  flex: none;
+  border-radius: 999px;
+}
+
+/* Thanh tua khi xem toàn màn hình: vùng bấm cao 18px, thanh mảnh dày lên khi rê chuột */
+.seekbar {
+  position: relative;
+  flex: none;
+  height: 18px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  touch-action: none;
+}
+.seekbar.disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.seek-track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-2);
+  transition: height 0.12s;
+}
+.seekbar:hover .seek-track {
+  height: 6px;
+}
+.seek-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.seek-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--panel);
+  opacity: 0.8;
+}
+.seek-knob {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 0.35);
+  transform: scale(0);
+  transition: transform 0.12s;
+}
+.seekbar:hover .seek-knob {
+  transform: scale(1);
+}
+.seek-tip {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 6px;
+  translate: -50% 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--panel-3);
+  border: 1px solid var(--line-2);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  display: flex;
+  gap: 8px;
+  max-width: 320px;
+}
+.seek-tip b {
+  font-variant-numeric: tabular-nums;
+}
+.seek-tip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-2);
+}
+
 /* ---------- Vùng an toàn YouTube (chỉ trên preview) ---------- */
 .safe-zones {
   position: absolute;
@@ -2453,12 +2595,13 @@ kbd {
   right: 6px;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: none;
   border-radius: var(--r-sm);
   background: var(--accent);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.45);
   color: var(--accent-ink);
   opacity: 0;
   transform: translateY(2px);
@@ -2469,9 +2612,20 @@ kbd {
 }
 .lib-card:hover .lib-card-add,
 .lib-card:focus-visible .lib-card-add,
+.lib-card.previewing .lib-card-add,
 .lib-card-add:focus-visible {
   opacity: 1;
   transform: none;
+}
+.lib-card-add:hover {
+  background: var(--accent-hi);
+}
+/* Mẫu đang xem thử trên preview */
+.lib-card.previewing {
+  color: var(--text);
+}
+.lib-card.previewing .pv-thumb {
+  box-shadow: 0 0 0 2px var(--accent-hi), 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 .pv-thumb {
   position: relative;

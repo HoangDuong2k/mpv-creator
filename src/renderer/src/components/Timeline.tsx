@@ -235,9 +235,46 @@ export function Timeline(): ReactNode {
     return () => el.removeEventListener('wheel', onWheel)
   }, [zoomTo])
 
+  // Người dùng tự cuộn ngang (lăn chuột ngang / Shift + lăn, kéo thanh cuộn) lúc đang phát: thôi tự cuộn theo đầu phát,
+  // để xem chỗ khác của video. Tự cuộn lại khi đầu phát chạy vào vùng đang xem, khi tua, hoặc khi bấm phát lại.
+  const follow = useRef({ on: true, wheelAt: 0, dragging: false })
+  useEffect(() => {
+    const el = scrollRef.current!
+    const f = follow.current
+    const onWheel = (e: WheelEvent): void => {
+      if (e.ctrlKey || e.metaKey) return
+      if (e.deltaX !== 0 || e.shiftKey) {
+        f.on = false
+        f.wheelAt = performance.now()
+      }
+    }
+    // Bấm vào thanh cuộn (nằm ngoài nội dung .tl-inner)
+    const onDown = (e: globalThis.PointerEvent): void => {
+      if (e.target === el) {
+        f.on = false
+        f.dragging = true
+      }
+    }
+    const onUp = (): void => {
+      f.dragging = false
+    }
+    el.addEventListener('wheel', onWheel, { passive: true })
+    el.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [])
+
   // Đầu phát chạy mượt 60fps bằng cách gán style trực tiếp (không render lại React)
   useEffect(() => {
     let raf = 0
+    let lastT = player.time()
+    let wasPlaying = player.playing
     const tick = (): void => {
       raf = requestAnimationFrame(tick)
       const t = player.time()
@@ -255,9 +292,17 @@ export function Timeline(): ReactNode {
       if (knobRef.current) knobRef.current.style.transform = `translateX(${x}px)`
       if (timeRef.current) timeRef.current.textContent = formatTimePrecise(t, withHours)
       const el = scrollRef.current
+      const f = follow.current
+      // Bấm phát, hoặc tua (đầu phát nhảy xa): lại tự cuộn theo đầu phát
+      if ((player.playing && !wasPlaying) || Math.abs(t - lastT) > 0.5) f.on = true
+      lastT = t
+      wasPlaying = player.playing
       if (player.playing && el && !session.current) {
         const vis = el.clientWidth - HEAD_W
-        if (x < el.scrollLeft || x > el.scrollLeft + vis - 24) el.scrollLeft = Math.max(0, x - vis * 0.1)
+        const inView = x >= el.scrollLeft && x <= el.scrollLeft + vis - 24
+        // Đã tự cuộn đi chỗ khác: chờ đầu phát chạy vào vùng đang xem (thôi lăn chuột / kéo thanh cuộn) rồi mới theo tiếp
+        if (!f.on && inView && !f.dragging && performance.now() - f.wheelAt > 800) f.on = true
+        if (f.on && !inView) el.scrollLeft = Math.max(0, x - vis * 0.1)
       }
     }
     raf = requestAnimationFrame(tick)

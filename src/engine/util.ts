@@ -52,15 +52,13 @@ export function withAlpha(color: string, alpha: number): string {
   return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${clamp(alpha)})`
 }
 
-/** Pha màu giữa hai màu hex (t = 0..1) */
+/** Pha màu giữa hai màu hex (t = 0..1); kết quả là màu hex (dùng tiếp được với withAlpha) */
 export function mixColor(a: string, b: string, t: number): string {
   const ca = parseHex(a)
   const cb = parseHex(b)
   if (!ca || !cb) return t < 0.5 ? a : b
-  const r = Math.round(lerp(ca[0], cb[0], t))
-  const g = Math.round(lerp(ca[1], cb[1], t))
-  const bl = Math.round(lerp(ca[2], cb[2], t))
-  return `rgb(${r},${g},${bl})`
+  const hex = (i: number): string => Math.round(lerp(ca[i], cb[i], t)).toString(16).padStart(2, '0')
+  return `#${hex(0)}${hex(1)}${hex(2)}`
 }
 
 export interface Size {

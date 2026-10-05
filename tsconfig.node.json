@@ -24,6 +24,7 @@
     "src/renderer/src/timelineModel.ts",
     "src/renderer/src/store.ts",
     "src/renderer/src/safeArea.ts",
+    "src/renderer/src/libraryPreview.ts",
     "scripts/**/*",
     "tests/**/*"
   ]

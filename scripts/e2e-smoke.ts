@@ -596,8 +596,43 @@ async function main(): Promise<void> {
       await until(async () => (await page.locator('.preview.maximized').count()) === 1 && (await boxOf(page.locator('.stage-inner'))).width > stageW0 * 1.2),
       `xem preview toàn màn hình (${Math.round(stageW0)} → ${Math.round((await boxOf(page.locator('.stage-inner'))).width)}px)`
     )
+    // Toàn màn hình không có timeline: có thanh tua, bấm vào giữa thanh để tua tới giữa video
+    const seekbar = page.locator('.seekbar')
+    assert(await until(async () => (await seekbar.count()) === 1), 'toàn màn hình có thanh tua')
+    const sk = await stableBox(seekbar.locator('.seek-track'))
+    await page.mouse.click(sk.x + sk.width / 2, sk.y + sk.height / 2)
+    const total0 = await page.evaluate(() => (window as unknown as { __pvm: { player: { total: number } } }).__pvm.player.total)
+    const tMid = await page.evaluate(() => (window as unknown as Probe).__pvm.player.time())
+    assert(Math.abs(tMid - total0 / 2) < 2, `bấm giữa thanh tua: tua tới ${tMid.toFixed(1)}s / ${total0.toFixed(0)}s`)
+    await page.mouse.move(sk.x + sk.width * 0.25, sk.y + sk.height / 2)
+    assert(await until(async () => (await page.locator('.seek-tip').count()) === 1), 'rê chuột lên thanh tua: hiện thời điểm và tên bài')
+    await page.screenshot({ path: join(OUT, '9c-fullscreen-seek.png') })
     await page.keyboard.press('Escape')
     assert(await until(async () => (await page.locator('.preview.maximized').count()) === 0, 5000), 'Esc thoát toàn màn hình')
+    assert((await seekbar.count()) === 0, 'thoát toàn màn hình: thanh tua ẩn (tua bằng timeline)')
+    // Timeline: thanh cuộn ngang đủ cao để bấm; đang phát mà tự cuộn đi chỗ khác thì không bị kéo về đầu phát
+    const scrollEl = page.locator('.tl-scroll')
+    const barH = await scrollEl.evaluate((el) => (el as HTMLElement).offsetHeight - el.clientHeight)
+    assert(barH >= 14, `thanh cuộn ngang của timeline cao ${barH}px`)
+    await scrollEl.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      for (let i = 0; i < 4; i++) el.dispatchEvent(new WheelEvent('wheel', { deltaY: -600, ctrlKey: true, clientX: r.left + 300, bubbles: true, cancelable: true }))
+    })
+    await page.evaluate(() => (window as unknown as { __pvm: { player: { seek(t: number): void } } }).__pvm.player.seek(3))
+    await page.locator('.play-btn').click()
+    await page.waitForTimeout(400)
+    const sc = await stableBox(scrollEl)
+    await page.mouse.move(sc.x + sc.width / 2, sc.y + sc.height / 2)
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(500, 0)
+      await page.waitForTimeout(30)
+    }
+    const leftAfter = await scrollEl.evaluate((el) => el.scrollLeft)
+    await page.waitForTimeout(1200)
+    const leftLater = await scrollEl.evaluate((el) => el.scrollLeft)
+    await page.locator('.play-btn').click()
+    assert(leftAfter > 1000 && Math.abs(leftLater - leftAfter) < 5, `đang phát vẫn tự cuộn timeline ra xa đầu phát được (${Math.round(leftAfter)} → ${Math.round(leftLater)}px)`)
+    await page.getByRole('button', { name: 'Vừa khung' }).click()
     await page.locator('.preview-menu-btn').click()
     await page.locator('.preview-menu button[data-safe]').click()
     assert(await until(async () => (await page.locator('.safe-zone').count()) === 2), 'bật vùng an toàn YouTube: 2 vùng (tiêu đề, thanh điều khiển)')
@@ -771,18 +806,34 @@ async function main(): Promise<void> {
     }))()`)) as number
     assert(thumbSpread > 60, `ảnh xem trước "Cột cầu vồng" có hình (độ tương phản ${thumbSpread})`)
     const nLayers = (await layersNow()).length
+    // Bấm mẫu: chỉ xem thử trên preview (project chưa đổi); bấm + mới thêm
     await page.locator('.lib-card[data-item="pt-snow"]').click()
+    assert(
+      await until(async () => (await page.locator('.lib-preview-bar').count()) === 1 && (await page.locator('.lib-card.previewing[data-item="pt-snow"]').count()) === 1),
+      'bấm "Tuyết rơi": xem thử trên preview'
+    )
+    assert((await layersNow()).length === nLayers, 'xem thử chưa thêm lớp nào vào video')
+    await page.screenshot({ path: join(OUT, '9a-library-preview.png') })
+    await page.locator('.lib-card[data-item="pt-snow"] .lib-card-add').click()
     assert(
       await until(async () => {
         const top = (await layersNow()).at(-1)!
         return top.type === 'particles' && top.props.style === 'snow' && top.timing.start === 0 && top.timing.end === null
       }),
-      'bấm "Tuyết rơi": thêm lớp hạt tuyết cho cả video'
+      'bấm + của "Tuyết rơi": thêm lớp hạt tuyết cho cả video'
     )
+    assert(await until(async () => (await page.locator('.lib-preview-bar').count()) === 0), 'thêm xong thì thôi xem thử')
+    // Bấm lại một mẫu đang xem thử thì thôi; Esc cũng thôi
+    await page.locator('.lib-card[data-item="fx-vhs"]').click()
+    await page.locator('.lib-card[data-item="fx-vhs"]').click()
+    assert(await until(async () => (await page.locator('.lib-preview-bar').count()) === 0), 'bấm lại mẫu đang xem thử: thôi xem thử')
+    await page.locator('.lib-card[data-item="lt-flare"]').click()
+    await page.keyboard.press('Escape')
+    assert(await until(async () => (await page.locator('.lib-preview-bar').count()) === 0) && (await layersNow()).length === nLayers + 1, 'Esc: thôi xem thử, không thêm gì')
     await undo()
     assert(await until(async () => (await layersNow()).length === nLayers), 'Ctrl+Z bỏ lớp vừa thêm')
     // Đồng hồ đếm giờ: thêm mẫu Pomodoro từ thư viện, đổi kiểu trong bảng thuộc tính
-    await page.locator('.lib-card[data-item="tm-pomodoro"]').click()
+    await page.locator('.lib-card[data-item="tm-pomodoro"] .lib-card-add').click()
     const topLayer = async (): Promise<L> => (await layersNow()).at(-1)!
     assert(
       await until(async () => {
@@ -808,11 +859,15 @@ async function main(): Promise<void> {
       ['vu-classic', 'vumeter'],
       ['fx-vhs', 'vhs'],
       ['fx-glitch', 'glitch'],
-      ['fx-crt', 'crt']
+      ['fx-crt', 'crt'],
+      ['pt-fireworks', 'particles'],
+      ['lt-flare', 'light'],
+      ['cam-zoomblur', 'camera'],
+      ['cam-kaleido', 'camera']
     ]
     for (const [item, type] of added) {
-      await page.locator(`.lib-card[data-item="${item}"]`).click()
-      assert(await until(async () => (await topLayer()).type === type), `bấm mẫu "${item}": thêm lớp ${type}`)
+      await page.locator(`.lib-card[data-item="${item}"] .lib-card-add`).click()
+      assert(await until(async () => (await topLayer()).type === type), `bấm + của mẫu "${item}": thêm lớp ${type}`)
     }
     const musicLayers = (await layersNow()).slice(-added.length)
     const np = musicLayers.find((l) => l.type === 'nowplaying')!
@@ -871,6 +926,15 @@ async function main(): Promise<void> {
     await page.locator('.lib-tab[data-tab="media"]').click()
     const media = page.locator('.lib-card.media')
     assert(await until(async () => (await media.count()) === 1 && ((await media.locator('img').getAttribute('src')) ?? '').startsWith('pvm://')), 'thẻ Ảnh/video: ảnh vừa nhập có ảnh thu nhỏ')
+    // Bấm ảnh: xem thử làm nền (project chưa đổi)
+    const libBgBefore = JSON.stringify((await layersNow()).filter((l) => l.type === 'background'))
+    await media.click()
+    assert(
+      await until(async () => ((await page.locator('.lib-preview-bar').textContent()) ?? '').includes('Đặt làm nền')) &&
+        JSON.stringify((await layersNow()).filter((l) => l.type === 'background')) === libBgBefore,
+      'bấm ảnh trong thư viện: xem thử làm nền, chưa đổi nền của video'
+    )
+    await page.keyboard.press('Escape')
     const bgN = (await layersNow()).filter((l) => l.type === 'background').length
     await stableBox(audioClips.nth(0))
     await media.dragTo(audioClips.nth(0))

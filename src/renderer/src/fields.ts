@@ -329,6 +329,74 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
     { kind: 'range', key: 'vignette', label: 'Tối mép', min: 0, max: 1, step: 0.01 },
     { kind: 'toggle', key: 'bezel', label: 'Vỏ màn hình bo góc' }
   ],
+  light: [
+    {
+      kind: 'select',
+      key: 'style',
+      label: 'Kiểu',
+      options: [
+        ['leak', 'Rò sáng (vệt sáng trôi quanh mép)'],
+        ['flare', 'Lóe sáng ống kính'],
+        ['rays', 'Tia sáng chiếu từ một điểm'],
+        ['prism', 'Cầu vồng lăng kính']
+      ]
+    },
+    { kind: 'range', key: 'intensity', label: 'Độ sáng', min: 0, max: 1, step: 0.01 },
+    { kind: 'range', key: 'size', label: 'Kích thước', min: 0.3, max: 2, step: 0.01 },
+    { kind: 'range', key: 'speed', label: 'Tốc độ', min: 0, max: 4, step: 0.05 },
+    { kind: 'range', key: 'beatReact', label: 'Sáng bừng theo nhạc', min: 0, max: 2, step: 0.05 },
+    { kind: 'color', key: 'color', label: 'Màu chính' },
+    { kind: 'color', key: 'color2', label: 'Màu phụ' },
+    { kind: 'section', label: 'Nguồn sáng', show: is('style', 'flare', 'rays') },
+    ...position.map((f) => ({ ...f, show: is('style', 'flare', 'rays') }))
+  ],
+  camera: [
+    {
+      kind: 'select',
+      key: 'style',
+      label: 'Kiểu',
+      options: [
+        ['zoom', 'Phóng to theo nhịp'],
+        ['shake', 'Rung khung hình'],
+        ['zoomblur', 'Phóng mờ'],
+        ['chromatic', 'Lệch màu ống kính'],
+        ['pixelate', 'Khối điểm ảnh'],
+        ['mirror', 'Soi gương'],
+        ['kaleido', 'Kính vạn hoa'],
+        ['bars', 'Viền điện ảnh']
+      ]
+    },
+    {
+      kind: 'select',
+      key: 'trigger',
+      label: 'Kích hoạt',
+      options: [
+        ['beat', 'Theo beat'],
+        ['bass', 'Theo tiếng bass'],
+        ['always', 'Luôn bật']
+      ],
+      show: not('style', 'mirror', 'kaleido', 'bars')
+    },
+    { kind: 'range', key: 'amount', label: 'Độ mạnh', min: 0, max: 1, step: 0.01, show: not('style', 'mirror', 'kaleido', 'bars') },
+    { kind: 'range', key: 'pixel', label: 'Cỡ ô lớn nhất', min: 6, max: 80, step: 1, show: is('style', 'pixelate') },
+    {
+      kind: 'select',
+      key: 'mirror',
+      label: 'Nửa giữ lại',
+      options: [
+        ['left', 'Nửa trái'],
+        ['right', 'Nửa phải'],
+        ['top', 'Nửa trên'],
+        ['bottom', 'Nửa dưới']
+      ],
+      show: is('style', 'mirror')
+    },
+    { kind: 'range', key: 'segments', label: 'Số cánh', min: 4, max: 16, step: 2, show: is('style', 'kaleido') },
+    { kind: 'range', key: 'spin', label: 'Tốc độ xoay', min: -20, max: 20, step: 0.5, unit: 'vòng/phút', show: is('style', 'kaleido') },
+    { kind: 'range', key: 'ratio', label: 'Tỉ lệ khung giữa', min: 1.2, max: 2.8, step: 0.01, show: is('style', 'bars') },
+    { kind: 'color', key: 'barColor', label: 'Màu viền', show: is('style', 'bars') },
+    { kind: 'range', key: 'slideIn', label: 'Trượt vào (giây)', min: 0, max: 3, step: 0.05, show: is('style', 'bars') }
+  ],
   timer: [
     {
       kind: 'select',
@@ -561,13 +629,21 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
         ['bokeh', 'Bokeh (đốm sáng mờ)'],
         ['rain', 'Mưa'],
         ['stars', 'Sao lấp lánh'],
-        ['orbit', 'Bay vòng quanh tâm vùng (quanh ảnh bìa)']
+        ['orbit', 'Bay vòng quanh tâm vùng (quanh ảnh bìa)'],
+        ['hearts', 'Trái tim bay lên'],
+        ['petals', 'Hoa anh đào rơi'],
+        ['fireflies', 'Đom đóm lập loè'],
+        ['bubbles', 'Bong bóng'],
+        ['confetti', 'Pháo giấy'],
+        ['fog', 'Sương mù trôi'],
+        ['fireworks', 'Pháo hoa']
       ]
     },
     { kind: 'range', key: 'count', label: 'Số lượng', min: 0, max: 400, step: 1 },
+    { kind: 'toggle', key: 'multicolor', label: 'Nhiều màu (mỗi hạt một màu)' },
     { kind: 'range', key: 'size', label: 'Kích thước', min: 1, max: 12, step: 0.5 },
     { kind: 'range', key: 'speed', label: 'Tốc độ', min: 0.1, max: 4, step: 0.05 },
-    { kind: 'color', key: 'color', label: 'Màu' },
+    { kind: 'color', key: 'color', label: 'Màu', show: (p) => !p.multicolor },
     { kind: 'range', key: 'opacity', label: 'Độ trong suốt', min: 0, max: 1, step: 0.01 },
     { kind: 'range', key: 'beatReact', label: 'Phản ứng theo nhạc', min: 0, max: 2, step: 0.05 },
     { kind: 'number', key: 'seed', label: 'Kiểu phân bố (seed)', min: 0, step: 1 },
