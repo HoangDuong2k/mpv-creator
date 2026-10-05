@@ -72,7 +72,7 @@ Trang giới thiệu và tải app: Astro + momi-ui, tiếng Việt ở `/`, ti�
 
 - Chạy thử: `cd site && npm ci && npm run dev` (cần Node 22.12 trở lên).
 - Ảnh chụp app và ảnh chia sẻ trên trang: `npm run build && npm run site:shots` ở thư mục gốc (Linux không có màn hình: `xvfb-run -a npm run site:shots`), rồi commit ảnh trong `site/src/assets/`.
-- Video demo (`site/public/demo/demo.mp4`) và ảnh 7 mẫu (`site/src/assets/templates/`) dựng bằng CLI của app từ ba đoạn nhạc 13 giây của Kevin MacLeod (incompetech.com, CC BY 4.0, ghi nguồn ngay dưới video): `npm run cli -- demo --audio 01.mp3 02.mp3 03.mp3 --template edm --size 1280x720 --fps 30 --out demo.mp4` rồi nén bằng ffmpeg (`-crf 29 -preset slow -movflags +faststart`, dưới 5 MB); ảnh mẫu: `npm run cli -- frame --audio 01.mp3 02.mp3 --template <mẫu> --time 6.2 --out <mẫu>.png`. Chỉ dựng lại khi giao diện video đổi nhiều (mỗi lần commit video, repo nặng thêm).
+- Video demo (`site/public/demo/demo.mp4`): điệp khúc bài đầu (giây 44–72,5) của video "RnB Playlist #16" xuất bằng app, cắt và nén bằng ffmpeg (1080p, `-crf 23 -preset slow -movflags +faststart`, khoảng 11 MB, hình và tiếng hiện dần / nhỏ dần ở hai đầu); ảnh bìa `site/src/assets/demo-poster.jpg` là khung hình ở giây 9,35 của đoạn cắt (một beat của điệp khúc). Ảnh 7 mẫu (`site/src/assets/templates/`) dựng bằng CLI của app từ hai đoạn nhạc 13 giây của Kevin MacLeod (incompetech.com, CC BY 4.0): `npm run cli -- frame --audio 01.mp3 02.mp3 --template <mẫu> --time 6.2 --out <mẫu>.png`. Chỉ thay video khi cần (mỗi lần commit video, repo nặng thêm).
 - Hiệu ứng khi cuộn nằm ở `site/public/scroll.css` (không qua bộ tối ưu CSS, xem chú thích trong file).
 
 ## Dùng trên Windows

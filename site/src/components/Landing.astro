@@ -19,6 +19,7 @@ import { DownloadSection, SiteFooter } from './DownloadSection'
 import { DemoVideo, TemplateGallery, type TemplateImage } from './Media'
 import { ChangelogSection, type ReleaseNote } from './ChangelogSection'
 import { WaveStage } from './WaveStage'
+import { HeroFireflies } from './HeroFireflies'
 import appShot from '../assets/shots/app.png'
 import libraryShot from '../assets/shots/library.png'
 import timelineShot from '../assets/shots/timeline.png'
@@ -94,6 +95,8 @@ const poster = await webp(demoPoster, 1280)
   <main>
     <section id={ch.intro.id} class="relative isolate overflow-clip pt-14 sm:pt-20">
       <BackgroundPattern variant="grid" fade="radial" />
+      <!-- Đốm sáng lơ lửng sau tiêu đề (lớp hạt "đom đóm" của engine app) -->
+      <HeroFireflies client:idle />
       <Container size="xl">
         <div class="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
           <a href={`#${ch.changelog.id}`} class="rounded-full transition-opacity hover:opacity-85" aria-label={ch.changelog.label}>

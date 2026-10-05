@@ -58,7 +58,7 @@ export interface Copy {
     description: string
     items: Array<{ key: 'effects' | 'chapters' | 'timeline' | 'inspector' | 'export' | 'styles'; title: string; description: string; alt: string }>
   }
-  demo: { title: string; description: string; play: string; credit: string; creditLicense: string }
+  demo: { title: string; description?: string; play: string; credit: string; /** Có thì thêm link giấy phép CC BY 4.0 sau dòng ghi nguồn */ creditLicense?: string }
   styles: { title: string; description: string; items: Record<TemplateId, { name: string; description: string }> }
   how: { title: string; description: string; steps: Array<{ title: string; description: string }> }
   changelog: { title: string; description: string; all: string }
@@ -183,10 +183,8 @@ const vi: Copy = {
   },
   demo: {
     title: 'Video này do chính app dựng',
-    description: 'Ba bài nhạc, mẫu EDM, không chỉnh tay gì thêm: cột sóng, tên bài, thanh tiến trình đổi theo từng bài.',
     play: 'Phát video demo (có tiếng)',
-    credit: 'Nhạc: "Voxel Revolution", "Local Forecast - Elevator", "Wallpaper" của Kevin MacLeod (incompetech.com)',
-    creditLicense: 'giấy phép CC BY 4.0'
+    credit: 'Nhạc: "Give Me That Look"'
   },
   styles: {
     title: '7 mẫu phong cách có sẵn',
@@ -381,10 +379,8 @@ const en: Copy = {
   },
   demo: {
     title: 'This video was made by the app',
-    description: 'Three songs, the EDM style, no manual tweaks: the visualizer, song title and progress bar follow each song.',
     play: 'Play the demo video (with sound)',
-    credit: 'Music: "Voxel Revolution", "Local Forecast - Elevator", "Wallpaper" by Kevin MacLeod (incompetech.com)',
-    creditLicense: 'licensed under CC BY 4.0'
+    credit: 'Music: "Give Me That Look"'
   },
   styles: {
     title: '7 ready-made styles',

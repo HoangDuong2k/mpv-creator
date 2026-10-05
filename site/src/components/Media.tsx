@@ -38,10 +38,15 @@ export function DemoVideo({ copy, chapter, poster, video }: { copy: Copy['demo']
             )}
           </div>
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            {copy.credit},{' '}
-            <a href="https://creativecommons.org/licenses/by/4.0/" className="underline-offset-4 hover:text-foreground hover:underline">
-              {copy.creditLicense}
-            </a>
+            {copy.credit}
+            {copy.creditLicense && (
+              <>
+                ,{' '}
+                <a href="https://creativecommons.org/licenses/by/4.0/" className="underline-offset-4 hover:text-foreground hover:underline">
+                  {copy.creditLicense}
+                </a>
+              </>
+            )}
           </p>
         </div>
       </Container>

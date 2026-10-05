@@ -1,45 +1,52 @@
 /**
- * Dải cột sóng dưới đầu trang (island): vẽ bằng chính engine hiệu ứng của app (lớp cột sóng kiểu "mirror" như mẫu
- * EDM), theo dữ liệu nhạc mẫu có nhịp 118 BPM của engine, nên trông giống hệt cột sóng trong video app xuất ra.
- * Nhẹ: 24 khung hình/giây, chỉ chạy khi đang thấy trên màn hình (dừng khi cuộn đi hoặc đổi tab), canvas vẽ ở
- * 0,75× (điện thoại tối đa 1,25× và ít cột hơn); máy vẽ chậm (trung bình quá 10 ms một khung hình) tự hạ còn 15 khung hình/giây,
- * bỏ quầng sáng; người bật "giảm chuyển động" chỉ thấy một khung hình đứng yên.
+ * Dải sóng dưới đầu trang (island): đường sóng âm (kiểu "wave" của lớp cột sóng) vẽ bằng chính engine hiệu ứng của
+ * app, theo dữ liệu nhạc mẫu có nhịp 118 BPM của engine, kèm hai đường dư ảnh mờ dần chạy trễ phía sau.
+ * Nét đường cần sắc nên vẽ đủ độ nét màn hình (tối đa 2×); đường rẻ hơn nhiều so với cột nên vẫn nhẹ: 30 khung
+ * hình/giây, chỉ chạy khi đang thấy trên màn hình (dừng khi cuộn đi hoặc đổi tab); máy vẽ chậm (trung bình quá
+ * 10 ms một khung hình) tự hạ còn 15 khung hình/giây, bỏ quầng sáng; người bật "giảm chuyển động" chỉ thấy một
+ * khung hình đứng yên.
  */
 import { useEffect, useRef, type ReactNode } from 'react'
-import { AudioSampler } from '../../../src/engine/audio'
-import { createDemoFeatures, DEMO_KEY } from '../../../src/engine/demoAudio'
-import type { EngineAssets, RenderEnv } from '../../../src/engine/env'
 import { drawVisualizer } from '../../../src/engine/layers/visualizer'
-import { buildTimeline, entryAt } from '../../../src/shared/timeline'
-import type { Project, Track, VisualizerProps } from '../../../src/shared/types'
+import type { VisualizerProps } from '../../../src/shared/types'
+import { createEngineEnv, seekEnv } from './engineEnv'
 
 /** Khung toạ độ như video 1080p: cột sóng có đúng tỉ lệ, độ dày, độ phát sáng như trong video */
 const W = 1920
 const H = 1080
 /** Độ dài đoạn nhạc mẫu (giây), chạy lặp */
 const LOOP = 24
-/** Đủ mượt cho cột sóng; quầng sáng (shadowBlur) là phần tốn nhất nên giữ số khung hình vừa phải */
-const FPS = 24
+const FPS = 30
 
-/** Cột sóng đối xứng như mẫu EDM, màu theo dải màu nhấn của trang (xanh → tím) */
+/**
+ * Đường dư ảnh phía sau đường chính: trễ `lag` giây (sóng mẫu trôi ngang theo thời gian nên các đường so le nhau),
+ * mờ và mảnh hơn. Đường chính vẽ sau cùng.
+ */
+const TRAILS = [
+  { lag: 0.26, alpha: 0.2, width: 0.6 },
+  { lag: 0.13, alpha: 0.42, width: 0.8 },
+  { lag: 0, alpha: 1, width: 1 }
+]
+
+/** Đường sóng âm, màu theo dải màu nhấn của trang (xanh → tím → xanh) */
 function waveProps(lite: boolean): VisualizerProps {
   return {
-    style: 'mirror',
+    style: 'wave',
     x: 0.5,
     y: 0.5,
     width: 1,
-    // Điện thoại: khung 1920 thu nhỏ nhiều nên cột cao hơn để vẫn rõ
-    height: lite ? 0.55 : 0.24,
+    // Điện thoại: khung 1920 thu nhỏ nhiều nên sóng cao hơn, nét dày hơn để vẫn rõ
+    height: lite ? 0.55 : 0.26,
     radius: 0.16,
-    barCount: lite ? 48 : 96,
+    barCount: 96,
     barGap: 0.45,
     rounded: true,
     colorMode: 'gradient',
     color: '#62d0ff',
     color2: '#b48cff',
-    // Quầng sáng không vẽ riêng từng cột (shadowBlur, tốn) mà làm mờ cả dải một lần, xem draw()
+    // Quầng sáng không dùng shadowBlur mà làm mờ cả dải một lần, xem draw()
     glow: 0,
-    lineWidth: 4,
+    lineWidth: lite ? 9 : 4,
     sensitivity: 1.15,
     smoothing: 0.55,
     minFreq: 40,
@@ -57,46 +64,6 @@ function waveProps(lite: boolean): VisualizerProps {
   }
 }
 
-/** Môi trường vẽ tối thiểu cho một lớp của engine (không có nền, không có ảnh / video) */
-function createEnv(ctx: CanvasRenderingContext2D): RenderEnv {
-  const track: Track = { id: 'site', path: 'site', title: '', artist: '', album: '', duration: LOOP, analysisKey: DEMO_KEY, trimStart: 0, trimEnd: 0 }
-  const settings = { width: W, height: H, fps: FPS, transition: { type: 'gap', duration: 0 }, fadeIn: 0, fadeOut: 0 } as Project['settings']
-  const timeline = buildTimeline([track], settings)
-  const features = createDemoFeatures(LOOP)
-  const assets: EngineAssets = {
-    image: () => null,
-    video: () => null,
-    createSurface: (w, h) => {
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      return { canvas, ctx: canvas.getContext('2d')! }
-    },
-    path2d: (d) => new Path2D(d)
-  }
-  return {
-    ctx,
-    project: { tracks: [track], layers: [], settings } as unknown as Project,
-    timeline,
-    audio: new AudioSampler(timeline, (k) => (k === DEMO_KEY ? features : undefined)),
-    assets,
-    cache: new Map(),
-    t: 0,
-    W,
-    H,
-    S: 1,
-    px: 1,
-    entry: entryAt(timeline, 0),
-    layerId: 'site-wave',
-    timing: { start: 0, end: null, fadeIn: 0, fadeOut: 0 },
-    fade: 1,
-    editLayerId: null,
-    bounds: new Map(),
-    bake: null,
-    fastBackground: true
-  }
-}
-
 export function WaveStage(): ReactNode {
   const ref = useRef<HTMLCanvasElement>(null)
 
@@ -107,45 +74,46 @@ export function WaveStage(): ReactNode {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const lite = window.matchMedia('(max-width: 640px)').matches
     const props = waveProps(lite)
-    const env = createEnv(ctx)
+    const env = createEngineEnv(ctx, W, H, FPS, LOOP)
     let scale = 1
-    // Cột sóng vẽ lên canvas phụ, rồi chép ra hai lần: một lần làm mờ (quầng sáng), một lần sắc nét
-    const bars = document.createElement('canvas')
-    const barsCtx = bars.getContext('2d')!
-    env.ctx = barsCtx
+    // Đường sóng vẽ lên canvas phụ, rồi chép ra hai lần: một lần làm mờ (quầng sáng), một lần sắc nét
+    const lines = document.createElement('canvas')
+    const linesCtx = lines.getContext('2d')!
+    env.ctx = linesCtx
     let blur = 10
     /** Máy vẽ chậm (không có GPU, máy yếu): 15 khung hình/giây, bỏ quầng sáng */
     let slow = false
 
     const resize = (): void => {
-      // Quầng sáng mềm nên không cần độ nét cao: máy tính vẽ ở 0,75× rồi phóng lên (nhìn gần như không khác,
-      // nhẹ hơn gần một nửa), điện thoại (canvas nhỏ) tối đa 1,25×
-      const dpr = lite ? Math.min(window.devicePixelRatio || 1, 1.25) : 0.75
-      canvas.width = bars.width = Math.round(canvas.clientWidth * dpr)
-      canvas.height = bars.height = Math.round(canvas.clientHeight * dpr)
+      // Đường mảnh phải vẽ đủ độ nét màn hình, phóng canvas nhỏ lên là nét bị nhoè, răng cưa
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      canvas.width = lines.width = Math.round(canvas.clientWidth * dpr)
+      canvas.height = lines.height = Math.round(canvas.clientHeight * dpr)
       scale = canvas.width / W
-      blur = Math.max(4, Math.round((lite ? 6 : 10) * dpr))
+      blur = Math.max(4, Math.round((lite ? 5 : 8) * dpr))
     }
     const draw = (t: number): void => {
-      barsCtx.setTransform(1, 0, 0, 1, 0, 0)
-      barsCtx.clearRect(0, 0, bars.width, bars.height)
-      // Chỉ hiện dải giữa khung 1080p (chỗ cột sóng) ở giữa canvas
-      barsCtx.setTransform(scale, 0, 0, scale, 0, bars.height / 2 - props.y * H * scale)
-      env.t = t
+      linesCtx.setTransform(1, 0, 0, 1, 0, 0)
+      linesCtx.clearRect(0, 0, lines.width, lines.height)
+      // Chỉ hiện dải giữa khung 1080p (chỗ đường sóng) ở giữa canvas
+      linesCtx.setTransform(scale, 0, 0, scale, 0, lines.height / 2 - props.y * H * scale)
       env.px = scale
-      env.entry = entryAt(env.timeline, t)
-      barsCtx.save()
-      drawVisualizer(env, props)
-      barsCtx.restore()
+      for (const trail of TRAILS) {
+        seekEnv(env, (t - trail.lag + LOOP) % LOOP)
+        linesCtx.save()
+        linesCtx.globalAlpha = trail.alpha
+        drawVisualizer(env, { ...props, lineWidth: props.lineWidth * trail.width })
+        linesCtx.restore()
+      }
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       if (!slow) {
         ctx.filter = `blur(${blur}px)`
-        ctx.globalAlpha = 0.85
-        ctx.drawImage(bars, 0, 0)
+        ctx.globalAlpha = 0.9
+        ctx.drawImage(lines, 0, 0)
         ctx.filter = 'none'
         ctx.globalAlpha = 1
       }
-      ctx.drawImage(bars, 0, 0)
+      ctx.drawImage(lines, 0, 0)
     }
 
     resize()

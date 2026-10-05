@@ -52,7 +52,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Dải cột sóng dưới đầu trang (canvas, vẽ bằng engine của app): mờ dần hai đầu và mép trên / dưới */
+/* Đốm sáng sau phần đầu trang: mờ dần về phía dưới, không lấn sang ảnh chụp app */
+.hero-fireflies {
+  -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent);
+  mask-image: linear-gradient(180deg, #000 45%, transparent);
+}
+
+/* Dải sóng dưới đầu trang (canvas, vẽ bằng engine của app): mờ dần hai đầu và mép trên / dưới */
 .wave-stage {
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);

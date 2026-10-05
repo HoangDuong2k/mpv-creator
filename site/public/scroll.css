@@ -35,7 +35,7 @@
       animation-timeline: scroll(root);
       animation-range: 0 900px;
     }
-    /* Dải cột sóng dưới đầu trang mờ dần khi cuộn qua */
+    /* Dải sóng dưới đầu trang mờ dần khi cuộn qua */
     .wave-wrap {
       animation: fade-out linear both;
       animation-timeline: view();
