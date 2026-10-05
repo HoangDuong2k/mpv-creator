@@ -95,9 +95,12 @@
   max-width: var(--left-w, 300px);
   padding: 12px;
 }
-/* Thông báo chỉ để đọc: không chặn chuột (kéo mẫu thư viện, bấm nút bên dưới vẫn được) và không dừng đếm giờ khi rê qua */
+/*
+ * Thông báo chỉ để đọc: không chặn chuột (kéo mẫu thư viện, bấm nút bên dưới vẫn được) và không dừng đếm giờ khi rê
+ * qua. momi-ui 0.2.1 gắn pointer-events: auto inline lên từng thông báo nên cần !important.
+ */
 .app-toaster [data-slot='toast'] {
-  pointer-events: none;
+  pointer-events: none !important;
 }
 .workspace.left-collapsed .app-toaster {
   left: 34px;

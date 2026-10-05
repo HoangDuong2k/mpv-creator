@@ -120,20 +120,6 @@ export function IconButton({
 
 /** Hộp thoại (momi-ui Dialog). `wide`: hộp rộng cho lưới mẫu, bảng phím tắt */
 export function Modal({ title, onClose, children, footer, wide }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }): ReactNode {
-  // Thông báo (Toast của momi-ui, dựng trên Radix) cũng là một lớp nhận phím Esc: đang có thông báo thì Esc chỉ đóng
-  // thông báo. Khi không có menu / bảng chọn nào đang mở, Esc đóng luôn hộp thoại như người dùng mong đợi.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
-      const toastOpen = document.querySelector('[data-slot="toaster"] [data-state="open"]')
-      const popupOpen = document.querySelector('[data-radix-popper-content-wrapper]')
-      if (!toastOpen || popupOpen) return
-      e.preventDefault()
-      onClose()
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose])
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent size={wide ? 'xl' : 'md'} className={`modal${wide ? ' wide' : ''}`} closeLabel={tr('Đóng')} aria-describedby={undefined}>

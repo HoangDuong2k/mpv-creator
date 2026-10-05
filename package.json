@@ -37,7 +37,7 @@
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "immer": "^11.1.18",
-    "momi-ui": "github:HoangDuong2k/momi-ui#v0.2.0",
+    "momi-ui": "github:HoangDuong2k/momi-ui#v0.2.1",
     "playwright-core": "^1.63.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

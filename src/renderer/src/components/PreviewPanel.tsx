@@ -315,27 +315,11 @@ const QUALITY_LABELS: Array<[PreviewQuality, string]> = [
 function PreviewMenu({ info }: { info: string }): ReactNode {
   const quality = useStore((s) => s.previewQuality)
   const safeArea = useLayout((s) => s.safeArea)
-  const [open, setOpen] = useState(false)
-  // Bấm nút mở khi menu vừa chọn xong còn đang chạy hiệu ứng đóng: Radix mở rồi đóng lại ngay. Bỏ qua lệnh đóng
-  // đến ngay sau cú bấm mở đó (lỗi của DropdownMenu, đã báo cho momi-ui)
-  const press = useRef({ at: 0, wasOpen: false })
   return (
     // Không modal: menu mở không chặn chuột ở phần còn lại của cửa sổ
-    <DropdownMenu
-      modal={false}
-      open={open}
-      onOpenChange={(next) => {
-        if (!next && !press.current.wasOpen && performance.now() - press.current.at < 200) return
-        setOpen(next)
-      }}
-    >
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="chip chip-btn preview-menu-btn"
-          title={tr('Độ nét preview, khung hình')}
-          onPointerDown={() => (press.current = { at: performance.now(), wasOpen: open })}
-        >
+        <button type="button" className="chip chip-btn preview-menu-btn" title={tr('Độ nét preview, khung hình')}>
           <Icon name="tune" size={13} />
           <span className="chip-text">{quality === 'high' ? info : `${info} · ${quality === 'medium' ? '½' : '¼'}`}</span>
           <Icon name="expand" size={14} />

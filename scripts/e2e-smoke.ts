@@ -603,12 +603,16 @@ async function main(): Promise<void> {
     // Toàn màn hình không có timeline: có thanh tua, bấm vào giữa thanh để tua tới giữa video
     const seekbar = page.locator('.seekbar')
     assert(await until(async () => (await seekbar.count()) === 1), 'toàn màn hình có thanh tua')
-    const sk = await stableBox(seekbar.locator('.seek-track'))
+    // Cửa sổ vào chế độ toàn màn hình của hệ điều hành chậm hơn một nhịp (đổi cỡ cửa sổ): đợi xong mới đo vị trí
+    await until(async () => (await page.evaluate('!!document.fullscreenElement')) as boolean, 3000)
+    await page.waitForTimeout(400)
+    let sk = await stableBox(seekbar.locator('.seek-track'))
     await page.mouse.click(sk.x + sk.width / 2, sk.y + sk.height / 2)
     const total0 = await page.evaluate(() => (window as unknown as { __pvm: { player: { total: number } } }).__pvm.player.total)
     const tMid = await page.evaluate(() => (window as unknown as Probe).__pvm.player.time())
     assert(Math.abs(tMid - total0 / 2) < 2, `bấm giữa thanh tua: tua tới ${tMid.toFixed(1)}s / ${total0.toFixed(0)}s`)
-    // Rê chuột qua vài bước như người thật (máy Mac Intel chậm có lúc bỏ lỡ một lần di chuột duy nhất)
+    // Rê chuột qua vài bước như người thật (máy Mac Intel chậm có lúc bỏ lỡ một lần di chuột duy nhất); đo lại vị trí
+    sk = await stableBox(seekbar.locator('.seek-track'))
     await page.mouse.move(sk.x + sk.width * 0.3, sk.y + sk.height / 2, { steps: 5 })
     await page.mouse.move(sk.x + sk.width * 0.25, sk.y + sk.height / 2, { steps: 5 })
     assert(await until(async () => (await page.locator('.seek-tip').count()) === 1, 5000), 'rê chuột lên thanh tua: hiện thời điểm và tên bài')
