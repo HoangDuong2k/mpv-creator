@@ -40,9 +40,9 @@ describe('macOS', () => {
     expect(keyLabel('Ctrl+Z · Ctrl+Y')).toBe('⌘Z · ⇧⌘Z')
     expect(keyLabel('F11 · Esc')).toBe('⌃⌘F · Esc')
     expect(keyLabel('Ctrl + lăn chuột')).toBe('⌘ + lăn chuột')
-    expect(tr('Mở project (Ctrl+O)')).toBe('Mở project (⌘O)')
+    expect(tr('Tách thanh đang chọn tại đầu phát (Ctrl+B)')).toBe('Tách thanh đang chọn tại đầu phát (⌘B)')
     setLang('en')
-    expect(tr('Hoàn tác (Ctrl+Z)')).toBe('Undo (⌘Z)')
+    expect(tr('Tách thanh đang chọn tại đầu phát (Ctrl+B)')).toBe('Split the selected bars at the playhead (⌘B)')
     // Câu không có phím tắt giữ nguyên
     expect(tr('Xuất video')).toBe('Export video')
   })

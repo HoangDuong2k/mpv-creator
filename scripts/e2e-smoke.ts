@@ -324,6 +324,38 @@ async function main(): Promise<void> {
     await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await titles())[0] === 'Nắng Ấm Xa Dần'), 'Ctrl+Z trả lại thứ tự sau khi dời bằng bàn phím')
 
+    // ---- Thanh công cụ (Toolbar của momi-ui): một điểm Tab, mũi tên đi giữa các nút, không tua video ----
+    const tools = page.locator('.topbar [data-slot="toolbar-button"]')
+    assert((await tools.count()) === 8, `thanh công cụ có 8 nút (${await tools.count()})`)
+    const playTime = (): Promise<number> => page.evaluate(() => (window as unknown as Probe).__pvm.player.time())
+    const focusedName = (): Promise<string> => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent ?? '')
+    await tools.first().focus()
+    const tPlay = await playTime()
+    // Radix chuyển focus ngay sau phím (setTimeout): chờ focus tới rồi mới nhấn tiếp
+    await page.keyboard.press('ArrowRight')
+    await until(async () => (await focusedName()) === 'Mở project')
+    await page.keyboard.press('ArrowRight')
+    assert(
+      (await until(async () => (await focusedName()) === 'Lưu project')) && Math.abs((await playTime()) - tPlay) < 0.01,
+      `mũi tên trong thanh công cụ chuyển nút, không tua video (${await focusedName()})`
+    )
+    await page.keyboard.press('End')
+    assert(
+      (await until(async () => (await focusedName()).includes('Mẫu phong cách'))) && Math.abs((await playTime()) - tPlay) < 0.01,
+      `End: tới nút cuối của thanh công cụ, không nhảy về cuối video (${await focusedName()})`
+    )
+    // Tooltip mở khi nút nhận focus bằng bàn phím: có tên nút và phím tắt theo hệ điều hành
+    await page.keyboard.press('Home')
+    await until(async () => (await focusedName()) === 'Project mới')
+    await page.keyboard.press('ArrowRight')
+    await until(async () => (await focusedName()) === 'Mở project')
+    await page.keyboard.press('ArrowRight')
+    const tip = page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])', { hasText: 'Lưu project' })
+    assert(await until(async () => (await tip.count()) === 1), 'focus vào nút Lưu: hiện tooltip')
+    const tipText = (await tip.textContent()) ?? ''
+    assert(process.platform === 'darwin' ? tipText.includes('⌘') : tipText.includes('Ctrl'), `tooltip có phím tắt theo hệ điều hành: ${tipText}`)
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+
     // Cắt cuối bài 1 bằng cách kéo mép phải
     const edge = (await boxOf(audioClips.nth(0).locator('.tl-edge.r')))
     await dragBy(edge, -60)

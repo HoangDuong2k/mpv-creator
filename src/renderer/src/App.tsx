@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Button, Toaster, ToggleGroup, ToggleGroupItem, toast } from 'momi-ui'
+import { Button, Toaster, ToggleGroup, ToggleGroupItem, Toolbar, ToolbarButton, ToolbarSeparator, toast } from 'momi-ui'
 import { ChaptersDialog } from './components/ChaptersDialog'
 import { ExportDialog, ShutdownCountdown, useExportStore } from './components/ExportDialog'
 import { LayersPanel } from './components/LayersPanel'
@@ -11,7 +11,7 @@ import { previewFontsLoaded } from './previewRender'
 import { PreviewPanel, togglePreviewMax } from './components/PreviewPanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Timeline } from './components/Timeline'
-import { Icon, IconButton, fileName } from './components/ui'
+import { Icon, fileName } from './components/ui'
 import { assets, loadFonts, player } from './engineHost'
 import { mediaKind, safeFileName } from '../../shared/files'
 import { errorText, useAnalysis, useAudioSpec, useAutosave } from './hooks'
@@ -71,6 +71,9 @@ async function handleDroppedPaths(paths: string[]): Promise<void> {
   await importPaths(paths)
 }
 
+/** Làm lại: Ctrl+Y (Windows, Linux) · ⇧⌘Z (Mac); phím tắt chung nhận cả hai */
+const REDO_SHORTCUT = { mac: 'mod+shift+z', default: 'mod+y' }
+
 function TopBar(): ReactNode {
   const name = useStore((s) => s.project.name)
   const dirty = useStore((s) => s.dirty)
@@ -88,28 +91,28 @@ function TopBar(): ReactNode {
         </span>
         <span className="brand-name">Playlist Video Maker</span>
       </div>
-      <div className="toolbar">
-        <IconButton
-          icon="newFile"
-          title={tr('Project mới')}
+      <Toolbar size="sm" className="toolbar" aria-label={tr('Thanh công cụ')}>
+        <ToolbarButton
+          icon={<Icon name="newFile" size={18} />}
+          label={tr('Project mới')}
           onClick={() => {
             if (!confirmDiscard()) return
             openDialog('new-project')
           }}
         />
-        <IconButton icon="folder" title={tr('Mở project (Ctrl+O)')} onClick={() => openProject()} />
-        <IconButton icon="save" title={tr('Lưu project (Ctrl+S)')} onClick={() => saveProject()} />
-        <span className="sep" />
-        <IconButton icon="undo" title={tr('Hoàn tác (Ctrl+Z)')} onClick={undo} disabled={!canUndo} />
-        <IconButton icon="redo" title={tr('Làm lại (Ctrl+Y)')} onClick={redo} disabled={!canRedo} />
-        <span className="sep" />
-        <IconButton icon="tune" title={tr('Cài đặt project')} onClick={() => openDialog('settings')} />
-        <IconButton icon="help" title={tr('Phím tắt và thao tác chuột (?)')} onClick={() => openDialog('shortcuts')} />
-        <span className="sep" />
-        <Button variant="outline" tone="neutral" size="xs" className="styles-btn" onClick={() => openDialog('styles')} title={tr('Mẫu phong cách: áp cho project này (giữ nhạc) hoặc lưu phong cách đang làm')}>
+        <ToolbarButton icon={<Icon name="folder" size={18} />} label={tr('Mở project')} shortcut="mod+o" onClick={() => openProject()} />
+        <ToolbarButton icon={<Icon name="save" size={18} />} label={tr('Lưu project')} shortcut="mod+s" onClick={() => saveProject()} />
+        <ToolbarSeparator />
+        <ToolbarButton icon={<Icon name="undo" size={18} />} label={tr('Hoàn tác')} shortcut="mod+z" onClick={undo} disabled={!canUndo} />
+        <ToolbarButton icon={<Icon name="redo" size={18} />} label={tr('Làm lại')} shortcut={REDO_SHORTCUT} onClick={redo} disabled={!canRedo} />
+        <ToolbarSeparator />
+        <ToolbarButton icon={<Icon name="tune" size={18} />} label={tr('Cài đặt project')} onClick={() => openDialog('settings')} />
+        <ToolbarButton icon={<Icon name="help" size={18} />} label={tr('Phím tắt và thao tác chuột')} shortcut="?" onClick={() => openDialog('shortcuts')} />
+        <ToolbarSeparator />
+        <ToolbarButton variant="outline" size="xs" className="styles-btn" onClick={() => openDialog('styles')} label={tr('Mẫu phong cách: áp cho project này (giữ nhạc) hoặc lưu phong cách đang làm')}>
           <Icon name="palette" size={16} /> {tr('Mẫu phong cách')}
-        </Button>
-      </div>
+        </ToolbarButton>
+      </Toolbar>
       <div className="project-name" title={tr('Nhấn để đổi tên')} onClick={() => openDialog('settings')}>
         {tr(name)}
         {dirty && <span className="dirty">●</span>}
