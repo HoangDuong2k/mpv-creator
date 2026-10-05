@@ -344,16 +344,20 @@ async function main(): Promise<void> {
       (await until(async () => (await focusedName()).includes('Mẫu phong cách'))) && Math.abs((await playTime()) - tPlay) < 0.01,
       `End: tới nút cuối của thanh công cụ, không nhảy về cuối video (${await focusedName()})`
     )
-    // Tooltip mở khi nút nhận focus bằng bàn phím: có tên nút và phím tắt theo hệ điều hành
-    await page.keyboard.press('Home')
-    await until(async () => (await focusedName()) === 'Project mới')
-    await page.keyboard.press('ArrowRight')
-    await until(async () => (await focusedName()) === 'Mở project')
-    await page.keyboard.press('ArrowRight')
+    // Tooltip có tên nút và phím tắt theo hệ điều hành. Kiểm tra bằng rê chuột: trên máy CI cửa sổ app thường không
+    // có focus của hệ điều hành, khi đó Chromium không phát sự kiện focus nên tooltip không mở theo bàn phím
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+    const saveBox = await boxOf(tools.nth(2))
+    await page.mouse.move(saveBox.x + saveBox.width / 2, saveBox.y + 300, { steps: 4 })
+    await page.mouse.move(saveBox.x + saveBox.width / 2, saveBox.y + saveBox.height / 2, { steps: 8 })
     const tip = page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])', { hasText: 'Lưu project' })
-    assert(await until(async () => (await tip.count()) === 1), 'focus vào nút Lưu: hiện tooltip')
+    assert(
+      await until(async () => (await tip.count()) === 1),
+      `rê chuột lên nút Lưu: hiện tooltip (đang mở: ${(await page.locator('[data-slot="tooltip-content"]').allTextContents()).join(' | ') || 'không có'})`
+    )
     const tipText = (await tip.textContent()) ?? ''
     assert(process.platform === 'darwin' ? tipText.includes('⌘') : tipText.includes('Ctrl'), `tooltip có phím tắt theo hệ điều hành: ${tipText}`)
+    await page.mouse.move(saveBox.x + saveBox.width / 2, saveBox.y + 300, { steps: 4 })
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
 
     // ---- Danh sách lớp (SortableList): lớp trên cùng ở đầu danh sách; kéo chuột hoặc bàn phím để đổi thứ tự ----
