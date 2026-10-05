@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
 import {
   ColorPicker,
   Dialog,
@@ -116,6 +116,22 @@ export function IconButton({
   )
   // Nút bị tắt không nhận chuột nên không hiện tooltip: bỏ tooltip, giữ nhãn cho trình đọc màn hình
   return disabled ? button : <Tooltip content={title}>{button}</Tooltip>
+}
+
+/**
+ * Hàng của danh sách kéo thả (SortableList của momi-ui) là khung trơn: nền, viền, chữ do phần tử bên trong vẽ,
+ * vì lớp theo từng hàng (`selected`, `current`…) chỉ gắn được vào phần tử bên trong
+ */
+export const SORTABLE_ROW = 'block p-0 rounded-[var(--r-sm)] text-[length:inherit] hover:bg-transparent'
+
+/**
+ * Bấm chuột vào hàng kéo được không đưa focus vào hàng (focus về trang như trước): Space vẫn phát / dừng.
+ * Hàng chỉ nhận focus qua Tab, khi đó Space nhấc hàng lên, mũi tên dời chỗ, Space thả.
+ */
+export function keepRowFocusOff(e: MouseEvent): void {
+  if ((e.target as Element).closest('button, input, textarea, select, a, label')) return
+  e.preventDefault()
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
 }
 
 /** Hộp thoại (momi-ui Dialog). `wide`: hộp rộng cho lưới mẫu, bảng phím tắt */

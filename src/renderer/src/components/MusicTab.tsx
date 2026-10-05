@@ -1,11 +1,11 @@
-import { useState, type MouseEvent, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Button, Input, SortableList } from 'momi-ui'
 import { formatTime } from '../../../shared/time'
 import type { Track } from '../../../shared/types'
 import { player } from '../engineHost'
 import { errorText, useTimeline } from '../hooks'
 import { useStore } from '../store'
-import { Icon, IconButton, NumberInput } from './ui'
+import { Icon, IconButton, NumberInput, SORTABLE_ROW, keepRowFocusOff } from './ui'
 import { tr } from '../../../shared/i18n'
 
 const api = window.api
@@ -20,19 +20,6 @@ export async function importPaths(paths: string[]): Promise<void> {
   } catch (err) {
     toast('error', tr('Không thêm được nhạc: {err}', { err: errorText(err) }))
   }
-}
-
-/** Hàng bài là khung trơn: nền, viền, chữ do `.track` bên trong vẽ (lớp `current`, `selected` theo từng bài) */
-const ROW_RESET = 'block p-0 rounded-[var(--r-sm)] text-[length:inherit] hover:bg-transparent'
-
-/**
- * Bấm chuột vào hàng bài không đưa focus vào hàng (focus về trang như trước): Space vẫn phát / dừng.
- * Hàng chỉ nhận focus qua Tab, khi đó Space nhấc bài lên, mũi tên dời chỗ, Space thả.
- */
-function keepFocusOff(e: MouseEvent): void {
-  if ((e.target as Element).closest('button, input, textarea, select, a, label')) return
-  e.preventDefault()
-  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
 }
 
 /** Thẻ Nhạc của cột Thư viện: danh sách bài (kéo chuột hoặc bàn phím để đổi thứ tự), thêm nhạc, timestamp YouTube */
@@ -65,7 +52,7 @@ export function MusicTab(): ReactNode {
       ) : (
         <SortableList
           className="track-list momi-scrollbar [--sortable-gap:1px]"
-          itemClassName={ROW_RESET}
+          itemClassName={SORTABLE_ROW}
           variant="plain"
           value={timeline.entries}
           getItemId={(e) => e.track.id}
@@ -78,7 +65,7 @@ export function MusicTab(): ReactNode {
               <div className={`track${current?.track.id === t.id && !overlay ? ' current' : ''}${selectedTrackId === t.id ? ' selected' : ''}`}>
                 <div
                   className="track-main"
-                  onMouseDown={keepFocusOff}
+                  onMouseDown={keepRowFocusOff}
                   onClick={() => useStore.getState().selectTrack(t.id)}
                   onDoubleClick={() => player.seek(e.start + 0.01)}
                 >

@@ -716,8 +716,17 @@ input.num,
   min-height: 32px;
   padding: 1px 4px;
   border-radius: var(--r-sm);
-  cursor: pointer;
+  cursor: grab;
   transition: background-color var(--t-fast) var(--ease);
+}
+/* Mắt ẩn / hiện trong bản nổi khi kéo lớp: cùng cỡ với nút */
+.layer-eye {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  color: var(--text-2);
 }
 .layer:hover {
   background: var(--panel-2);

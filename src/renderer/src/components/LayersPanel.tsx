@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
-import { Button } from 'momi-ui'
+import { Button, SortableList } from 'momi-ui'
 import { LAYER_LABELS } from '../../../shared/defaults'
 import { formatTime } from '../../../shared/time'
 import type { LayerType } from '../../../shared/types'
@@ -8,7 +8,7 @@ import { useStore } from '../store'
 import { layerRange } from '../timelineModel'
 import { Inspector } from './Inspector'
 import { TrackInspector } from './TrackInspector'
-import { Icon, IconButton } from './ui'
+import { Icon, IconButton, SORTABLE_ROW, keepRowFocusOff } from './ui'
 import { tr } from '../../../shared/i18n'
 import { useLayout } from '../layout'
 import { CollapseButton, ColumnResizer } from './PanelFrame'
@@ -22,7 +22,7 @@ export function LayersPanel(): ReactNode {
   const selectedId = useStore((s) => s.selectedLayerId)
   const selectedIds = useStore((s) => s.selectedLayerIds)
   const selectedTrack = useStore((s) => (s.selectedTrackId ? s.project.tracks.find((t) => t.id === s.selectedTrackId) : undefined))
-  const { selectLayer, toggleLayerSelection, toggleLayer, moveLayer, removeLayer, duplicateLayer, addLayer, setLayersLocked } = useStore.getState()
+  const { selectLayer, toggleLayerSelection, toggleLayer, moveLayerTo, removeLayer, duplicateLayer, addLayer, setLayersLocked } = useStore.getState()
   const tl = useTimeline()
   const [menu, setMenu] = useState(false)
   const [ctx, setCtx] = useState<MenuState | null>(null)
@@ -69,21 +69,36 @@ export function LayersPanel(): ReactNode {
         <CollapseButton side="right" />
         </span>
       </div>
-      <ul className="layer-list momi-scrollbar" ref={listRef} style={listH ? { height: listH, maxHeight: 'none' } : undefined}>
-        {ordered.map((l, i) => {
+      <SortableList
+        ref={listRef}
+        className="layer-list momi-scrollbar [--sortable-gap:0px]"
+        style={listH ? { height: listH, maxHeight: 'none' } : undefined}
+        itemClassName={SORTABLE_ROW}
+        variant="plain"
+        value={ordered}
+        getItemLabel={(l) => tr(l.name)}
+        // Danh sách hiện ngược (lớp trên cùng ở đầu): vị trí `to` trong danh sách = layers.length - 1 - to trong project
+        onReorder={({ itemId, to }) => moveLayerTo(itemId, ordered.length - 1 - to)}
+        renderItem={(l, { overlay }) => {
           // Các đoạn sau khi tách thanh: ghi kèm khoảng thời gian để phân biệt
           const r = l.row ? layerRange(l.timing, tl.total) : null
           return (
-            <li
-              key={l.id}
+            <div
               className={`layer${selectedIds.includes(l.id) ? ' selected' : ''}${l.enabled ? '' : ' disabled'}`}
+              onMouseDown={keepRowFocusOff}
               onClick={(e) => (e.ctrlKey || e.metaKey || e.shiftKey ? toggleLayerSelection(l.id) : selectLayer(l.id))}
               onContextMenu={(e) => {
                 e.preventDefault()
                 setCtx({ x: e.clientX, y: e.clientY, items: layerMenu(l.id) })
               }}
             >
-              <IconButton btnSize="xs" icon={l.enabled ? 'eye' : 'eyeOff'} title={l.enabled ? tr('Ẩn lớp') : tr('Hiện lớp')} onClick={() => toggleLayer(l.id)} size={16} />
+              {overlay ? (
+                <span className="layer-eye">
+                  <Icon name={l.enabled ? 'eye' : 'eyeOff'} size={16} />
+                </span>
+              ) : (
+                <IconButton btnSize="xs" icon={l.enabled ? 'eye' : 'eyeOff'} title={l.enabled ? tr('Ẩn lớp') : tr('Hiện lớp')} onClick={() => toggleLayer(l.id)} size={16} />
+              )}
               <span className="layer-title">
                 {tr(l.name)}
                 {l.name !== LAYER_LABELS[l.type] && <small>{tr(LAYER_LABELS[l.type])}</small>}
@@ -93,24 +108,24 @@ export function LayersPanel(): ReactNode {
                   {formatTime(r.start, withHours)} → {l.timing.end === null ? tr('hết') : formatTime(r.end, withHours)}
                 </span>
               )}
-              <span className="layer-actions" onClick={(e) => e.stopPropagation()}>
-                <IconButton
-                  btnSize="xs"
-                  icon={l.locked ? 'lock' : 'lockOpen'}
-                  title={l.locked ? tr('Đang khoá. Bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
-                  onClick={() => setLayersLocked([l.id], !l.locked)}
-                  active={!!l.locked}
-                  size={15}
-                />
-                <IconButton btnSize="xs" icon="up" title={tr('Đưa lên trên')} onClick={() => moveLayer(l.id, 1)} disabled={i === 0} size={15} />
-                <IconButton btnSize="xs" icon="down" title={tr('Đưa xuống dưới')} onClick={() => moveLayer(l.id, -1)} disabled={i === ordered.length - 1} size={15} />
-                <IconButton btnSize="xs" icon="duplicate" title={tr('Nhân bản')} onClick={() => duplicateLayer(l.id)} size={15} />
-                <IconButton btnSize="xs" icon="delete" title={l.locked ? tr('Lớp đang khoá, mở khoá rồi mới xoá được') : tr('Xoá lớp')} onClick={() => removeLayer(l.id)} disabled={!!l.locked} size={15} />
-              </span>
-            </li>
+              {!overlay && (
+                <span className="layer-actions" onClick={(e) => e.stopPropagation()}>
+                  <IconButton
+                    btnSize="xs"
+                    icon={l.locked ? 'lock' : 'lockOpen'}
+                    title={l.locked ? tr('Đang khoá. Bấm để mở khoá') : tr('Khoá lớp (không kéo, tách, xoá nhầm)')}
+                    onClick={() => setLayersLocked([l.id], !l.locked)}
+                    active={!!l.locked}
+                    size={15}
+                  />
+                  <IconButton btnSize="xs" icon="duplicate" title={tr('Nhân bản')} onClick={() => duplicateLayer(l.id)} size={15} />
+                  <IconButton btnSize="xs" icon="delete" title={l.locked ? tr('Lớp đang khoá, mở khoá rồi mới xoá được') : tr('Xoá lớp')} onClick={() => removeLayer(l.id)} disabled={!!l.locked} size={15} />
+                </span>
+              )}
+            </div>
           )
-        })}
-      </ul>
+        }}
+      />
       {ctx && <ContextMenu menu={ctx} onClose={closeCtx} />}
       <SplitResizer listRef={listRef} />
       <div className="inspector-wrap momi-scrollbar" ref={wrapRef}>{selectedTrack ? <TrackInspector track={selectedTrack} /> : selected ? <Inspector layer={selected} /> : <p className="muted pad">{tr('Chọn một lớp ở danh sách trên, hoặc nhấp thẳng vào nó trên khung hình để chỉnh vị trí, kích thước, màu sắc.')}</p>}</div>

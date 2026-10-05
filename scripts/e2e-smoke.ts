@@ -356,6 +356,32 @@ async function main(): Promise<void> {
     assert(process.platform === 'darwin' ? tipText.includes('⌘') : tipText.includes('Ctrl'), `tooltip có phím tắt theo hệ điều hành: ${tipText}`)
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
 
+    // ---- Danh sách lớp (SortableList): lớp trên cùng ở đầu danh sách; kéo chuột hoặc bàn phím để đổi thứ tự ----
+    const shownLayers = async (): Promise<string[]> => (await state()).layers.map((l) => l.id).reverse()
+    const layerRows = page.locator('.layer-list [data-sortable-item]')
+    const order0 = await shownLayers()
+    const swapped = async (): Promise<boolean> => {
+      const now = await shownLayers()
+      return now[0] === order0[1] && now[1] === order0[0] && now.length === order0.length
+    }
+    const l1 = await boxOf(layerRows.nth(0).locator('.layer-title'))
+    const l2 = await boxOf(layerRows.nth(1))
+    await page.mouse.move(l1.x + 10, l1.y + l1.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(l1.x + 10, l2.y + l2.height - 3, { steps: 10 })
+    await page.mouse.up()
+    assert(await until(swapped), 'kéo lớp đầu danh sách xuống dưới lớp thứ hai: đổi thứ tự vẽ')
+    await page.keyboard.press(`${MOD}+z`)
+    assert(await until(async () => (await shownLayers()).join() === order0.join()), 'Ctrl+Z trả lại thứ tự lớp')
+    await layerRows.nth(0).focus()
+    await page.keyboard.press('Space')
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Space')
+    assert(await until(swapped), 'dời lớp bằng bàn phím (Space, ↓, Space)')
+    await page.keyboard.press(`${MOD}+z`)
+    assert(await until(async () => (await shownLayers()).join() === order0.join()), 'Ctrl+Z trả lại thứ tự lớp sau khi dời bằng bàn phím')
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+
     // Cắt cuối bài 1 bằng cách kéo mép phải
     const edge = (await boxOf(audioClips.nth(0).locator('.tl-edge.r')))
     await dragBy(edge, -60)

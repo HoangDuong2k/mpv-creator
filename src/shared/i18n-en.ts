@@ -507,6 +507,10 @@ export const EN: Record<string, string> = {
   // ---------- Bố cục, phím tắt ----------
   'Phím tắt và thao tác chuột (?)': 'Keyboard shortcuts and mouse actions (?)',
   'Phím tắt và thao tác chuột': 'Keyboard shortcuts and mouse actions',
+  'Playlist và danh sách lớp': 'Playlist and layer list',
+  'Kéo hàng': 'Drag a row',
+  'Đổi thứ tự bài, thứ tự lớp': 'Reorder songs or layers',
+  'Đổi thứ tự bằng bàn phím: Tab tới hàng, Space nhấc lên, mũi tên dời chỗ, Space thả (Esc huỷ)': 'Reorder with the keyboard: Tab to a row, Space to pick it up, arrows to move, Space to drop (Esc cancels)',
   'Kéo để chia chỗ cho danh sách lớp và bảng thuộc tính. Nhấp đúp để về mặc định.': 'Drag to share space between the layer list and the properties, double-click to reset',
   'Kéo để đổi độ rộng, nhấp đúp để thu gọn': 'Drag to resize, double-click to collapse',
   'Thu gọn cột': 'Collapse panel',

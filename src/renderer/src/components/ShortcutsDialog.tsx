@@ -40,6 +40,13 @@ const GROUPS: Array<[string, Array<[string, string]>]> = [
     ]
   ],
   [
+    trKey('Playlist và danh sách lớp'),
+    [
+      [trKey('Kéo hàng'), trKey('Đổi thứ tự bài, thứ tự lớp')],
+      ['Space ↑ ↓', trKey('Đổi thứ tự bằng bàn phím: Tab tới hàng, Space nhấc lên, mũi tên dời chỗ, Space thả (Esc huỷ)')]
+    ]
+  ],
+  [
     trKey('Khung preview và bảng thuộc tính'),
     [
       [trKey('Nhấp vào chữ, cột sóng…'), trKey('Chọn lớp đó')],
