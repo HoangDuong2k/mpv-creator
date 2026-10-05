@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { Button, Input } from 'momi-ui'
+import { useState, type MouseEvent, type ReactNode } from 'react'
+import { Button, Input, SortableList } from 'momi-ui'
 import { formatTime } from '../../../shared/time'
 import type { Track } from '../../../shared/types'
 import { player } from '../engineHost'
@@ -22,15 +22,26 @@ export async function importPaths(paths: string[]): Promise<void> {
   }
 }
 
-/** Thẻ Nhạc của cột Thư viện: danh sách bài (kéo để đổi thứ tự), thêm nhạc, timestamp YouTube */
+/** Hàng bài là khung trơn: nền, viền, chữ do `.track` bên trong vẽ (lớp `current`, `selected` theo từng bài) */
+const ROW_RESET = 'block p-0 rounded-[var(--r-sm)] text-[length:inherit] hover:bg-transparent'
+
+/**
+ * Bấm chuột vào hàng bài không đưa focus vào hàng (focus về trang như trước): Space vẫn phát / dừng.
+ * Hàng chỉ nhận focus qua Tab, khi đó Space nhấc bài lên, mũi tên dời chỗ, Space thả.
+ */
+function keepFocusOff(e: MouseEvent): void {
+  if ((e.target as Element).closest('button, input, textarea, select, a, label')) return
+  e.preventDefault()
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+}
+
+/** Thẻ Nhạc của cột Thư viện: danh sách bài (kéo chuột hoặc bàn phím để đổi thứ tự), thêm nhạc, timestamp YouTube */
 export function MusicTab(): ReactNode {
   const tracks = useStore((s) => s.project.tracks)
   const status = useStore((s) => s.trackStatus)
   const currentTime = useStore((s) => s.currentTime)
   const selectedTrackId = useStore((s) => s.selectedTrackId)
   const timeline = useTimeline()
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [overIndex, setOverIndex] = useState<number | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const { moveTrack, removeTrack, openDialog } = useStore.getState()
   const withHours = timeline.total >= 3600
@@ -52,39 +63,25 @@ export function MusicTab(): ReactNode {
           <p className="muted">MP3, WAV, FLAC, M4A, OGG…</p>
         </div>
       ) : (
-        <ol className="track-list momi-scrollbar">
-          {timeline.entries.map((e, i) => {
+        <SortableList
+          className="track-list momi-scrollbar [--sortable-gap:1px]"
+          itemClassName={ROW_RESET}
+          variant="plain"
+          value={timeline.entries}
+          getItemId={(e) => e.track.id}
+          getItemLabel={(e) => e.track.title || tr('Không tên')}
+          onReorder={({ from, to }) => moveTrack(from, to)}
+          renderItem={(e, { index: i, overlay }) => {
             const t = e.track
             const st = status[t.path]
             return (
-              <li
-                key={t.id}
-                className={`track${current?.track.id === t.id ? ' current' : ''}${selectedTrackId === t.id ? ' selected' : ''}${overIndex === i && dragIndex !== null && dragIndex !== i ? ' drop-target' : ''}`}
-                draggable
-                onDragStart={(ev) => {
-                  setDragIndex(i)
-                  ev.dataTransfer.effectAllowed = 'move'
-                  ev.dataTransfer.setData('text/x-track', String(i))
-                }}
-                onDragOver={(ev) => {
-                  if (dragIndex === null) return
-                  ev.preventDefault()
-                  setOverIndex(i)
-                }}
-                onDrop={(ev) => {
-                  if (dragIndex === null) return
-                  ev.preventDefault()
-                  ev.stopPropagation()
-                  moveTrack(dragIndex, i)
-                  setDragIndex(null)
-                  setOverIndex(null)
-                }}
-                onDragEnd={() => {
-                  setDragIndex(null)
-                  setOverIndex(null)
-                }}
-              >
-                <div className="track-main" onClick={() => useStore.getState().selectTrack(t.id)} onDoubleClick={() => player.seek(e.start + 0.01)}>
+              <div className={`track${current?.track.id === t.id && !overlay ? ' current' : ''}${selectedTrackId === t.id ? ' selected' : ''}`}>
+                <div
+                  className="track-main"
+                  onMouseDown={keepFocusOff}
+                  onClick={() => useStore.getState().selectTrack(t.id)}
+                  onDoubleClick={() => player.seek(e.start + 0.01)}
+                >
                   <span className="track-no">{i + 1}</span>
                   {t.coverPath ? <img className="cover" src={api.fileUrl(t.coverPath)} alt="" /> : <span className="cover placeholder"><Icon name="music" size={18} /></span>}
                   <div className="track-info">
@@ -96,18 +93,20 @@ export function MusicTab(): ReactNode {
                       <span title={tr('Bắt đầu trong video')}>{formatTime(i === 0 ? 0 : e.displayStart, withHours)}</span>
                       <span className="muted"> · {formatTime(e.length)}</span>
                     </div>
-                    <TrackStatusBar st={st} />
+                    {!overlay && <TrackStatusBar st={st} />}
                   </div>
-                  <div className="track-actions">
-                    <IconButton btnSize="xs" icon="tune" title={tr('Chỉnh sửa')} onClick={() => setExpanded(expanded === t.id ? null : t.id)} active={expanded === t.id} size={15} />
-                    <IconButton btnSize="xs" icon="delete" title={tr('Xoá khỏi playlist')} onClick={() => removeTrack(t.id)} size={15} />
-                  </div>
+                  {!overlay && (
+                    <div className="track-actions">
+                      <IconButton btnSize="xs" icon="tune" title={tr('Chỉnh sửa')} onClick={() => setExpanded(expanded === t.id ? null : t.id)} active={expanded === t.id} size={15} />
+                      <IconButton btnSize="xs" icon="delete" title={tr('Xoá khỏi playlist')} onClick={() => removeTrack(t.id)} size={15} />
+                    </div>
+                  )}
                 </div>
-                {expanded === t.id && <TrackEditor track={t} />}
-              </li>
+                {expanded === t.id && !overlay && <TrackEditor track={t} />}
+              </div>
             )
-          })}
-        </ol>
+          }}
+        />
       )}
       <div className="panel-foot">
         <span>

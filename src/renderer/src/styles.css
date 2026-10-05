@@ -369,7 +369,6 @@ input.num,
   position: relative;
   border-radius: var(--r-sm);
   border: 1px solid transparent;
-  margin-bottom: 1px;
   transition: background-color var(--t-fast) var(--ease);
 }
 .track:hover {
@@ -392,9 +391,6 @@ input.num,
 .track.selected {
   border-color: var(--line-2);
   background: var(--panel-3);
-}
-.track.drop-target {
-  border-top: 2px solid var(--amber);
 }
 .track-main {
   display: flex;

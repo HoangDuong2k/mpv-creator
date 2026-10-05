@@ -292,6 +292,38 @@ async function main(): Promise<void> {
     await page.keyboard.press(`${MOD}+z`)
     assert(await until(async () => (await titles())[0] === 'Nắng Ấm Xa Dần'), 'Ctrl+Z trả lại thứ tự bài')
 
+    // ---- Playlist (SortableList của momi-ui) ----
+    const rows = page.locator('.track-list [data-sortable-item]')
+    // Kéo chuột bài 1 xuống dưới bài 3
+    const r1 = await boxOf(rows.nth(0))
+    const r3 = await boxOf(rows.nth(2))
+    await page.mouse.move(r1.x + r1.width / 2, r1.y + r1.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(r1.x + r1.width / 2, r3.y + r3.height - 4, { steps: 12 })
+    await page.screenshot({ path: join(OUT, '4a-playlist-drag.png') })
+    await page.mouse.up()
+    assert(await until(async () => (await titles())[2] === 'Nắng Ấm Xa Dần'), `kéo bài trong playlist xuống cuối: ${(await titles()).join(' | ')}`)
+    await page.keyboard.press(`${MOD}+z`)
+    assert(await until(async () => (await titles())[0] === 'Nắng Ấm Xa Dần'), 'Ctrl+Z trả lại thứ tự playlist')
+    // Bấm vào hàng rồi nhấn Space: phát / dừng như trước, không nhấc bài lên
+    await rows.nth(0).locator('.track-title').click()
+    await page.keyboard.press('Space')
+    const spacePlays = await until(() => page.evaluate(() => (window as unknown as Probe).__pvm.player.playing), 2000)
+    await page.keyboard.press('Space')
+    assert(spacePlays && (await page.locator('[data-lifted]').count()) === 0, 'bấm hàng bài rồi Space: phát nhạc, không nhấc bài')
+    assert(await until(async () => !(await page.evaluate(() => (window as unknown as Probe).__pvm.player.playing))), 'Space lần nữa: dừng')
+    // Bàn phím: Tab tới hàng, Space nhấc, mũi tên xuống, Space thả (không phát nhạc)
+    await rows.nth(0).focus()
+    await page.keyboard.press('Space')
+    assert(await until(async () => (await page.locator('[data-lifted]').count()) === 1), 'Space trên hàng có focus: nhấc bài lên')
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Space')
+    assert(await until(async () => (await titles())[1] === 'Nắng Ấm Xa Dần'), `dời bài bằng bàn phím: ${(await titles()).join(' | ')}`)
+    assert(!(await page.evaluate(() => (window as unknown as Probe).__pvm.player.playing)), 'Space khi dời bài không phát nhạc')
+    await page.screenshot({ path: join(OUT, '4b-playlist-keyboard.png') })
+    await page.keyboard.press(`${MOD}+z`)
+    assert(await until(async () => (await titles())[0] === 'Nắng Ấm Xa Dần'), 'Ctrl+Z trả lại thứ tự sau khi dời bằng bàn phím')
+
     // Cắt cuối bài 1 bằng cách kéo mép phải
     const edge = (await boxOf(audioClips.nth(0).locator('.tl-edge.r')))
     await dragBy(edge, -60)

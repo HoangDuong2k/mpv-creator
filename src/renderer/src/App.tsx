@@ -244,7 +244,8 @@ export function App(): ReactNode {
       } else if (mod && e.key.toLowerCase() === 'e') {
         e.preventDefault()
         st.openDialog('export')
-      } else if (typing) {
+      } else if (typing || e.defaultPrevented) {
+        // Component tự xử lý phím (thanh trượt, menu, danh sách kéo thả…): không phát / tua theo phím đó nữa
         return
       } else if (mod && e.key.toLowerCase() === 'b' && !st.dialog) {
         e.preventDefault()
