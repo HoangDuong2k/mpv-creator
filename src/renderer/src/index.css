@@ -1,0 +1,50 @@
+/*
+ * CSS chính của giao diện. Component dùng thư viện momi-ui (Tailwind CSS v4 + Radix); CSS cũ của app
+ * (styles.css) nằm trong layer `legacy`: thắng preflight (reset của Tailwind) nên màn hình cũ giữ nguyên,
+ * nhưng thua class của momi-ui nên component mới hiện đúng. Dòng @layer phải đứng trước @import tailwindcss.
+ */
+@layer theme, base, legacy, components, utilities;
+@import 'tailwindcss';
+@import 'momi-ui/tailwind.css';
+@import './styles.css' layer(legacy);
+
+/*
+ * Theme thương hiệu cho momi-ui: graphite tông ấm, một màu nhấn hổ phách (cùng bảng màu với styles.css).
+ * Đặt trên :root và .dark, sau token mặc định của momi-ui, để cả menu, popover, toast vẽ qua portal cũng đổi theo.
+ */
+:root,
+.dark {
+  --radius: 0.375rem;
+  --font-sans: 'Hanken Grotesk', 'Be Vietnam Pro', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --background: #131211;
+  --foreground: #ece9e4;
+  --card: #191816;
+  --card-foreground: #ece9e4;
+  --popover: #211f1d;
+  --popover-foreground: #ece9e4;
+  --primary: #e3a04a;
+  --primary-foreground: #1c1407;
+  --secondary: #2b2926;
+  --secondary-foreground: #ece9e4;
+  --muted: #211f1d;
+  --muted-foreground: #8e897f;
+  --accent: #2b2926;
+  --accent-foreground: #ece9e4;
+  --destructive: #e2695c;
+  --destructive-foreground: #1d0c09;
+  --success: #8cc49a;
+  --success-foreground: #0f1a12;
+  --warning: #e3a04a;
+  --warning-foreground: #1c1407;
+  --info: #8fb4d6;
+  --info-foreground: #0d1620;
+  --border: #2a2825;
+  --input: #3b3834;
+  --ring: #e3a04a;
+
+  --surface-sunken: #0f0e0d;
+  --surface-raised: #211f1d;
+  --border-strong: #3b3834;
+}

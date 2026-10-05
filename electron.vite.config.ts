@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {
@@ -29,6 +30,8 @@ export default defineConfig({
         input: { index: resolve(__dirname, 'src/renderer/index.html') }
       }
     },
-    plugins: [react()]
+    // momi-ui (thư viện giao diện) dựng trên Tailwind CSS v4; một bản React duy nhất kể cả khi momi-ui cài bằng file:
+    resolve: { dedupe: ['react', 'react-dom'] },
+    plugins: [react(), tailwindcss()]
   }
 })

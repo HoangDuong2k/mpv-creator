@@ -28,6 +28,7 @@
     "music-metadata": "^11.16.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.20.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -36,9 +37,11 @@
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "immer": "^11.1.18",
+    "momi-ui": "github:HoangDuong2k/momi-ui#v0.2.0",
     "playwright-core": "^1.63.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "5.9",
     "vite": "^7.3.6",

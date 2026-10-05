@@ -3,9 +3,10 @@ import './platform'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { UiProviders } from './components/UiProviders'
 import { useStore } from './store'
 import { dropFiles } from './timelineActions'
-import './styles.css'
+import './index.css'
 
 // Cho kiểm thử tự động đọc trạng thái
 ;(window as unknown as { __pvm: Record<string, unknown> }).__pvm.store = useStore
@@ -23,6 +24,8 @@ window.addEventListener('drop', (e) => e.preventDefault())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <UiProviders>
+      <App />
+    </UiProviders>
   </StrictMode>
 )
