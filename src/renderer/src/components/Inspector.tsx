@@ -9,7 +9,7 @@ import { FilterPanel } from './FilterPanel'
 import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { dragRange, layerRange } from '../timelineModel'
-import { ColorInput, ControlSize, NumberInput, RangeInput, Row, TimeInput, fileName, useControlSize, useToggleSize } from './ui'
+import { ColorInput, NumberInput, RangeInput, Row, TimeInput, fileName, useControlSize, useToggleSize } from './ui'
 import { useLayout } from '../layout'
 import { tr } from '../../../shared/i18n'
 
@@ -27,22 +27,20 @@ export function Inspector({ layer }: { layer: Layer }): ReactNode {
   }
 
   return (
-    <ControlSize size="sm">
-      <div className="inspector">
-        <div className="inspector-head">
-          <Input size="sm" className="layer-name" value={tr(layer.name)} onChange={(e) => renameLayer(layer.id, e.target.value)} aria-label={tr('Tên lớp')} />
-          <Badge size="sm" shape="rounded">
-            {tr(LAYER_LABELS[layer.type])}
-          </Badge>
-        </div>
-        {layer.type === 'cta' && (
-          <p className="muted small">
-            {tr('Trên timeline: kéo các ô đỏ để dời thời điểm hiện, kéo mép phải để đổi thời lượng, nhấp đúp vào hàng để thêm lần hiện, chọn ô rồi bấm Delete để xoá.')}
-          </p>
-        )}
-        <Sections layer={layer} props={props} set={set} />
+    <div className="inspector">
+      <div className="inspector-head">
+        <Input className="layer-name" value={tr(layer.name)} onChange={(e) => renameLayer(layer.id, e.target.value)} aria-label={tr('Tên lớp')} />
+        <Badge size="sm" shape="rounded">
+          {tr(LAYER_LABELS[layer.type])}
+        </Badge>
       </div>
-    </ControlSize>
+      {layer.type === 'cta' && (
+        <p className="muted small">
+          {tr('Trên timeline: kéo các ô đỏ để dời thời điểm hiện, kéo mép phải để đổi thời lượng, nhấp đúp vào hàng để thêm lần hiện, chọn ô rồi bấm Delete để xoá.')}
+        </p>
+      )}
+      <Sections layer={layer} props={props} set={set} />
+    </div>
   )
 }
 
@@ -82,8 +80,8 @@ function Sections({ layer, props, set }: { layer: Layer; props: Record<string, u
     <Accordion type="multiple" className="inspector-sections" value={open} onValueChange={onValueChange}>
       {layer.type !== 'cta' && (
         <AccordionItem value="timing">
-          <AccordionTrigger className="inspector-section py-3">{tr('Thời gian hiển thị')}</AccordionTrigger>
-          <AccordionContent className="inspector-fields grid gap-4 pt-0.5 pb-5 leading-normal text-foreground">
+          <AccordionTrigger className="inspector-section py-3 text-[12px]">{tr('Thời gian hiển thị')}</AccordionTrigger>
+          <AccordionContent className="inspector-fields grid gap-[11px] pt-0.5 pb-4 text-[13px] leading-normal text-foreground">
             <TimingFields layer={layer} />
           </AccordionContent>
         </AccordionItem>
@@ -91,8 +89,8 @@ function Sections({ layer, props, set }: { layer: Layer; props: Record<string, u
       {layer.type === 'filter' && <FilterPanel layer={layer} />}
       {sections.map((sec) => (
         <AccordionItem key={sec.id} value={sec.id}>
-          <AccordionTrigger className="inspector-section py-3">{sec.label}</AccordionTrigger>
-          <AccordionContent className="inspector-fields grid gap-4 pt-0.5 pb-5 leading-normal text-foreground">
+          <AccordionTrigger className="inspector-section py-3 text-[12px]">{sec.label}</AccordionTrigger>
+          <AccordionContent className="inspector-fields grid gap-[11px] pt-0.5 pb-4 text-[13px] leading-normal text-foreground">
             {sec.fields.map((f, i) => (
               <FieldView key={`${f.kind}-${f.key}-${i}`} field={f} props={props} set={set} def={defaults[f.key]} />
             ))}
@@ -250,7 +248,7 @@ function TimingFields({ layer }: { layer: Layer }): ReactNode {
         </Row>
       </div>
       {!isFullLength(t) && (
-        <Button variant="outline" tone="neutral" size="sm" className="justify-self-start" onClick={() => set({ ...FULL_TIMING })}>
+        <Button variant="outline" tone="neutral" size="xs" className="justify-self-start" onClick={() => set({ ...FULL_TIMING })}>
           {tr('Hiện suốt video')}
         </Button>
       )}

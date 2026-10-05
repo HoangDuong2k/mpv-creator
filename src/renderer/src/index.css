@@ -195,11 +195,3 @@
   background: var(--brand-grad);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
 }
-
-/* Khung preview hẹp: nút điều khiển nhỏ lại một bậc (28px) để cả dòng điều khiển vẫn vừa một hàng */
-@container (max-width: 480px) {
-  .transport [data-slot='icon-button'] {
-    width: 28px;
-    height: 28px;
-  }
-}
