@@ -3,6 +3,7 @@
  * Mọi mốc thời gian tính theo file nhạc gốc (chưa cắt đầu); lệch cả bài (offset) cộng vào lúc hiển thị.
  */
 import type { LyricLine, LyricWord, LyricsSource, TrackLyrics } from './types'
+import { normalizeWord, type AlignedLine } from './lyricsAlign'
 
 /** Dòng không có dòng sau (dòng cuối, hoặc trước đoạn nhạc dạo dài): hiện tối đa ngần này giây */
 export const LAST_LINE_HOLD = 6
@@ -235,10 +236,11 @@ export function remapLyrics(old: TrackLyrics | undefined, text: string): TrackLy
 export function setLineTime(lyrics: TrackLyrics, index: number, t: number | null): TrackLyrics {
   const lines = lyrics.lines.map((l, i) => {
     if (i !== index) return l
-    const { words: _w, end: _e, ...rest } = l
+    // Chỉnh tay: bỏ thời gian từ cũ, mốc hết dòng và độ tin cậy của AI (dòng đã được người dùng xem lại)
+    const { words: _w, end: _e, conf: _c, ...rest } = l
     return { ...rest, t: t === null ? null : Math.max(0, Math.round(t * 100) / 100) }
   })
-  return { ...lyrics, lines, source: lyrics.source === 'ai' ? 'manual' : lyrics.source }
+  return { ...lyrics, lines }
 }
 
 /** Dời mốc của dòng `index` thêm `delta` giây (cả thời gian từng từ nếu có) */
@@ -246,7 +248,35 @@ export function nudgeLine(lyrics: TrackLyrics, index: number, delta: number): Tr
   const lines = lyrics.lines.map((l, i) => {
     if (i !== index || l.t === null) return l
     const shift = (v: number): number => Math.max(0, Math.round((v + delta) * 100) / 100)
-    return { ...l, t: shift(l.t), ...(l.end !== undefined ? { end: shift(l.end) } : {}), ...(l.words ? { words: l.words.map((w) => ({ ...w, t: shift(w.t) })) } : {}) }
+    const { conf: _c, ...rest } = l
+    return { ...rest, t: shift(l.t), ...(l.end !== undefined ? { end: shift(l.end) } : {}), ...(l.words ? { words: l.words.map((w) => ({ ...w, t: shift(w.t) })) } : {}) }
   })
   return { ...lyrics, lines }
+}
+
+/** AI căn lời: dòng hiện thêm chừng này giây sau chữ cuối (đoạn nhạc dạo dài thì tắt lời, không treo dòng cũ) */
+export const AI_LINE_HOLD = 1
+
+/**
+ * Áp kết quả AI căn lời: mốc từng dòng, từng chữ (dấu câu đứng riêng lấy mốc của chữ trước) và độ tin cậy. Mốc
+ * trừ đi lệch cả bài để hiện đúng chỗ AI nghe được. Dòng AI bỏ qua (dòng trống, chú thích kiểu [Chorus]) thành chưa
+ * đồng bộ.
+ */
+export function applyAlignment(lyrics: TrackLyrics, aligned: AlignedLine[]): TrackLyrics {
+  const byIndex = new Map(aligned.map((a) => [a.index, a]))
+  const rel = (v: number): number => Math.max(0, Math.round((v - lyrics.offset) * 100) / 100)
+  const lines = lyrics.lines.map((line, i): LyricLine => {
+    const { words: _w, end: _e, conf: _c, ...rest } = line
+    const a = byIndex.get(i)
+    if (!a) return { ...rest, t: null }
+    const words: LyricWord[] = []
+    let k = 0
+    let at = a.start
+    for (const text of line.text.trim().split(/\s+/).filter(Boolean)) {
+      if (normalizeWord(text) && k < a.words.length) at = a.words[k++].start
+      words.push({ t: rel(at), text })
+    }
+    return { ...rest, t: rel(a.start), end: rel(a.end + AI_LINE_HOLD), words, conf: a.confidence }
+  })
+  return { ...lyrics, lines, source: 'ai' }
 }

@@ -2485,12 +2485,19 @@ kbd {
   gap: 18px;
   min-height: 0;
 }
-.lyrics-compose,
-.lyrics-sync {
+.lyrics-compose {
   display: grid;
   gap: 10px;
   align-content: start;
   min-width: 0;
+}
+/* Cột phải cao bằng cột soạn lời; danh sách dòng lấp phần còn lại */
+.lyrics-sync {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
 }
 .lyrics-tools {
   display: flex;
@@ -2519,7 +2526,8 @@ kbd {
   list-style: none;
   margin: 0;
   padding: 4px;
-  height: 40vh;
+  flex: 1 1 0;
+  min-height: 160px;
   overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -2563,6 +2571,20 @@ kbd {
 .lyrics-line.unsynced .lyrics-stamp {
   color: var(--faint);
 }
+/* AI chưa chắc: mốc tô vàng, chấm nhỏ đầu dòng */
+.lyrics-line.doubt .lyrics-stamp {
+  color: var(--warn);
+}
+.lyrics-line.doubt .lyrics-stamp::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  vertical-align: middle;
+}
 .lyrics-line-text {
   color: var(--text-2);
   overflow-wrap: anywhere;
@@ -2588,6 +2610,25 @@ kbd {
 }
 .lyrics-preview .sung {
   color: var(--text);
+}
+.lyrics-ai {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--brand-line);
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+}
+.lyrics-ai p {
+  margin: 0;
+}
+.lyrics-ai.running {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+.lyrics-ai-remove {
+  margin-left: auto;
 }
 .lyrics-foot-hint {
   margin-right: auto;

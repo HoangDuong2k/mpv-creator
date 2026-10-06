@@ -927,6 +927,68 @@ async function main(): Promise<void> {
       }, lrcOut)
       await page.getByRole('button', { name: 'Lưu file .lrc' }).click()
       assert(await until(async () => existsSync(lrcOut) && /\[00:\d\d\.\d\d\]Câu A của bài ba/.test(readFileSync(lrcOut, 'utf8'))), 'lưu lời thành file .lrc')
+
+      // AI căn lời: thay phần nhận dạng ở main bằng bản giả lập (không tải mô hình thật), giao diện chạy thật.
+      // (Không đặt tên hàm trong đoạn chạy bên main: tsx bọc hàm có tên bằng __name, bên đó không có.)
+      await app.evaluate(({ ipcMain }) => {
+        const g = globalThis as unknown as { __aiReady?: boolean; __aiCalls?: unknown[] }
+        g.__aiCalls = []
+        for (const ch of ['lyrics:ai-models', 'lyrics:ai-transcribe', 'lyrics:ai-remove-model']) ipcMain.removeHandler(ch)
+        ipcMain.handle('lyrics:ai-models', () => [
+          { key: 'fast', bytes: 80_000_000, ready: !!g.__aiReady },
+          { key: 'accurate', bytes: 762_000_000, ready: false }
+        ])
+        ipcMain.handle('lyrics:ai-remove-model', () => (g.__aiReady = false))
+        ipcMain.handle('lyrics:ai-transcribe', async (e, path: string, model: string, language: string | null) => {
+          g.__aiCalls!.push({ path, model, language })
+          e.sender.send('lyrics:ai-progress', { phase: 'download', done: 40_000_000, total: 80_000_000 })
+          await new Promise((r) => setTimeout(r, 700))
+          e.sender.send('lyrics:ai-progress', { phase: 'listen', done: 1, total: 2 })
+          await new Promise((r) => setTimeout(r, 300))
+          g.__aiReady = true
+          return {
+            words: [
+              ['Câu A của bài ba', 2],
+              ['Câu B của bài ba', 5]
+            ].flatMap(([line, t0]) => (line as string).split(' ').map((text, i) => ({ text, start: (t0 as number) + i * 0.4, end: (t0 as number) + i * 0.4 + 0.35 })))
+          }
+        })
+      })
+      await page.locator('.lyrics-text').fill('Câu A của bài ba\nCâu B của bài ba\nDòng này không ai hát')
+      const aiModel = page.locator('.lyrics-ai-model')
+      assert(await until(async () => (await aiModel.inputValue()) === 'accurate'), 'AI căn lời: lời tiếng Việt, lần đầu chọn sẵn mô hình Chính xác')
+      await aiModel.selectOption('fast')
+      await page.locator('[data-action="lyrics-ai"]').click()
+      assert(
+        await until(async () => ((await page.locator('[data-lyrics-ai="confirm"]').textContent()) ?? '').includes('80 MB')),
+        'lần đầu: hỏi trước khi tải mô hình, ghi rõ dung lượng'
+      )
+      await page.locator('[data-action="lyrics-ai-download"]').click()
+      assert(
+        await until(async () => ((await page.locator('[data-lyrics-ai="running"]').textContent()) ?? '').includes('40 MB / 80 MB')),
+        'đang chạy: hiện tiến độ tải mô hình'
+      )
+      const aiLines = async (): Promise<Array<{ t: number | null; conf?: number }>> => ((await lyricTracks())[2].lyrics?.lines ?? []) as Array<{ t: number | null; conf?: number }>
+      assert(
+        await until(async () => {
+          // Dòng không ai hát: AI đoán mốc ngay sau câu trước (độ tin cậy thấp)
+          const [a, b, c] = await aiLines()
+          return a?.t === 1.8 && b?.t === 4.8 && c?.t !== null && (c?.t ?? 0) > 4.8
+        }),
+        `AI đặt mốc cho các câu hát (${(await aiLines()).map((l) => l.t).join(', ')})`
+      )
+      assert(
+        await until(async () => (await page.locator('.lyrics-line.doubt').count()) === 1 && (await page.locator('.lyrics-line.doubt[data-row="2"]').count()) === 1),
+        'dòng AI không nghe thấy được tô vàng để nghe lại'
+      )
+      const aiCalls = (await app.evaluate(() => (globalThis as unknown as { __aiCalls: Array<{ model: string; language: string }> }).__aiCalls)) ?? []
+      assert(aiCalls.length === 1 && aiCalls[0].model === 'fast' && aiCalls[0].language === 'vi', `gửi đúng mô hình đã chọn và ngôn ngữ của lời (${JSON.stringify(aiCalls)})`)
+      assert(
+        await until(async () => (await page.locator('[data-lyrics-ai="idle"]').count()) === 1 && (await page.getByRole('button', { name: /Xoá mô hình \(80 MB\)/ }).count()) === 1),
+        'xong: mô hình đã tải, có nút xoá mô hình'
+      )
+      assert((await page.evaluate(() => localStorage.getItem('pvm.aiModel'))) === 'fast', 'nhớ mô hình đã chọn cho lần sau')
+      await page.screenshot({ path: join(OUT, '9e-lyrics-ai.png') })
       await page.keyboard.press('Escape')
       // Gõ nhịp đã bật phát nhạc: dừng lại trước khi sang bước sau
       await page.evaluate(() => {

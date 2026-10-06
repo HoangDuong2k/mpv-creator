@@ -10,6 +10,17 @@ files:
   - package.json
   - '!**/*.map'
   - '!node_modules/@napi-rs/canvas-linux-x64-musl/**'
+  # AI căn lời: ONNX Runtime bản native (thư viện từng hệ điều hành lọc ở mục win / mac / linux bên dưới) và bản
+  # WebAssembly dự phòng — chỉ cần bản cho Node và một bộ .wasm, bỏ các bản cho trình duyệt (~130 MB)
+  - '!node_modules/onnxruntime-node/{lib,script}/**'
+  # Chỉ giữ thư viện cho hệ điều hành và loại chip đang đóng gói (mỗi máy build đóng gói cho chính nó). Không đặt
+  # mục files riêng trong win / mac / linux: electron-builder dùng nó thay hẳn cho danh sách này chứ không gộp
+  - '!node_modules/onnxruntime-node/bin/napi-v6/!(${platform})/**'
+  - '!node_modules/onnxruntime-node/bin/napi-v6/${platform}/!(${arch})/**'
+  # Mac: thư viện nạp libonnxruntime.1.dylib; bản .1.30.0 là bản sao y hệt (npm không giữ được liên kết tắt), 45 MB
+  - '!node_modules/onnxruntime-node/bin/napi-v6/darwin/*/libonnxruntime.1.*.*.dylib'
+  - '!node_modules/onnxruntime-web/{lib,docs}/**'
+  - '!node_modules/onnxruntime-web/dist/!(ort.node.min.js|ort-wasm-simd-threaded.mjs|ort-wasm-simd-threaded.wasm)'
 extraResources:
   - from: resources/fonts
     to: fonts
@@ -17,6 +28,10 @@ asarUnpack:
   - out/main/**
   - node_modules/ffmpeg-static/**
   - node_modules/@napi-rs/**
+  # Tiến trình AI căn lời chạy từ out/main giải nén nên các gói nó nạp cũng phải nằm ngoài asar
+  - node_modules/onnxruntime-node/**
+  - node_modules/onnxruntime-common/**
+  - node_modules/onnxruntime-web/**
 win:
   target:
     - target: nsis

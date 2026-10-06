@@ -20,6 +20,8 @@ import { Workspace, removeLegacyCache } from './workspace'
 import { TemplateStore } from './templates'
 import type { StyleTemplate } from '../shared/templates'
 import { isLang, setLang, tr, trKey } from '../shared/i18n'
+import { LyricsAi } from './lyrics/lyricsAi'
+import type { AiModelKey } from '../shared/api'
 
 registerSchemePrivileges()
 
@@ -139,6 +141,15 @@ function workerPath(): string {
   return asarUnpacked(join(__dirname, 'exportWorker.js'))
 }
 
+// AI căn lời: Whisper chạy trong tiến trình riêng (out/main/asrWorker.js, giải nén khỏi asar như worker xuất video);
+// ONNX Runtime Web (dự phòng khi máy không nạp được bản native) cần file .wasm thật trên đĩa
+const lyricsAi = new LyricsAi({
+  workerPath: asarUnpacked(join(__dirname, 'asrWorker.js')),
+  cacheDir,
+  wasmDir: asarUnpacked(dirname(require.resolve('onnxruntime-web'))),
+  onProgress: (p) => send('lyrics:ai-progress', p)
+})
+
 function registerIpc(): void {
   const handle = <A extends unknown[], R>(channel: string, fn: (...args: A) => Promise<R> | R): void => {
     ipcMain.handle(channel, (_e: IpcMainInvokeEvent, ...args: unknown[]) => fn(...(args as A)))
@@ -172,6 +183,10 @@ function registerIpc(): void {
   handle('media:thumbStrip', (path: string) => videoThumbStrip(path, workspace.thumbDir))
 
   handle('lyrics:for', (audioPath: string) => readLyricsFor(audioPath))
+  handle('lyrics:ai-models', () => lyricsAi.models())
+  handle('lyrics:ai-transcribe', (audioPath: string, model: AiModelKey, language: 'vi' | 'en' | null) => lyricsAi.transcribe(audioPath, model, language))
+  handle('lyrics:ai-cancel', () => lyricsAi.cancel())
+  handle('lyrics:ai-remove-model', (model: AiModelKey) => lyricsAi.removeModel(model))
 
   handle('file:read-text', async (path: string) => (await readFile(path, 'utf8')).replace(/^\uFEFF/, ''))
 
@@ -440,6 +455,8 @@ else {
 
   app.on('window-all-closed', () => {
     exportAbort?.abort()
+    lyricsAi.cancel()
+    lyricsAi.stopWorker()
     if (process.platform !== 'darwin') app.quit()
   })
 }

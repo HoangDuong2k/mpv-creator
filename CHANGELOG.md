@@ -3,6 +3,16 @@
 Mỗi phiên bản là một mục `## vX.Y.Z — ngày`. Khi đẩy tag `vX.Y.Z`, CI lấy đúng mục đó làm ghi chú của bản phát hành
 trên GitHub Releases (trang landing hiện lại ở phần "Có gì mới").
 
+## Chưa phát hành
+
+- **Lời bài hát chạy theo nhạc:** lớp lời kiểu một dòng chữ nhỏ, chữ sáng dần theo lời hát (lướt mượt hoặc từng
+  chữ), dòng mới trượt lên hoặc mờ dần; 6 mẫu trong thư viện (thẻ Chữ). Tự lấy lời có sẵn trong file nhạc hoặc file
+  `.lrc` cùng tên đặt cạnh; nhập / lưu file `.lrc`.
+- **AI căn lời:** dán lời vào, AI nghe giọng hát và đặt mốc cho từng câu, từng chữ. Chạy ngay trên máy (Whisper), nhạc
+  không gửi đi đâu; mô hình *Nhanh* (~80 MB, khoảng nửa phút mỗi bài) hoặc *Chính xác* (~760 MB, 1–3 phút mỗi bài,
+  nghe tiếng Việt tốt hơn nhiều), tải một lần ở lần dùng đầu. Dòng AI chưa chắc được tô vàng để nghe lại.
+- **Gõ nhịp:** phát nhạc rồi nhấn Space đúng lúc mỗi câu bắt đầu; bắt dính beat, nhích mốc bằng phím mũi tên.
+
 ## v0.2.0 — 2026-10-05
 
 Bản phát hành đầu tiên cho Windows, macOS (chip Apple và Intel) và Linux.

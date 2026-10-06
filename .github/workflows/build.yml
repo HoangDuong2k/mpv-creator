@@ -10,6 +10,10 @@ on:
     paths-ignore: ['site/**', '.github/workflows/site.yml']
   workflow_dispatch:
 
+env:
+  # AI căn lời: onnxruntime-node khi cài trên Linux tự tải thêm bộ CUDA ~270 MB; app chỉ chạy AI bằng CPU
+  ONNXRUNTIME_NODE_INSTALL: skip
+
 jobs:
   # Kiểm thử trên máy Windows, Linux và Mac thật: kiểu, unit test, e2e (điều khiển app bằng chuột thật)
   test:
@@ -62,6 +66,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run dist -- --publish never
+      # Mô hình AI (Whisper base, ~80 MB) tải một lần rồi giữ lại cho các lần chạy sau
+      - uses: actions/cache@v4
+        with:
+          path: test-output/ai-smoke/userdata/audio-cache/models
+          key: whisper-base-q8-v1
       - name: E2E trên bản đóng gói (Windows)
         if: runner.os == 'Windows'
         shell: bash
@@ -75,6 +84,19 @@ jobs:
           APP=$(ls -d release/mac*/"Playlist Video Maker.app" | head -n 1)
           codesign --verify --deep --verbose=2 "$APP"
           PVM_E2E_EXE="$PWD/$APP/Contents/MacOS/Playlist Video Maker" npm run e2e
+      # AI căn lời chạy thật trên bản đóng gói (Mac Intel: bản WebAssembly dự phòng, máy khác: bản native)
+      - name: AI căn lời trên bản đóng gói (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: PVM_E2E_EXE="$PWD/release/win-unpacked/Playlist Video Maker.exe" npm run ai-smoke
+      - name: AI căn lời trên bản đóng gói (Linux)
+        if: runner.os == 'Linux'
+        run: PVM_E2E_EXE="$PWD/release/linux-unpacked/playlist-video-maker" xvfb-run -a npm run ai-smoke
+      - name: AI căn lời trên bản đóng gói (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP=$(ls -d release/mac*/"Playlist Video Maker.app" | head -n 1)
+          PVM_E2E_EXE="$PWD/$APP/Contents/MacOS/Playlist Video Maker" npm run ai-smoke
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

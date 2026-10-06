@@ -36,6 +36,8 @@ export interface LyricLine {
   text: string
   /** Thời điểm từng từ (AI căn lời, LRC mở rộng); không có thì chia đều thời gian dòng cho các từ */
   words?: LyricWord[]
+  /** AI căn lời: độ tin cậy 0..1 (thấp = nên nghe lại, chỉnh tay) */
+  conf?: number
 }
 
 /** Nguồn của lời: nhúng trong file nhạc, file .lrc cạnh file nhạc, dán / nhập tay, AI căn lời */

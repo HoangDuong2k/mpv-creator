@@ -22,6 +22,8 @@ import { features, player } from '../engineHost'
 import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { Icon, Modal, NumberInput } from './ui'
+import { LyricsAiBar } from './LyricsAiBar'
+import { LOW_CONFIDENCE } from '../../../shared/lyricsAlign'
 
 const api = window.api
 
@@ -228,6 +230,7 @@ export function LyricsDialog(): ReactNode {
         </section>
 
         <section className="lyrics-sync">
+          <LyricsAiBar trackId={track.id} lines={lyrics.lines.map((l) => l.text)} />
           <div className="lyrics-tools">
             <Button variant="outline" tone="neutral" size="sm" onClick={togglePlay} aria-label={playing ? tr('Tạm dừng') : tr('Phát')}>
               <Icon name={playing ? 'pause' : 'play'} size={14} /> {playing ? tr('Tạm dừng') : tr('Phát')}
@@ -259,7 +262,8 @@ export function LyricsDialog(): ReactNode {
               <li
                 key={i}
                 data-row={i}
-                className={`lyrics-line${i === selected ? ' selected' : ''}${active?.index === i ? ' current' : ''}${l.t === null ? ' unsynced' : ''}`}
+                className={`lyrics-line${i === selected ? ' selected' : ''}${active?.index === i ? ' current' : ''}${l.t === null ? ' unsynced' : ''}${l.conf !== undefined && l.conf < LOW_CONFIDENCE ? ' doubt' : ''}`}
+                title={l.conf !== undefined && l.conf < LOW_CONFIDENCE ? tr('AI chưa chắc dòng này: nghe lại (Enter) rồi chỉnh mốc nếu lệch') : undefined}
                 onClick={() => setSelected(i)}
                 onDoubleClick={() => playFrom(l.t != null ? Math.max(0, l.t + lyrics.offset - 1) : track.trimStart || 0)}
               >

@@ -5,6 +5,8 @@ import { entryAt } from '../../../shared/timeline'
 import type { LyricsSource, Track } from '../../../shared/types'
 import { useTimeline } from '../hooks'
 import { useStore } from '../store'
+import { useLyricsAi } from '../lyricsAi'
+import { LOW_CONFIDENCE } from '../../../shared/lyricsAlign'
 
 const SOURCE: Record<LyricsSource, string> = {
   embedded: trKey('lời nhúng trong file nhạc'),
@@ -20,12 +22,16 @@ export function LyricsSummary({ track }: { track: Track }): ReactNode {
   const lyrics = track.lyrics
   const total = lyrics?.lines.length ?? 0
   const synced = lyrics?.lines.filter((l) => l.t !== null).length ?? 0
+  const doubt = lyrics?.lines.filter((l) => l.conf !== undefined && l.conf < LOW_CONFIDENCE).length ?? 0
+  const aiBusy = useLyricsAi((s) => s.job?.trackId === track.id)
   return (
     <div className="lyrics-summary">
       <p className="muted small" data-lyrics-status>
         {total === 0
-          ? tr('Chưa có lời. Dán lời rồi gõ nhịp, hoặc nhập file .lrc.')
+          ? tr('Chưa có lời. Dán lời rồi bấm AI căn lời hoặc gõ nhịp, hoặc nhập file .lrc.')
           : tr('{n} dòng, đã đồng bộ {k} ({source})', { n: total, k: synced, source: tr(SOURCE[lyrics!.source]) })}
+        {doubt > 0 && <> · {tr('{k} dòng AI chưa chắc', { k: doubt })}</>}
+        {aiBusy && <> · {tr('AI đang căn lời…')}</>}
       </p>
       <div className="row-actions">
         <Button variant="outline" tone="neutral" size="xs" data-action="open-lyrics" onClick={() => openLyrics(track.id)}>

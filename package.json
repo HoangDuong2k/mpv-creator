@@ -16,6 +16,7 @@
     "cli": "tsx scripts/cli.ts",
     "dist": "electron-vite build && electron-builder",
     "e2e": "tsx scripts/e2e-smoke.ts",
+    "ai-smoke": "tsx scripts/ai-smoke.ts",
     "site:shots": "tsx scripts/site-shots.ts",
     "test-audio": "tsx scripts/make-test-audio.ts",
     "dist:win": "electron-vite build && electron-builder --win",
@@ -26,9 +27,13 @@
   "dependencies": {
     "@napi-rs/canvas": "^1.0.9",
     "ffmpeg-static": "^5.3.0",
-    "music-metadata": "^11.16.1"
+    "music-metadata": "^11.16.1",
+    "onnxruntime-common": "1.30.0",
+    "onnxruntime-node": "1.30.0",
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0"
   },
   "devDependencies": {
+    "@huggingface/transformers": "4.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.20.4",
     "@types/react": "^19.3.0",

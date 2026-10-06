@@ -11,10 +11,14 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
-          exportWorker: resolve(__dirname, 'src/main/export/worker.ts')
+          exportWorker: resolve(__dirname, 'src/main/export/worker.ts'),
+          asrWorker: resolve(__dirname, 'src/main/lyrics/asrWorker.ts')
         }
       }
-    }
+    },
+    // AI căn lời: transformers.js được bundle vào asrWorker (ONNX Runtime để external vì có file native / .wasm);
+    // nó import sharp (xử lý ảnh) dù chỉ dùng âm thanh → thay bằng bản rỗng
+    resolve: { alias: { sharp: resolve(__dirname, 'src/main/lyrics/sharpStub.ts') } }
   },
   preload: {
     build: {

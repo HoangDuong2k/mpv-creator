@@ -2,6 +2,7 @@
 import type { EncoderId, Project, ProjectSettings, Track, TrackLyrics } from './types'
 import type { Lang } from './i18n'
 import type { StyleTemplate } from './templates'
+import type { AsrWord } from './lyricsAlign'
 
 /** 'media': ảnh hoặc video (nhập vào thư viện) */
 export type FileKind = 'audio' | 'image' | 'video' | 'media' | 'project' | 'lyrics'
@@ -54,8 +55,30 @@ export interface AudioSpec {
   fadeOut: number
 }
 
+/** AI căn lời: mô hình Nhanh (Whisper base) hoặc Chính xác (Whisper large-v3-turbo) */
+export type AiModelKey = 'fast' | 'accurate'
+
+export interface AiModelInfo {
+  key: AiModelKey
+  /** Dung lượng tải về */
+  bytes: number
+  /** Đã tải về máy */
+  ready: boolean
+}
+
+/** Tiến độ AI căn lời: giải mã âm thanh → tải mô hình (byte) → nạp mô hình → nghe bài (số đoạn 30 giây) */
+export interface AiProgress {
+  phase: 'decode' | 'download' | 'load' | 'listen'
+  done: number
+  total: number
+}
+
+/** backend: bản ONNX Runtime đã chạy (chỉ có khi vừa nghe, không có khi lấy lại kết quả đã lưu) */
+export type AiTranscribeResult = { words: AsrWord[]; backend?: 'native' | 'wasm' } | { cancelled: true }
+
 export interface EventMap {
   'analysis:progress': { path: string; progress: number }
+  'lyrics:ai-progress': AiProgress
   'export:progress': ExportProgressEvent
   'app:open-files': string[]
 }
@@ -69,6 +92,12 @@ export interface PvmApi {
   lyricsFor(audioPath: string): Promise<TrackLyrics | null>
   /** Đọc file chữ (lời bài hát .lrc / .txt) */
   readText(path: string): Promise<string>
+  /** AI căn lời: các mô hình và đã tải về chưa */
+  aiModels(): Promise<AiModelInfo[]>
+  /** AI nghe giọng hát cả file nhạc gốc, trả về các từ kèm thời điểm (tải mô hình lần đầu; kết quả được lưu lại) */
+  aiTranscribe(audioPath: string, model: AiModelKey, language: 'vi' | 'en' | null): Promise<AiTranscribeResult>
+  aiCancel(): Promise<void>
+  aiRemoveModel(model: AiModelKey): Promise<void>
   /** Dải khung hình của video (ảnh thu nhỏ trên timeline); null nếu không đọc được */
   thumbStrip(path: string): Promise<string | null>
   ensureAnalysis(path: string, duration: number): Promise<{ analysisKey: string; duration: number }>
