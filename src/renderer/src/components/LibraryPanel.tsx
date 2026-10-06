@@ -3,7 +3,7 @@ import { Button } from 'momi-ui'
 import { FILTER_PRESETS } from '../../../shared/filterPresets'
 import { mediaKind } from '../../../shared/files'
 import { tr, trKey } from '../../../shared/i18n'
-import { EFFECT_GROUPS, localizePresetProps, TEXT_PRESETS, type LayerPreset } from '../../../shared/presets'
+import { EFFECT_GROUPS, LYRIC_PRESETS, localizePresetProps, TEXT_PRESETS, type LayerPreset } from '../../../shared/presets'
 import { player } from '../engineHost'
 import { useLayout, type LibraryTab } from '../layout'
 import { addImageLayer, addLibraryItem, endLibraryDrag, itemName, startLibraryDrag, type LibraryItem } from '../libraryActions'
@@ -180,11 +180,28 @@ function TextTab(): ReactNode {
   return (
     <div className="lib-body momi-scrollbar">
       <LibHint>{tr('Chữ tự đổi theo bài đang phát ({title}, {artist}…). Bấm để xem thử, bấm + để thêm, hoặc kéo vào timeline để đặt đúng chỗ.')}</LibHint>
-      <div className="lib-grid">
-        {TEXT_PRESETS.map((p) => (
-          <LibCard key={p.id} item={{ kind: 'preset', id: p.id }} name={tr(p.name)} scene={presetBuild(p)} />
-        ))}
-      </div>
+      <section className="lib-group">
+        <h4>{tr('Lời bài hát')}</h4>
+        <div className="lib-grid">
+          {LYRIC_PRESETS.map((p) => (
+            <LibCard
+              key={p.id}
+              item={{ kind: 'preset', id: p.id }}
+              name={tr(p.name)}
+              scene={presetBuild(p)}
+              title={tr('Lời của từng bài: chọn clip nhạc để nhập hoặc đồng bộ lời. Bấm để xem thử, bấm + để thêm.')}
+            />
+          ))}
+        </div>
+      </section>
+      <section className="lib-group">
+        <h4>{tr('Chữ')}</h4>
+        <div className="lib-grid">
+          {TEXT_PRESETS.map((p) => (
+            <LibCard key={p.id} item={{ kind: 'preset', id: p.id }} name={tr(p.name)} scene={presetBuild(p)} />
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

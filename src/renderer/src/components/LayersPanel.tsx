@@ -15,7 +15,7 @@ import { CollapseButton, ColumnResizer, RESIZE_STEP, RESIZE_STEP_BIG } from './P
 import { layerMenu } from '../contextMenus'
 import { ContextMenu, type MenuState } from './ContextMenu'
 
-const ADDABLE: LayerType[] = ['visualizer', 'text', 'timer', 'vinyl', 'nowplaying', 'tracklist', 'vumeter', 'image', 'cta', 'filter', 'particles', 'light', 'flicker', 'camera', 'vignette', 'vhs', 'glitch', 'crt', 'progress', 'background']
+const ADDABLE: LayerType[] = ['visualizer', 'text', 'lyrics', 'timer', 'vinyl', 'nowplaying', 'tracklist', 'vumeter', 'image', 'cta', 'filter', 'particles', 'light', 'flicker', 'camera', 'vignette', 'vhs', 'glitch', 'crt', 'progress', 'background']
 
 export function LayersPanel(): ReactNode {
   const layers = useStore((s) => s.project.layers)

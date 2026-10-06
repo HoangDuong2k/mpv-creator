@@ -1,4 +1,5 @@
 // Thao tác trên các thanh đang chọn — dùng chung cho nút trên timeline và phím tắt.
+import { lyricsImportHint } from './lyricsPlacement'
 import { player } from './engineHost'
 import { useStore } from './store'
 import { tr } from '../../shared/i18n'
@@ -73,6 +74,8 @@ export async function dropFiles(paths: string[], at: number, targetLayerId: stri
       const k = insertionIndexAt(buildTimeline(project.tracks, project.settings).entries, at)
       useStore.getState().insertTracks(tracks, k)
       st.toast('info', tr('Đã chèn {n} bài vào vị trí {k}', { n: tracks.length, k: k + 1 }))
+      const withLyrics = lyricsImportHint(tracks, useStore.getState().project.layers)
+      if (withLyrics) st.toast('info', tr('{n} bài có sẵn lời bài hát. Thêm lớp "Lời bài hát" (thư viện → Chữ) để hiện lời lên video.', { n: withLyrics }))
     } else if (!media.length) st.toast('error', tr('Không tìm thấy file nhạc hợp lệ (mp3, wav, flac, m4a, ogg…)'))
   }
   if (!media.length) return

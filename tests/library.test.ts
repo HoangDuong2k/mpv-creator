@@ -11,7 +11,7 @@ import { createDefaultProject, createLayer, FULL_TIMING, LAYER_DEFAULTS, normali
 import { BAND_COUNT, decodeFeatures, encodeFeatures, FEATURE_RATE, OFF_BEAT, STRIDE } from '../src/shared/featureFormat'
 import { FILTER_PRESETS } from '../src/shared/filterPresets'
 import { setLang } from '../src/shared/i18n'
-import { EFFECT_GROUPS, findPreset, TEXT_PRESETS } from '../src/shared/presets'
+import { EFFECT_GROUPS, findPreset, LYRIC_PRESETS, TEXT_PRESETS } from '../src/shared/presets'
 import { applyTemplate, builtinTemplates, isTemplateId, planTemplate, projectFromTemplate, templateFromProject } from '../src/shared/templates'
 import { buildTimeline } from '../src/shared/timeline'
 import type { Layer, LayerType, Project } from '../src/shared/types'
@@ -31,7 +31,7 @@ function invalidProps(type: LayerType, props: Record<string, unknown>): string[]
 }
 
 describe('thư viện: mẫu hiệu ứng và chữ mẫu', () => {
-  const all = [...EFFECT_GROUPS.flatMap((g) => g.items), ...TEXT_PRESETS]
+  const all = [...EFFECT_GROUPS.flatMap((g) => g.items), ...TEXT_PRESETS, ...LYRIC_PRESETS]
 
   it('id không trùng, tìm lại được', () => {
     expect(new Set(all.map((p) => p.id)).size).toBe(all.length)

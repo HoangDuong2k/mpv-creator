@@ -17,6 +17,35 @@ export interface Track {
   analysisKey?: string
   trimStart: number
   trimEnd: number
+  /** Lời bài hát (thời gian tính theo file nhạc gốc, chưa cắt đầu) */
+  lyrics?: TrackLyrics
+}
+
+/** Một từ trong dòng lời: thời điểm bắt đầu hát (giây, theo file nhạc) */
+export interface LyricWord {
+  t: number
+  text: string
+}
+
+/** Một dòng lời bài hát */
+export interface LyricLine {
+  /** Lúc bắt đầu hát (giây, theo file nhạc gốc); null = chưa đồng bộ */
+  t: number | null
+  /** Lúc hết dòng; không có thì tới dòng sau (tối đa vài giây) */
+  end?: number
+  text: string
+  /** Thời điểm từng từ (AI căn lời, LRC mở rộng); không có thì chia đều thời gian dòng cho các từ */
+  words?: LyricWord[]
+}
+
+/** Nguồn của lời: nhúng trong file nhạc, file .lrc cạnh file nhạc, dán / nhập tay, AI căn lời */
+export type LyricsSource = 'embedded' | 'lrc-file' | 'manual' | 'ai'
+
+export interface TrackLyrics {
+  lines: LyricLine[]
+  /** Lệch cả bài (giây): cộng vào mọi mốc thời gian (lời hiện muộn hơn khi dương) */
+  offset: number
+  source: LyricsSource
 }
 
 export interface ProjectSettings {
@@ -462,6 +491,44 @@ export interface CameraProps {
   slideIn: number
 }
 
+/** Lời bài hát hiện theo bài đang phát */
+export interface LyricsProps {
+  /** Kiểu hiển thị: một dòng (phụ đề nhỏ) */
+  style: 'line'
+  font: string
+  bold: boolean
+  /** Cỡ chữ (px ở khung 1080p) */
+  size: number
+  /** Màu chữ chưa hát */
+  color: string
+  /** Màu chữ đã / đang hát (khi tô theo lời hát) */
+  activeColor: string
+  /** Tô màu theo lời hát: không, lướt mượt theo từng từ, nhảy theo từ */
+  highlight: 'none' | 'sweep' | 'word'
+  strokeColor: string
+  strokeWidth: number
+  shadowColor: string
+  shadowBlur: number
+  align: 'left' | 'center' | 'right'
+  x: number
+  y: number
+  /** Rộng tối đa (phần khung hình); dòng dài tự thu nhỏ chữ */
+  maxWidth: number
+  uppercase: boolean
+  opacity: number
+  /** Chuyển dòng: mờ dần, trượt lên, không hiệu ứng */
+  transition: 'fade' | 'slide' | 'none'
+  /** Hiện dòng sớm hơn lúc hát (giây) */
+  lead: number
+  /** Giữ dòng tối đa (giây) khi dòng sau còn xa (đoạn nhạc dạo) */
+  hold: number
+  /** Nền mờ sau chữ 0..1 (0 = không có) */
+  box: number
+  boxColor: string
+  /** Nhún theo bass */
+  beatScale: number
+}
+
 export interface LayerPropsMap {
   background: BackgroundProps
   visualizer: VisualizerProps
@@ -483,6 +550,7 @@ export interface LayerPropsMap {
   crt: CrtProps
   light: LightProps
   camera: CameraProps
+  lyrics: LyricsProps
 }
 
 export type LayerType = keyof LayerPropsMap

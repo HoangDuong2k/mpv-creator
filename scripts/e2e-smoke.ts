@@ -5,7 +5,7 @@
  *   (Windows: PVM_E2E_EXE="release/win-unpacked/Playlist Video Maker.exe")
  */
 import { spawnSync } from 'child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { join, resolve } from 'path'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core'
 import { ffmpegPath } from '../src/main/ffmpeg'
@@ -861,6 +861,82 @@ async function main(): Promise<void> {
     await page.keyboard.press('Escape')
     await page.locator('.chip.ok').waitFor({ timeout: 60000 })
     assert(true, 'các bài được phân tích lại, âm thanh sẵn sàng trở lại')
+
+    // ---- Lời bài hát ----
+    type LyricTrack = { id: string; path: string; lyrics?: { lines: Array<{ t: number | null; text: string }>; offset: number } }
+    const lyricTracks = async (): Promise<LyricTrack[]> => (await state()).tracks as unknown as LyricTrack[]
+    const [, lyrA, lyrB] = await lyricTracks()
+    // File .lrc cùng tên đặt cạnh bài 2: "Lấy từ file nhạc" đọc được
+    const sidecar = lyrA.path.replace(/\.[^.\\/]+$/, '.lrc')
+    writeFileSync(sidecar, '[ti:Bài hai]\n[00:01.00]Câu một của bài hai\n[00:03.50]Câu hai của bài hai\n[00:06.00]Câu ba\n')
+    try {
+      await page.evaluate((id) => (window as unknown as { __pvm: { store: { getState(): { selectTrack(id: string): void } } } }).__pvm.store.getState().selectTrack(id), lyrA.id)
+      await page.locator('[data-action="open-lyrics"]').click()
+      const lyricsDialog = page.locator('.lyrics-dialog')
+      assert(await until(async () => (await lyricsDialog.count()) === 1), 'bảng clip nhạc: mở hộp Lời bài hát')
+      await page.getByRole('button', { name: 'Lấy từ file nhạc' }).click()
+      assert(
+        await until(async () => ((await lyricTracks())[1].lyrics?.lines.map((l) => l.t).join() ?? '') === '1,3.5,6' && (await page.locator('.lyrics-line').count()) === 3),
+        'lấy lời từ file .lrc cạnh file nhạc: 3 dòng đã đồng bộ'
+      )
+      await page.getByRole('button', { name: 'Xong' }).click()
+      await page.getByRole('button', { name: 'Hiện lời lên video' }).click()
+      const lyricLayerId = async (): Promise<string | undefined> => (await state()).layers.find((l) => l.type === 'lyrics')?.id
+      assert(await until(async () => !!(await lyricLayerId())), 'thêm lớp Lời bài hát từ bảng clip nhạc')
+      // Nghe từ câu hai (nhấp đúp dòng): dòng đó sáng lên trong danh sách, lời hiện trên preview.
+      // (Lớp lời đang chọn: nút ở bảng bên phải mở lời của bài đang phát, nên mở thẳng hộp lời của bài 2)
+      await page.evaluate((id) => (window as unknown as { __pvm: { store: { getState(): { openLyrics(id: string): void } } } }).__pvm.store.getState().openLyrics(id), lyrA.id)
+      await page.locator('.lyrics-line[data-row="1"]').dblclick()
+      assert(await until(async () => (await page.locator('.lyrics-line.current[data-row="1"]').count()) === 1, 4000), 'nhấp đúp dòng: phát từ dòng đó, dòng đang hát sáng lên')
+      const shownLyric = await page.evaluate(
+        (id) => !!(window as unknown as { __pvm: { preview: { bounds: Map<string, unknown> } } }).__pvm.preview.bounds.get(id as string),
+        await lyricLayerId()
+      )
+      assert(shownLyric, 'preview vẽ dòng lời đang hát')
+      await page.keyboard.press('Space')
+      assert(await until(async () => !(await page.evaluate(() => (window as unknown as Probe).__pvm.player.playing))), 'Space trong hộp lời: dừng phát')
+      await page.screenshot({ path: join(OUT, '9d-lyrics.png') })
+      await page.getByRole('button', { name: 'Xong' }).click()
+
+      // Gõ nhịp cho bài 3: dán lời thường, phát, nhấn Space đúng lúc mỗi câu
+      await page.evaluate((id) => (window as unknown as { __pvm: { store: { getState(): { openLyrics(id: string): void } } } }).__pvm.store.getState().openLyrics(id), lyrB.id)
+      await page.locator('.lyrics-text').fill('Câu A của bài ba\nCâu B của bài ba')
+      assert(await until(async () => ((await lyricTracks())[2].lyrics?.lines.length ?? 0) === 2), 'dán lời thường: 2 dòng chưa đồng bộ')
+      await page.locator('[data-action="lyrics-tap"]').click()
+      await page.waitForTimeout(700)
+      await page.keyboard.press('Space')
+      await page.waitForTimeout(700)
+      await page.keyboard.press('Space')
+      const tapped = async (): Promise<Array<number | null>> => (await lyricTracks())[2].lyrics?.lines.map((l) => l.t) ?? []
+      assert(
+        await until(async () => {
+          const [a, b] = await tapped()
+          return a !== null && b !== null && b > a
+        }),
+        `gõ nhịp: Space chốt mốc từng câu, tăng dần (${(await tapped()).join(', ')})`
+      )
+      await page.keyboard.press('Escape')
+      assert(
+        await until(async () => (await page.locator('[data-action="lyrics-tap"]').textContent())?.trim() === 'Gõ nhịp') && (await page.locator('.lyrics-dialog').count()) === 1,
+        'Esc khi đang gõ nhịp: dừng gõ, không đóng hộp thoại'
+      )
+      // Lưu file .lrc (giả lập hộp thoại chọn nơi lưu)
+      const lrcOut = join(OUT, 'e2e-lyrics.lrc')
+      await app.evaluate(({ dialog }, out) => {
+        dialog.showSaveDialog = (async () => ({ canceled: false, filePath: out })) as typeof dialog.showSaveDialog
+      }, lrcOut)
+      await page.getByRole('button', { name: 'Lưu file .lrc' }).click()
+      assert(await until(async () => existsSync(lrcOut) && /\[00:\d\d\.\d\d\]Câu A của bài ba/.test(readFileSync(lrcOut, 'utf8'))), 'lưu lời thành file .lrc')
+      await page.keyboard.press('Escape')
+      // Gõ nhịp đã bật phát nhạc: dừng lại trước khi sang bước sau
+      await page.evaluate(() => {
+        const w = window as unknown as { __pvm: { player: { playing: boolean; pause(): void }; store: { getState(): { setPlaying(on: boolean): void } } } }
+        if (w.__pvm.player.playing) w.__pvm.player.pause()
+        w.__pvm.store.getState().setPlaying(false)
+      })
+    } finally {
+      rmSync(sidecar, { force: true })
+    }
 
     // Xuất thử 15 giây (giả lập hộp thoại chọn nơi lưu)
     const outFile = join(OUT, 'e2e-export.mp4')

@@ -154,10 +154,25 @@ export function keepRowFocusOff(e: MouseEvent): void {
 }
 
 /** Hộp thoại (momi-ui Dialog). `wide`: hộp rộng cho lưới mẫu, bảng phím tắt */
-export function Modal({ title, onClose, children, footer, wide }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }): ReactNode {
+export function Modal({
+  title,
+  onClose,
+  children,
+  footer,
+  wide,
+  onEscapeKeyDown
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  footer?: ReactNode
+  wide?: boolean
+  /** Esc: gọi preventDefault() để không đóng hộp thoại (vd. đang gõ nhịp lời bài hát thì Esc chỉ dừng gõ) */
+  onEscapeKeyDown?: (e: KeyboardEvent) => void
+}): ReactNode {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size={wide ? 'xl' : 'md'} className={`modal${wide ? ' wide' : ''}`} closeLabel={tr('Đóng')} aria-describedby={undefined}>
+      <DialogContent size={wide ? 'xl' : 'md'} className={`modal${wide ? ' wide' : ''}`} closeLabel={tr('Đóng')} aria-describedby={undefined} onEscapeKeyDown={onEscapeKeyDown}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

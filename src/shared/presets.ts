@@ -200,6 +200,16 @@ export const EFFECT_GROUPS: PresetGroup[] = [
   }
 ]
 
+/** Mẫu lời bài hát: một dòng chữ nhỏ, khác nhau ở cách tô màu, nền, font */
+export const LYRIC_PRESETS: LayerPreset[] = [
+  preset('lyr-line', trKey('Một dòng nhỏ, sáng dần theo lời'), 'lyrics'),
+  preset('lyr-word', trKey('Sáng từng từ, chữ vàng'), 'lyrics', { highlight: 'word', bold: true, activeColor: '#ffd36b', color: 'rgba(255,255,255,0.7)' }),
+  preset('lyr-box', trKey('Phụ đề có nền mờ'), 'lyrics', { highlight: 'none', color: '#ffffff', box: 0.5, size: 32, transition: 'fade' }),
+  preset('lyr-serif', trKey('Chữ nghiêng cổ điển'), 'lyrics', { font: 'Playfair Display', size: 40, color: 'rgba(255,240,220,0.55)', activeColor: '#fff4e0' }),
+  preset('lyr-neon', trKey('Neon phát sáng'), 'lyrics', { bold: true, color: 'rgba(170,225,255,0.45)', activeColor: '#e8fbff', shadowColor: '#3fd0ff', shadowBlur: 22 }),
+  preset('lyr-top', trKey('Góc trên, căn trái'), 'lyrics', { align: 'left', x: 0.05, y: 0.08, size: 30, maxWidth: 0.6 })
+]
+
 /**
  * Mẫu chữ. `template` có chữ thường (không chỉ biến {…}) được dịch khi thêm vào video,
  * để giao diện tiếng Anh thêm "Next: {next}" thay vì "Tiếp theo: {next}".
@@ -235,7 +245,7 @@ export function findPreset(id: string): LayerPreset | undefined {
     const p = g.items.find((x) => x.id === id)
     if (p) return p
   }
-  return TEXT_PRESETS.find((x) => x.id === id)
+  return TEXT_PRESETS.find((x) => x.id === id) ?? LYRIC_PRESETS.find((x) => x.id === id)
 }
 
 /** Chữ viết sẵn trong mẫu (tiêu đề, nhãn…) theo ngôn ngữ giao diện, dịch lúc thêm vào video */

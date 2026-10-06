@@ -24,6 +24,7 @@ import { tr, trKey } from '../../../shared/i18n'
 import { useLayout } from '../layout'
 import { addLibraryItem, itemName } from '../libraryActions'
 import { clearLibraryPreview, layersWithPreview, useLibPreview } from '../libraryPreview'
+import { previewBounds } from '../lyricsPlacement'
 
 /** Kích thước tối đa của canvas preview (cạnh dài) — dự án 4K được xem trước ở 1080p */
 const PREVIEW_MAX = 1920
@@ -56,7 +57,13 @@ export function PreviewPanel(): ReactNode {
   // Kiểm thử tự động đọc lỗi vẽ của từng lớp trên preview
   useEffect(() => {
     ;(window as unknown as { __pvm: Record<string, unknown> }).__pvm.preview = renderer
+    // Khung bao các lớp ở khung hình vừa vẽ: lớp lời bài hát thêm vào tự tìm chỗ trống
+    previewBounds.current = renderer.bounds
   }, [renderer])
+  useEffect(() => {
+    previewBounds.W = project.settings.width
+    previewBounds.H = project.settings.height
+  }, [project.settings.width, project.settings.height])
 
   useEffect(() => {
     live.current = { ...live.current, project: shown.project, pin: shown.pin, timeline, sampler, scale, dirty: true }

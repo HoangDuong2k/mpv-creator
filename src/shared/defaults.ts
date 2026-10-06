@@ -299,6 +299,31 @@ export const LAYER_DEFAULTS: LayerPropsMap = {
     ratio: 2.39,
     barColor: '#000000',
     slideIn: 0.8
+  },
+  lyrics: {
+    style: 'line',
+    font: 'Be Vietnam Pro',
+    bold: false,
+    size: 36,
+    color: 'rgba(255,255,255,0.55)',
+    activeColor: '#ffffff',
+    highlight: 'sweep',
+    strokeColor: '#000000',
+    strokeWidth: 0,
+    shadowColor: 'rgba(0,0,0,0.65)',
+    shadowBlur: 10,
+    align: 'center',
+    x: 0.5,
+    y: 0.93,
+    maxWidth: 0.8,
+    uppercase: false,
+    opacity: 1,
+    transition: 'slide',
+    lead: 0.15,
+    hold: 6,
+    box: 0,
+    boxColor: '#000000',
+    beatScale: 0
   }
 }
 
@@ -322,7 +347,8 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   glitch: 'Glitch theo beat',
   crt: 'Màn hình CRT',
   light: 'Ánh sáng',
-  camera: 'Hiệu ứng khung hình'
+  camera: 'Hiệu ứng khung hình',
+  lyrics: 'Lời bài hát'
 }
 
 let idCounter = 0

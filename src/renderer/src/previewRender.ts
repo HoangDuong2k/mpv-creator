@@ -3,9 +3,9 @@
 import { AudioSampler, Renderer, type EngineAssets, type OffscreenSurface, type TrackFeatures } from '../../engine'
 import { createDemoFeatures, DEMO_KEY } from '../../engine/demoAudio'
 import { createDefaultProject, createLayer, FULL_TIMING } from '../../shared/defaults'
-import { getLang, tr } from '../../shared/i18n'
+import { getLang, tr, trKey } from '../../shared/i18n'
 import { buildTimeline, type Timeline } from '../../shared/timeline'
-import type { Layer, LayerType, Project, Track } from '../../shared/types'
+import type { Layer, LayerType, Project, Track, TrackLyrics } from '../../shared/types'
 import { assets } from './engineHost'
 
 /** Đường dẫn giả của cảnh mẫu và ảnh bìa mẫu (vẽ bằng code, không cần file) */
@@ -138,10 +138,16 @@ class PreviewAssets implements EngineAssets {
 const previewAssets = new PreviewAssets()
 const renderer = new Renderer(previewAssets)
 
+/** Lời mẫu cho bài giả lập (mẫu "Lời bài hát" trong thư viện): mỗi dòng 3 giây */
+function demoLyrics(): TrackLyrics {
+  const lines = [trKey('Lời bài hát hiện theo từng câu hát'), trKey('Chữ sáng dần đúng lúc giọng hát cất lên'), trKey('Mỗi bài một lời, tự đổi khi chuyển bài'), trKey('Kéo thả để đặt lời ở đâu cũng được')]
+  return { lines: lines.map((text, i) => ({ t: 0.4 + i * 3, text: tr(text) })), offset: 0, source: 'manual' }
+}
+
 function demoTracks(): Track[] {
   const base = { album: '', duration: DEMO_LEN, analysisKey: DEMO_KEY, coverPath: DEMO_COVER, trimStart: 0, trimEnd: 0 }
   return [
-    { ...base, id: 'demo-1', path: 'demo-1', title: tr('Tên bài hát'), artist: tr('Ca sĩ') },
+    { ...base, id: 'demo-1', path: 'demo-1', title: tr('Tên bài hát'), artist: tr('Ca sĩ'), lyrics: demoLyrics() },
     { ...base, id: 'demo-2', path: 'demo-2', title: tr('Bài kế tiếp'), artist: tr('Ca sĩ') }
   ]
 }
@@ -179,6 +185,9 @@ export function zoomForPreview(type: LayerType, props: Record<string, unknown>):
   switch (type) {
     case 'text':
       return { ...props, x: 0.5, y: 0.5, align: 'center', size: Math.max(n('size') * 2.4, 150), maxWidth: 0.9, animation: 'none' }
+    case 'lyrics':
+      // Ô nhỏ: chữ to hơn nhiều, giữa khung; không trượt / mờ để ảnh tĩnh thấy rõ cả dòng đang tô màu
+      return { ...props, x: 0.5, y: 0.5, align: 'center', size: Math.max(n('size') * 2.6, 96), maxWidth: 0.92, transition: 'none' }
     case 'cta':
       return { ...props, anchor: 'free', x: 0.5, y: 0.5, scale: props.preset === 'combo' ? 2.2 : 3.2, schedule: 'times', times: '0', duration: DEMO_LEN }
     case 'progress':

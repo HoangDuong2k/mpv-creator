@@ -7,6 +7,7 @@ import { errorText, useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { Icon, IconButton, NumberInput, SORTABLE_ROW, keepRowFocusOff } from './ui'
 import { tr } from '../../../shared/i18n'
+import { lyricsImportHint } from '../lyricsPlacement'
 
 const api = window.api
 
@@ -16,7 +17,11 @@ export async function importPaths(paths: string[]): Promise<void> {
   try {
     const tracks = await api.importMedia(paths)
     if (tracks.length === 0) toast('error', tr('Không tìm thấy file nhạc hợp lệ (mp3, wav, flac, m4a, ogg…)'))
-    else addTracks(tracks)
+    else {
+      addTracks(tracks)
+      const withLyrics = lyricsImportHint(tracks, useStore.getState().project.layers)
+      if (withLyrics) toast('info', tr('{n} bài có sẵn lời bài hát. Thêm lớp "Lời bài hát" (thư viện → Chữ) để hiện lời lên video.', { n: withLyrics }))
+    }
   } catch (err) {
     toast('error', tr('Không thêm được nhạc: {err}', { err: errorText(err) }))
   }

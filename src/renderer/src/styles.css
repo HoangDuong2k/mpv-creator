@@ -1455,6 +1455,9 @@ button.tl-dot:hover {
 .t-text {
   --c: #e3879f;
 }
+.t-lyrics {
+  --c: #f0a6c8;
+}
 .t-filter {
   --c: #a9b060;
 }
@@ -2473,4 +2476,138 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---------- Hộp thoại Lời bài hát: soạn lời (trái), đồng bộ từng dòng (phải) ---------- */
+.lyrics-dialog {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 18px;
+  min-height: 0;
+}
+.lyrics-compose,
+.lyrics-sync {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+.lyrics-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.lyrics-text {
+  min-height: 46vh;
+  max-height: 46vh;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.lyrics-offset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.lyrics-help {
+  margin: 0;
+}
+.lyrics-lines {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  height: 40vh;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--well);
+  outline: none;
+}
+.lyrics-lines:focus-visible {
+  border-color: var(--brand-line);
+}
+.lyrics-line {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  /* Nhấp đúp để nghe từ dòng: không bôi đen chữ */
+  user-select: none;
+}
+.lyrics-line:hover {
+  background: var(--panel-2);
+}
+.lyrics-line.selected {
+  border-color: var(--line-2);
+  background: var(--panel-2);
+}
+.lyrics-line.current {
+  background: var(--brand-soft);
+}
+.lyrics-line.current .lyrics-line-text {
+  color: var(--text);
+}
+.lyrics-stamp {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+.lyrics-line.unsynced .lyrics-stamp {
+  color: var(--faint);
+}
+.lyrics-line-text {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.lyrics-empty {
+  padding: 12px;
+}
+.lyrics-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+}
+.lyrics-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 14px;
+}
+.lyrics-preview .sung {
+  color: var(--text);
+}
+.lyrics-foot-hint {
+  margin-right: auto;
+}
+@media (max-width: 860px) {
+  .lyrics-dialog {
+    grid-template-columns: 1fr;
+  }
+  .lyrics-text {
+    min-height: 22vh;
+    max-height: 22vh;
+  }
+}
+
+.lyrics-summary,
+.lyrics-layer-panel {
+  display: grid;
+  gap: 8px;
+}
+.lyrics-summary p,
+.lyrics-layer-panel p {
+  margin: 0;
 }

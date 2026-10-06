@@ -23,7 +23,7 @@ export interface DragResult {
   guides: { x?: number; y?: number }
 }
 
-const MOVABLE: LayerType[] = ['visualizer', 'text', 'image', 'progress', 'cta', 'particles', 'timer', 'vinyl', 'nowplaying', 'tracklist', 'vumeter', 'light']
+const MOVABLE: LayerType[] = ['visualizer', 'text', 'lyrics', 'image', 'progress', 'cta', 'particles', 'timer', 'vinyl', 'nowplaying', 'tracklist', 'vumeter', 'light']
 
 export function isMovable(layer: Layer): boolean {
   return MOVABLE.includes(layer.type)
@@ -41,6 +41,7 @@ export function handlesFor(layer: Layer): Handle[] {
     case 'progress':
       return ['e', 'w']
     case 'text':
+    case 'lyrics':
     case 'image':
     case 'cta':
     case 'timer':
@@ -144,6 +145,7 @@ export function applyDrag(layer: Layer, s: DragSession, px: number, py: number, 
       set(patch, 'width', num('width') * kx)
       break
     case 'text':
+    case 'lyrics':
     case 'timer':
       set(patch, 'size', num('size') * k)
       break

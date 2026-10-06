@@ -13,6 +13,7 @@ import { drawTimer } from './layers/timer'
 import { drawVinyl } from './layers/vinyl'
 import { drawNowPlaying, drawTracklist } from './layers/playlist'
 import { drawVuMeter } from './layers/vumeter'
+import { drawLyrics } from './layers/lyrics'
 import { drawCrt, drawGlitch, drawVhs } from './layers/screenfx'
 import { drawLight } from './layers/light'
 import { drawCamera } from './layers/camera'
@@ -39,6 +40,7 @@ const DRAWERS: { [K in LayerType]: LayerDrawer<K> } = {
   nowplaying: drawNowPlaying,
   tracklist: drawTracklist,
   vumeter: drawVuMeter,
+  lyrics: drawLyrics,
   vhs: drawVhs,
   glitch: drawGlitch,
   crt: drawCrt,

@@ -7,6 +7,7 @@ import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { MIN_TRACK } from '../timelineModel'
 import { Row, TimeInput } from './ui'
+import { LyricsSummary } from './LyricsSummary'
 import { tr } from '../../../shared/i18n'
 
 const api = window.api
@@ -72,6 +73,8 @@ export function TrackInspector({ track }: { track: Track }): ReactNode {
           {tr('Xoá khỏi playlist')}
         </Button>
       </div>
+      <div className="section-title">{tr('Lời bài hát')}</div>
+      <LyricsSummary track={track} />
       <p className="muted small">{tr('Trên timeline: kéo clip để đổi thứ tự, kéo mép clip để cắt đầu/cuối, chọn clip rồi bấm Delete để xoá.')}</p>
     </div>
   )

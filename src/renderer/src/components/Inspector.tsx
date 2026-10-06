@@ -6,6 +6,7 @@ import type { Layer } from '../../../shared/types'
 import { FILTER_KEYS } from '../../../shared/filterPresets'
 import { FIELDS, type Field } from '../fields'
 import { FilterPanel } from './FilterPanel'
+import { LyricsLayerPanel } from './LyricsSummary'
 import { useTimeline } from '../hooks'
 import { useStore } from '../store'
 import { dragRange, layerRange } from '../timelineModel'
@@ -34,6 +35,7 @@ export function Inspector({ layer }: { layer: Layer }): ReactNode {
           {tr(LAYER_LABELS[layer.type])}
         </Badge>
       </div>
+      {layer.type === 'lyrics' && <LyricsLayerPanel />}
       {layer.type === 'cta' && (
         <p className="muted small">
           {tr('Trên timeline: kéo các ô đỏ để dời thời điểm hiện, kéo mép phải để đổi thời lượng, nhấp đúp vào hàng để thêm lần hiện, chọn ô rồi bấm Delete để xoá.')}

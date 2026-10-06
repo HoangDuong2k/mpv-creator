@@ -10,6 +10,7 @@ import { presetById } from '../../shared/filterPresets'
 import { localizePresetProps, type LayerPreset } from '../../shared/presets'
 import { applyTemplate, type StyleTemplate } from '../../shared/templates'
 import { formatTimePrecise } from '../../shared/time'
+import { freeLyricsY, previewBounds } from './lyricsPlacement'
 
 /** Độ nét preview: giảm để phát mượt trên máy yếu (không ảnh hưởng video xuất) */
 export type PreviewQuality = 'high' | 'medium' | 'low'
@@ -58,7 +59,7 @@ export interface CtaSelection {
 }
 
 /** 'welcome': màn hình chào lúc mở app, 'new-project': chọn mẫu cho project mới, 'styles': áp / tạo mẫu, 'save-template': tạo mẫu từ video vừa xuất */
-export type DialogName = 'export' | 'settings' | 'chapters' | 'shortcuts' | 'welcome' | 'new-project' | 'styles' | 'save-template' | null
+export type DialogName = 'export' | 'settings' | 'chapters' | 'shortcuts' | 'welcome' | 'new-project' | 'styles' | 'save-template' | 'lyrics' | null
 
 export interface Toast {
   id: number
@@ -94,6 +95,8 @@ interface State {
   currentTime: number
   playing: boolean
   dialog: DialogName
+  /** Bài đang soạn / đồng bộ lời (hộp thoại Lời bài hát) */
+  lyricsTrackId: string | null
   toasts: Toast[]
   previewQuality: PreviewQuality
   lang: Lang
@@ -185,6 +188,8 @@ interface State {
   setTime(t: number): void
   setPlaying(p: boolean): void
   openDialog(d: DialogName): void
+  /** Mở hộp thoại Lời bài hát cho bài `trackId` */
+  openLyrics(trackId: string): void
   toast(kind: Toast['kind'], text: string): void
   dismissToast(id: number): void
 }
@@ -218,6 +223,7 @@ export const useStore = create<State>((set, get) => ({
   currentTime: 0,
   playing: false,
   dialog: null,
+  lyricsTrackId: null,
   toasts: [],
   previewQuality: loadPreviewQuality(),
   lang: loadLang(),
@@ -359,6 +365,8 @@ export const useStore = create<State>((set, get) => ({
 
   addLayer(type) {
     const layer = createLayer(type)
+    // Lời bài hát: tự tìm dải ngang trống (không đè thanh tiến trình, tên bài… của mẫu đang dùng)
+    if (layer.type === 'lyrics') layer.props.y = freeLyricsY(get().project.layers, previewBounds.current, previewBounds.W, previewBounds.H)
     get().update((p) => {
       // Nền thêm ở dưới cùng; bộ lọc màu thêm ngay trên lớp nền (lọc ảnh nền); các lớp khác ở trên cùng
       if (type === 'background') p.layers.unshift(layer)
@@ -677,6 +685,8 @@ export const useStore = create<State>((set, get) => ({
     let timing: LayerTiming = { ...FULL_TIMING }
     if (at !== undefined && preset.type === 'cta') Object.assign(props, { schedule: 'times', times: formatTimePrecise(Math.max(0, at), at >= 3600) })
     else if (at !== undefined) timing = dropTiming(project, at)
+    // Lời bài hát: mẫu không tự đặt vị trí dọc thì tìm dải ngang trống
+    if (preset.type === 'lyrics' && props.y === undefined) props.y = freeLyricsY(project.layers, previewBounds.current, previewBounds.W, previewBounds.H)
     const layer = { ...createLayer(preset.type, props, preset.type === 'text' ? preset.name : undefined), timing } as Layer
     get().update((p) => {
       if (layer.type === 'background') p.layers.unshift(layer)
@@ -793,6 +803,10 @@ export const useStore = create<State>((set, get) => ({
 
   openDialog(d) {
     set({ dialog: d })
+  },
+
+  openLyrics(trackId) {
+    set({ lyricsTrackId: trackId, dialog: 'lyrics' })
   },
 
   toast(kind, text) {

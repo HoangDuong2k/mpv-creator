@@ -1,11 +1,11 @@
 // Hợp đồng IPC giữa renderer (window.api) và main process.
-import type { EncoderId, Project, ProjectSettings, Track } from './types'
+import type { EncoderId, Project, ProjectSettings, Track, TrackLyrics } from './types'
 import type { Lang } from './i18n'
 import type { StyleTemplate } from './templates'
 
 /** 'media': ảnh hoặc video (nhập vào thư viện) */
-export type FileKind = 'audio' | 'image' | 'video' | 'media' | 'project'
-export type SaveKind = 'video' | 'project' | 'text'
+export type FileKind = 'audio' | 'image' | 'video' | 'media' | 'project' | 'lyrics'
+export type SaveKind = 'video' | 'project' | 'text' | 'lyrics'
 
 export interface AppInfo {
   version: string
@@ -65,6 +65,10 @@ export interface PvmApi {
   openFiles(kind: FileKind, multi: boolean): Promise<string[]>
   saveFile(kind: SaveKind, defaultName: string): Promise<string | null>
   importMedia(paths: string[]): Promise<Track[]>
+  /** Lời của file nhạc: file .lrc cùng tên cạnh file nhạc, không có thì lời nhúng trong tag; null nếu không có */
+  lyricsFor(audioPath: string): Promise<TrackLyrics | null>
+  /** Đọc file chữ (lời bài hát .lrc / .txt) */
+  readText(path: string): Promise<string>
   /** Dải khung hình của video (ảnh thu nhỏ trên timeline); null nếu không đọc được */
   thumbStrip(path: string): Promise<string | null>
   ensureAnalysis(path: string, duration: number): Promise<{ analysisKey: string; duration: number }>

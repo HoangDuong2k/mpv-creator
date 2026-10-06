@@ -1,10 +1,11 @@
 import { createHash } from 'crypto'
 import { existsSync } from 'fs'
-import { mkdir, rename, rm, stat, writeFile } from 'fs/promises'
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, extname, join } from 'path'
-import { parseFile } from 'music-metadata'
+import { parseFile, TimestampFormat, type ILyricsTag } from 'music-metadata'
+import { parseLyricsText } from '../shared/lyrics'
 import { newId } from '../shared/defaults'
-import type { Track } from '../shared/types'
+import type { Track, TrackLyrics } from '../shared/types'
 import { probeDuration, runFfmpeg } from './ffmpeg'
 
 import { AUDIO_EXTENSIONS } from '../shared/files'
@@ -48,6 +49,7 @@ export async function readTrackInfo(path: string, coverDir: string): Promise<Tra
     else if (c.artists?.length) track.artist = c.artists.join(', ')
     track.album = c.album?.trim() ?? ''
     track.duration = meta.format.duration ?? 0
+    track.lyrics = lyricsFromTags(c.lyrics) ?? undefined
     const pic = c.picture?.[0]
     if (pic?.data?.length) {
       const ext = pic.format.includes('png') ? 'png' : 'jpg'
@@ -61,7 +63,58 @@ export async function readTrackInfo(path: string, coverDir: string): Promise<Tra
   } catch {
     // File không đọc được tag: giữ thông tin đoán từ tên file; thời lượng sẽ có sau khi phân tích
   }
+  // File .lrc cùng tên đặt cạnh file nhạc (người dùng tự chuẩn bị) ưu tiên hơn lời nhúng trong tag
+  const side = await sidecarLyrics(path)
+  if (side) track.lyrics = side
+  if (!track.lyrics) delete track.lyrics
   return track
+}
+
+/**
+ * Lời bài hát nhúng trong tag: ưu tiên lời đã đồng bộ (ID3 SYLT, thời gian tính bằng ms), không có thì lời thường
+ * (USLT, LYRICS của FLAC / OGG; có khi là cả nội dung LRC).
+ */
+export function lyricsFromTags(tags: ILyricsTag[] | undefined): TrackLyrics | null {
+  if (!tags?.length) return null
+  const synced = tags.find((t) => t.syncText?.length && t.timeStampFormat === TimestampFormat.milliseconds)
+  if (synced) {
+    const lines = synced.syncText
+      .filter((l) => typeof l.timestamp === 'number' && l.text.trim())
+      .map((l) => ({ t: (l.timestamp as number) / 1000, text: l.text.replace(/\s+/g, ' ').trim() }))
+    if (lines.length) return { lines, offset: 0, source: 'embedded' }
+  }
+  const text = tags.find((t) => t.text?.trim())?.text
+  if (!text) return null
+  const parsed = parseLyricsText(text, 'embedded')
+  return parsed.lines.length ? parsed : null
+}
+
+/** File .lrc cạnh file nhạc: "Bài hát.mp3" → "Bài hát.lrc" (hoặc .LRC) */
+export async function sidecarLyrics(audioPath: string): Promise<TrackLyrics | null> {
+  const base = audioPath.replace(/\.[^./\\]+$/, '')
+  for (const ext of ['.lrc', '.LRC', '.Lrc']) {
+    const file = base + ext
+    if (!existsSync(file)) continue
+    try {
+      const parsed = parseLyricsText(await readFile(file, 'utf8'), 'lrc-file')
+      if (parsed.lines.length) return parsed
+    } catch {
+      // không đọc được: bỏ qua
+    }
+  }
+  return null
+}
+
+/** Lời của file nhạc (cho bài đã có trong project): file .lrc cạnh file nhạc, không có thì lời nhúng trong tag */
+export async function readLyricsFor(audioPath: string): Promise<TrackLyrics | null> {
+  const side = await sidecarLyrics(audioPath)
+  if (side) return side
+  try {
+    const meta = await parseFile(audioPath, { duration: false, skipCovers: true })
+    return lyricsFromTags(meta.common.lyrics)
+  } catch {
+    return null
+  }
 }
 
 const stripJobs = new Map<string, Promise<string | null>>()

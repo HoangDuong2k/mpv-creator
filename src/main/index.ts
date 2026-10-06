@@ -12,7 +12,7 @@ import { MixSource, toS16 } from './audio/mix'
 import { CancelledError } from './ffmpeg'
 import { ENCODERS, detectEncoders } from './export/encoders'
 import { exportVideo } from './export/exporter'
-import { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, isAudioFile, readTrackInfo, videoThumbStrip } from './media'
+import { AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, isAudioFile, readLyricsFor, readTrackInfo, videoThumbStrip } from './media'
 import { asarUnpacked, defaultCacheDir } from './paths'
 import { registerFileProtocol, registerSchemePrivileges } from './protocol'
 import { shutdownCommand, type ShellCommand, shutdownPermissionCommand } from './shutdown'
@@ -94,13 +94,15 @@ const FILTERS: Record<FileKind, Electron.FileFilter[]> = {
     { name: trKey('Ảnh'), extensions: IMAGE_EXTENSIONS },
     { name: 'Video', extensions: VIDEO_EXTENSIONS }
   ],
-  project: [{ name: 'Project Playlist Video', extensions: ['json'] }]
+  project: [{ name: 'Project Playlist Video', extensions: ['json'] }],
+  lyrics: [{ name: trKey('Lời bài hát (LRC, văn bản)'), extensions: ['lrc', 'txt'] }]
 }
 
 const SAVE_FILTERS: Record<SaveKind, Electron.FileFilter[]> = {
   video: [{ name: 'Video MP4', extensions: ['mp4'] }],
   project: [{ name: 'Project Playlist Video', extensions: ['json'] }],
-  text: [{ name: trKey('Văn bản'), extensions: ['txt'] }]
+  text: [{ name: trKey('Văn bản'), extensions: ['txt'] }],
+  lyrics: [{ name: trKey('Lời bài hát LRC'), extensions: ['lrc'] }]
 }
 
 async function expandAudioPaths(paths: string[]): Promise<string[]> {
@@ -168,6 +170,10 @@ function registerIpc(): void {
   })
 
   handle('media:thumbStrip', (path: string) => videoThumbStrip(path, workspace.thumbDir))
+
+  handle('lyrics:for', (audioPath: string) => readLyricsFor(audioPath))
+
+  handle('file:read-text', async (path: string) => (await readFile(path, 'utf8')).replace(/^\uFEFF/, ''))
 
   handle('media:import', async (paths: string[]) => {
     const files = await expandAudioPaths(paths)

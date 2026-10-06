@@ -475,6 +475,57 @@ export const FIELDS: { [K in LayerType]: Field[] } = {
     { kind: 'range', key: 'opacity', label: 'Độ đậm', min: 0, max: 1, step: 0.01 },
     { kind: 'range', key: 'beatScale', label: 'Nảy theo nhạc', min: 0, max: 0.3, step: 0.005 }
   ],
+  lyrics: [
+    {
+      kind: 'select',
+      key: 'highlight',
+      label: 'Tô màu theo lời hát',
+      options: [
+        ['sweep', 'Lướt theo lời hát'],
+        ['word', 'Sáng từng từ'],
+        ['none', 'Không tô']
+      ]
+    },
+    { kind: 'select', key: 'font', label: 'Font', options: FONT_FAMILIES.map((f) => [f, f]) },
+    { kind: 'toggle', key: 'bold', label: 'Chữ đậm' },
+    { kind: 'range', key: 'size', label: 'Cỡ chữ', min: 14, max: 140, step: 1 },
+    { kind: 'toggle', key: 'uppercase', label: 'VIẾT HOA' },
+    { kind: 'color', key: 'color', label: 'Màu chữ chưa hát', show: (p) => p.highlight !== 'none' },
+    { kind: 'color', key: 'color', label: 'Màu chữ', show: (p) => p.highlight === 'none' },
+    { kind: 'color', key: 'activeColor', label: 'Màu chữ đang hát', show: (p) => p.highlight !== 'none' },
+    {
+      kind: 'select',
+      key: 'align',
+      label: 'Căn lề',
+      options: [
+        ['left', 'Trái'],
+        ['center', 'Giữa'],
+        ['right', 'Phải']
+      ]
+    },
+    ...position,
+    { kind: 'range', key: 'maxWidth', label: 'Rộng tối đa (dòng dài tự thu nhỏ chữ)', min: 0.2, max: 1, step: 0.01 },
+    { kind: 'section', label: 'Hiệu ứng' },
+    {
+      kind: 'select',
+      key: 'transition',
+      label: 'Khi đổi dòng',
+      options: [
+        ['slide', 'Trượt lên'],
+        ['fade', 'Mờ dần'],
+        ['none', 'Không']
+      ]
+    },
+    { kind: 'range', key: 'lead', label: 'Hiện trước khi hát', min: 0, max: 1, step: 0.05, unit: 'giây' },
+    { kind: 'range', key: 'hold', label: 'Giữ dòng tối đa (đoạn nhạc dạo)', min: 1, max: 15, step: 0.5, unit: 'giây' },
+    { kind: 'range', key: 'box', label: 'Nền mờ sau chữ', min: 0, max: 1, step: 0.01 },
+    { kind: 'color', key: 'boxColor', label: 'Màu nền', show: (p) => Number(p.box) > 0 },
+    { kind: 'range', key: 'strokeWidth', label: 'Viền chữ', min: 0, max: 8, step: 0.5 },
+    { kind: 'color', key: 'strokeColor', label: 'Màu viền', show: (p) => Number(p.strokeWidth) > 0 },
+    { kind: 'range', key: 'shadowBlur', label: 'Bóng / phát sáng', min: 0, max: 40, step: 1 },
+    { kind: 'color', key: 'shadowColor', label: 'Màu bóng', show: (p) => Number(p.shadowBlur) > 0 },
+    { kind: 'range', key: 'beatScale', label: 'Nhún theo bass', min: 0, max: 0.3, step: 0.01 }
+  ],
   text: [
     {
       kind: 'textarea',
