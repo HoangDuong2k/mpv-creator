@@ -1,10 +1,12 @@
 /**
  * Chụp ảnh app cho trang landing (site/src/assets/shots/*.png): toàn cửa sổ cho phần đầu trang, và từng vùng
- * (timeline, thư viện hiệu ứng, bảng thuộc tính, mẫu phong cách, hộp Xuất video, hộp Timestamp) cho phần tính năng;
+ * (timeline, thư viện hiệu ứng, bảng thuộc tính, mẫu phong cách, hộp Xuất video, hộp Timestamp, dòng lời bài hát
+ * trên video, danh sách lời sau khi AI căn) cho phần tính năng;
  * và ảnh chia sẻ 1200×630 (site/src/assets/og-vi.png, og-en.png).
  * Ảnh chụp ở độ nét gấp đôi (khung 1440×880); Astro nén sang WebP / AVIF khi build trang.
  * Chạy sau khi đổi giao diện: npm run build && npm run site:shots   (Linux không có màn hình: xvfb-run -a …)
  * Đổi mẫu / thời điểm chụp: SHOT_TEMPLATE=lofi SHOT_AT=30 npm run site:shots
+ * Chỉ chụp lại vài ảnh: SHOT_ONLY=lyrics,lyrics-ai npm run site:shots   (og = hai ảnh chia sẻ)
  */
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import { join, resolve } from 'path'
@@ -22,6 +24,25 @@ const TEMPLATE = process.env.SHOT_TEMPLATE ?? 'edm'
 /** Thời điểm dừng để chụp (giây): giữa bài 3, đoạn bass mạnh */
 const AT = Number(process.env.SHOT_AT ?? 98)
 const VIEW = { width: 1440, height: 880 }
+/** Chỉ chụp các ảnh này (tên file không đuôi); không đặt thì chụp hết */
+const ONLY = process.env.SHOT_ONLY ? process.env.SHOT_ONLY.split(',') : null
+
+/**
+ * Lời mẫu cho ảnh lời bài hát (tự viết, không phải lời bài hát có thật), gắn vào bài 1: bài đầu bắt đầu ở 0:00 nên
+ * thời điểm trong file nhạc trùng thời điểm trên video. Độ tin cậy như kết quả AI căn lời: một dòng AI chưa chắc.
+ */
+const SAMPLE_LYRICS = [
+  ['Đèn đường vẫn sáng như hôm qua', 0.93],
+  ['Mình đi qua những ngã tư quen', 0.88],
+  ['Gió mang theo câu hát rất khẽ', 0.91],
+  ['Ai còn thức cùng thành phố đêm', 0.36],
+  ['Nhịp tim theo từng tiếng bass', 0.86],
+  ['Đưa tay lên cao, quên hết ưu phiền', 0.9]
+] as const
+const LYRICS_FROM = 14.2
+const LYRICS_EVERY = 3.3
+/** Lúc chụp: dòng 3 đang hát được chừng nửa câu */
+const LYRICS_AT = LYRICS_FROM + 2 * LYRICS_EVERY + 1.3
 
 interface Probe {
   __pvm: {
@@ -33,8 +54,9 @@ interface Probe {
 }
 
 /** Chụp cả khung trang hoặc một vùng, ở đúng độ nét của trang (Playwright chụp qua Electron chỉ được 1×) */
-async function shot(cdp: CDPSession, target: Locator | null, name: string): Promise<void> {
-  const box = target ? await target.boundingBox() : { x: 0, y: 0, width: VIEW.width, height: VIEW.height }
+async function shot(cdp: CDPSession, target: Locator | null | { x: number; y: number; width: number; height: number }, name: string): Promise<void> {
+  if (ONLY && !ONLY.includes(name)) return
+  const box = target === null ? { x: 0, y: 0, width: VIEW.width, height: VIEW.height } : 'boundingBox' in target ? await target.boundingBox() : target
   if (!box) throw new Error(`Không thấy vùng cần chụp: ${name}`)
   const { data } = (await cdp.send('Page.captureScreenshot', { format: 'png', clip: { ...box, scale: 1 } })) as { data: string }
   writeFileSync(join(OUT, `${name}.png`), Buffer.from(data, 'base64'))
@@ -144,9 +166,58 @@ async function main(): Promise<void> {
     await page.waitForTimeout(500)
     await shot(cdp, page.locator('[role="dialog"]'), 'export')
     await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+    // Lời bài hát: lời mẫu cho bài 1, lớp lời (vị trí tự chọn dải trống), dừng lúc dòng 3 đang sáng dần
+    const lyricsId = await page.evaluate(
+      ({ lines, from, every, at }) => {
+        const { player, store } = (window as unknown as Probe).__pvm
+        const s = store.getState() as unknown as {
+          project: { tracks: Array<{ id: string }>; layers: Array<{ id: string; type: string }> }
+          updateTrack(id: string, patch: object): void
+          addLayer(type: string): void
+          selectLayer(id: string | null): void
+          setTime(t: number): void
+        }
+        s.updateTrack(s.project.tracks[0].id, {
+          lyrics: { lines: lines.map(([text, conf], i) => ({ t: Math.round((from + i * every) * 100) / 100, text, conf })), offset: 0, source: 'ai' }
+        })
+        s.addLayer('lyrics')
+        const id = store.getState().project.layers.find((l) => l.type === 'lyrics')!.id
+        store.getState().selectLayer(null)
+        player.seek(at)
+        store.getState().setTime(at)
+        return id
+      },
+      { lines: SAMPLE_LYRICS as unknown as Array<[string, number]>, from: LYRICS_FROM, every: LYRICS_EVERY, at: LYRICS_AT }
+    )
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(800)
+    // Dải ngang của khung video quanh dòng lời (ô "Lời bài hát" trên trang rất rộng, thấp)
+    const stage = (await page.locator('.stage-inner').boundingBox())!
+    // Vị trí dọc của dòng lời (phần chiều cao khung hình) trong thuộc tính của lớp
+    const lyricY = await page.evaluate((id) => {
+      const st = (window as unknown as Probe).__pvm.store.getState() as unknown as { project: { layers: Array<{ id: string; props: { y?: number } }> } }
+      return st.project.layers.find((l) => l.id === id)?.props.y ?? 0.9
+    }, lyricsId)
+    const bandH = stage.height * 0.3
+    const centerY = stage.y + lyricY * stage.height
+    const top = Math.min(Math.max(stage.y, centerY - bandH / 2), stage.y + stage.height - bandH)
+    await shot(cdp, { x: stage.x, y: top, width: stage.width, height: bandH }, 'lyrics')
+    // Hộp Lời bài hát sau khi AI căn: các dòng có mốc, dòng đang hát sáng lên, dòng AI chưa chắc tô vàng
+    await page.locator('.track').first().click()
+    await page.locator('[data-action="open-lyrics"]').click()
+    await page.locator('.lyrics-line.current').waitFor({ timeout: 5000 })
+    await page.locator('.lyrics-line[data-row="2"]').click()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    // Vừa đúng 4 dòng (ô trên trang thấp, cắt ngang dòng thứ 5 trông như lỗi)
+    const list = (await page.locator('.lyrics-lines').boundingBox())!
+    const row4 = (await page.locator('.lyrics-line[data-row="3"]').boundingBox())!
+    await shot(cdp, { x: list.x, y: list.y, width: list.width, height: row4.y + row4.height + 5 - list.y }, 'lyrics-ai')
+    await page.keyboard.press('Escape')
 
     // Ảnh chia sẻ: dựng trang HTML trong cửa sổ ẩn của Electron rồi chụp
-    for (const lang of ['vi', 'en'] as const) {
+    for (const lang of ONLY && !ONLY.includes('og') ? [] : (['vi', 'en'] as const)) {
       const file = join(WORK, `og-${lang}.html`)
       writeFileSync(file, ogHtml(lang))
       const png = await app.evaluate(async ({ BrowserWindow }, htmlFile) => {

@@ -56,7 +56,16 @@ export interface Copy {
   features: {
     title: string
     description: string
-    items: Array<{ key: 'effects' | 'chapters' | 'timeline' | 'inspector' | 'export' | 'styles'; title: string; description: string; alt: string }>
+    /** Nhãn cạnh tên tính năng có `since`: "Mới" khi bản phát hành mới nhất là bản đó, "Sắp có" khi chưa phát hành */
+    badges: { new: string; soon: string }
+    items: Array<{
+      key: 'effects' | 'chapters' | 'timeline' | 'inspector' | 'export' | 'styles' | 'lyrics' | 'aiLyrics'
+      title: string
+      description: string
+      alt: string
+      /** Có từ phiên bản này (tag, vd. v0.3.0) */
+      since?: string
+    }>
   }
   demo: { title: string; description?: string; play: string; credit: string; /** Có thì thêm link giấy phép CC BY 4.0 sau dòng ghi nguồn */ creditLicense?: string }
   styles: { title: string; description: string; items: Record<TemplateId, { name: string; description: string }> }
@@ -139,7 +148,8 @@ const vi: Copy = {
   },
   features: {
     title: 'Mọi thứ một video playlist cần',
-    description: 'Từ hiệu ứng theo nhạc đến timestamp cho phần mô tả, làm trong một app, không cần phần mềm dựng phim.',
+    description: 'Từ hiệu ứng theo nhạc, lời bài hát đến timestamp cho phần mô tả, làm trong một app, không cần phần mềm dựng phim.',
+    badges: { new: 'Mới', soon: 'Sắp có' },
     items: [
       {
         key: 'effects',
@@ -178,6 +188,21 @@ const vi: Copy = {
         title: '7 mẫu phong cách',
         description: 'Mặc định, Lofi, EDM, Ballad, Bolero, Thư giãn, Tối giản. Đổi cả bộ nền, cột sóng, chữ bằng một cú bấm, nhạc giữ nguyên.',
         alt: 'Hộp Mẫu phong cách với 7 mẫu'
+      },
+      {
+        key: 'lyrics',
+        title: 'Lời bài hát chạy theo nhạc',
+        description:
+          'Một dòng chữ nhỏ, sáng dần theo lời hát, sang câu mới thì trượt lên nhẹ nhàng. Lời có sẵn trong file nhạc hoặc file .lrc được lấy tự động; không có thì dán lời vào rồi để AI căn, hoặc tự gõ nhịp bằng phím Space.',
+        alt: 'Khung video có dòng lời bài hát đang sáng dần theo nhạc, phía trên tên bài',
+        since: 'v0.3.0'
+      },
+      {
+        key: 'aiLyrics',
+        title: 'AI căn lời',
+        description: 'AI nghe giọng hát và đặt mốc cho từng câu, từng chữ. Chạy ngay trên máy bạn; dòng nào AI chưa chắc được tô vàng để nghe lại.',
+        alt: 'Danh sách lời sau khi AI căn: mỗi dòng có mốc thời gian, một dòng tô vàng',
+        since: 'v0.3.0'
       }
     ]
   },
@@ -232,12 +257,18 @@ const vi: Copy = {
       },
       {
         question: 'Có cần mạng Internet không?',
-        answer: 'Không. Mọi việc chạy ngay trên máy bạn, nhạc và video không bị tải lên đâu cả.'
+        answer:
+          'Không. Mọi việc chạy ngay trên máy bạn, nhạc và video không bị tải lên đâu cả. Chỉ lần đầu dùng AI căn lời, app cần mạng để tải mô hình AI về máy (80 MB hoặc 760 MB tuỳ mô hình bạn chọn), một lần.'
       },
       {
         question: 'Bản quyền nhạc thì sao?',
         answer:
-          'App không kiểm tra bản quyền. Chỉ dùng nhạc bạn sở hữu hoặc được phép đăng, nếu không YouTube có thể chặn video hoặc tắt kiếm tiền.'
+          'App không kiểm tra bản quyền. Chỉ dùng nhạc bạn sở hữu hoặc được phép đăng, nếu không YouTube có thể chặn video hoặc tắt kiếm tiền. Lời bài hát cũng có bản quyền: chỉ hiện lời lên video khi bạn được phép.'
+      },
+      {
+        question: 'AI căn lời đúng tới đâu?',
+        answer:
+          'Bài giọng hát rõ thì phần lớn các dòng khớp ngay; giọng bị méo, nhạc nền dày thì kém hơn. Dòng AI chưa chắc được tô vàng: nghe lại rồi nhích mốc bằng phím mũi tên. Mô hình Chính xác nghe tiếng Việt tốt hơn nhiều so với mô hình Nhanh, đổi lại chạy lâu hơn (1–3 phút mỗi bài).'
       },
       {
         question: 'Vì sao Windows hoặc macOS cảnh báo khi mở app?',
@@ -335,7 +366,8 @@ const en: Copy = {
   },
   features: {
     title: 'Everything a playlist video needs',
-    description: 'From music-reactive effects to description timestamps, in one app. No video editor required.',
+    description: 'From music-reactive effects and lyrics to description timestamps, in one app. No video editor required.',
+    badges: { new: 'New', soon: 'Coming soon' },
     items: [
       {
         key: 'effects',
@@ -374,6 +406,21 @@ const en: Copy = {
         title: '7 style templates',
         description: 'Default, Lofi, EDM, Ballad, Bolero, Relax, Minimal. Swap the background, visualizer and text in one click, your music stays.',
         alt: 'The style templates dialog with 7 templates'
+      },
+      {
+        key: 'lyrics',
+        title: 'Lyrics that follow the song',
+        description:
+          'One small line that lights up as it is sung and slides gently to the next. Lyrics embedded in the audio file or in an .lrc file load automatically; otherwise paste them and let the AI sync them, or tap along with the Space key.',
+        alt: 'A video frame with a lyric line lighting up in time with the music, above the song title',
+        since: 'v0.3.0'
+      },
+      {
+        key: 'aiLyrics',
+        title: 'AI lyric sync',
+        description: 'The AI listens to the vocals and times every line and word. It runs on your computer; lines it is unsure about are marked in yellow for a quick check.',
+        alt: 'The lyrics list after AI sync: every line has a timestamp, one is marked in yellow',
+        since: 'v0.3.0'
       }
     ]
   },
@@ -423,10 +470,20 @@ const en: Copy = {
     description: 'Still have a question? Ask on GitHub.',
     items: [
       { question: 'Is it free?', answer: 'Yes. Download and use it at no cost, with no account and no watermark on your videos.' },
-      { question: 'Does it need an internet connection?', answer: 'No. Everything runs on your computer; your music and videos are never uploaded.' },
+      {
+        question: 'Does it need an internet connection?',
+        answer:
+          'No. Everything runs on your computer; your music and videos are never uploaded. The only exception: the first time you use AI lyric sync, the app downloads the AI model once (80 MB or 760 MB, depending on the model you pick).'
+      },
       {
         question: 'What about music copyright?',
-        answer: 'The app does not check copyright. Only use music you own or are allowed to publish, or YouTube may block or demonetise the video.'
+        answer:
+          'The app does not check copyright. Only use music you own or are allowed to publish, or YouTube may block or demonetise the video. Lyrics are copyrighted too: only show them in a video when you have permission.'
+      },
+      {
+        question: 'How accurate is AI lyric sync?',
+        answer:
+          'With clear vocals most lines land right away; distorted vocals or a dense mix make it less reliable. Lines the AI is unsure about are marked in yellow: give them a listen and nudge them with the arrow keys. The Accurate model handles Vietnamese far better than the Fast one, at the cost of a longer run (1–3 minutes per song).'
       },
       {
         question: 'Why does Windows or macOS warn me when I open it?',

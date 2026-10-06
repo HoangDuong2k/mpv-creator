@@ -27,6 +27,8 @@ import chaptersShot from '../assets/shots/chapters.png'
 import exportShot from '../assets/shots/export.png'
 import stylesShot from '../assets/shots/styles.png'
 import inspectorShot from '../assets/shots/inspector.png'
+import lyricsShot from '../assets/shots/lyrics.png'
+import lyricsAiShot from '../assets/shots/lyrics-ai.png'
 import demoPoster from '../assets/demo-poster.jpg'
 
 interface Props {
@@ -65,7 +67,9 @@ const images = {
   chapters: await webp(chaptersShot, 1100),
   export: await webp(exportShot, 832),
   styles: await webp(stylesShot, 1400),
-  inspector: await webp(inspectorShot, 680)
+  inspector: await webp(inspectorShot, 680),
+  lyrics: await webp(lyricsShot, 1600),
+  aiLyrics: await webp(lyricsAiShot, 760)
 }
 const templateFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/templates/*.jpg', { eager: true })
 const templateImages: TemplateImage[] = await Promise.all(
@@ -145,7 +149,7 @@ const poster = await webp(demoPoster, 1280)
     </section>
 
     <DemoVideo client:visible copy={c.demo} chapter={ch.demo} poster={poster} video={withBase('/demo/demo.mp4')} />
-    <Features client:idle copy={c.features} chapter={ch.features} images={images} />
+    <Features client:idle copy={c.features} chapter={ch.features} images={images} latest={release?.version ?? null} />
     <TemplateGallery client:visible copy={c.styles} chapter={ch.styles} images={templateImages} lang={lang} />
     <HowItWorks client:idle copy={c.how} chapter={ch.how} />
     <DownloadSection copy={c.download} chapter={ch.download} downloads={downloads} versionLine={versionLine} />

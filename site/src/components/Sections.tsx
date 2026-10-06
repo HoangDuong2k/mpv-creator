@@ -3,7 +3,7 @@
  * (Hỏi đáp) được Astro chạy như island (client:idle); phần còn lại render sẵn thành HTML tĩnh.
  */
 import type { ReactNode } from 'react'
-import { BentoCard, BentoGrid, Container, Cta, Faq, SectionHeader, Steps } from 'momi-ui'
+import { Badge, BentoCard, BentoGrid, Container, Cta, Faq, SectionHeader, Steps } from 'momi-ui'
 import type { Chapter, Copy } from '../content'
 import type { Downloads } from '../release'
 import { DownloadButton, type DownloadLabels } from './DownloadButton'
@@ -27,18 +27,54 @@ export function ChapterLabel({ chapter }: { chapter: Chapter }): ReactNode {
 
 type FeatureKey = Copy['features']['items'][number]['key']
 
-/** Cách xếp ô theo hình dạng ảnh chụp: ảnh dọc chiếm 2 hàng, ảnh ngang chiếm 2 cột */
-const LAYOUT: Record<FeatureKey, { col: 1 | 2; row: 1 | 2; fit: 'top' | 'frame' }> = {
+/**
+ * Cách xếp ô theo hình dạng ảnh chụp: ảnh dọc chiếm 2 hàng, ảnh ngang chiếm 2 cột. `center`: ảnh căn giữa thay vì
+ * góc trên trái (dải khung video có dòng lời ở giữa).
+ */
+const LAYOUT: Record<FeatureKey, { col: 1 | 2; row: 1 | 2; fit: 'top' | 'frame'; center?: boolean }> = {
   effects: { col: 1, row: 2, fit: 'top' },
   timeline: { col: 2, row: 1, fit: 'top' },
   chapters: { col: 1, row: 1, fit: 'frame' },
   export: { col: 1, row: 1, fit: 'frame' },
   styles: { col: 2, row: 1, fit: 'top' },
-  inspector: { col: 1, row: 1, fit: 'top' }
+  inspector: { col: 1, row: 1, fit: 'top' },
+  lyrics: { col: 2, row: 1, fit: 'top', center: true },
+  aiLyrics: { col: 1, row: 1, fit: 'top' }
 }
-const ORDER: FeatureKey[] = ['effects', 'timeline', 'chapters', 'export', 'styles', 'inspector']
+const ORDER: FeatureKey[] = ['effects', 'timeline', 'chapters', 'export', 'styles', 'inspector', 'lyrics', 'aiLyrics']
 
-export function Features({ copy, chapter, images }: { copy: Copy['features']; chapter: Chapter; images: Record<FeatureKey, Img> }): ReactNode {
+/** "v0.3.0" → [0, 3, 0] */
+const versionParts = (v: string): number[] => v.replace(/^v/, '').split('.').map((x) => parseInt(x, 10) || 0)
+function compareVersions(a: string, b: string): number {
+  const [x, y] = [versionParts(a), versionParts(b)]
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0)
+  return 0
+}
+
+/** Tính năng có từ bản `since`: "Mới" nếu bản phát hành mới nhất chính là bản đó, "Sắp có" nếu chưa phát hành */
+function featureBadge(since: string | undefined, latest: string | null, badges: Copy['features']['badges']): ReactNode {
+  if (!since) return null
+  const released = latest !== null && compareVersions(latest, since) >= 0
+  if (released && compareVersions(latest!, since) > 0) return null
+  return (
+    <Badge size="sm" shape="rounded" tone={released ? 'primary' : 'neutral'} className="ml-2 align-middle">
+      {released ? badges.new : badges.soon}
+    </Badge>
+  )
+}
+
+export function Features({
+  copy,
+  chapter,
+  images,
+  latest
+}: {
+  copy: Copy['features']
+  chapter: Chapter
+  images: Record<FeatureKey, Img>
+  /** Tag của bản phát hành mới nhất (vd. v0.2.0); null nếu chưa lấy được */
+  latest: string | null
+}): ReactNode {
   const items = ORDER.map((key) => copy.items.find((i) => i.key === key)!)
   return (
     <section id={chapter.id} className="py-24 sm:py-32">
@@ -51,14 +87,27 @@ export function Features({ copy, chapter, images }: { copy: Copy['features']; ch
             return (
               <BentoCard
                 key={item.key}
-                title={item.title}
+                title={
+                  <>
+                    {item.title}
+                    {featureBadge(item.since, latest, copy.badges)}
+                  </>
+                }
                 description={item.description}
                 colSpan={l.col}
                 rowSpan={l.row}
                 delay={i * 70}
                 visual={
                   l.fit === 'top' ? (
-                    <img src={img.src} width={img.width} height={img.height} alt={item.alt} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover object-left-top" />
+                    <img
+                      src={img.src}
+                      width={img.width}
+                      height={img.height}
+                      alt={item.alt}
+                      loading="lazy"
+                      decoding="async"
+                      className={`absolute inset-0 h-full w-full object-cover ${l.center ? 'object-center' : 'object-left-top'}`}
+                    />
                   ) : (
                     <div className="absolute inset-0 flex items-start justify-center overflow-hidden px-6 pt-6">
                       <img src={img.src} width={img.width} height={img.height} alt={item.alt} loading="lazy" decoding="async" className="w-full max-w-[34rem] rounded-lg border border-border-strong shadow-2xl shadow-black/50" />
