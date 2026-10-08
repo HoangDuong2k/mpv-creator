@@ -103,7 +103,7 @@ const vi: Copy = {
     faq: { id: 'hoi-dap', time: '2:47', label: 'Hỏi đáp' }
   },
   hero: {
-    badge: 'v0.2.0',
+    badge: 'v0.3.0',
     titleStart: 'Biến playlist nhạc thành',
     titleHighlight: 'video YouTube',
     description:
@@ -321,7 +321,7 @@ const en: Copy = {
     faq: { id: 'faq', time: '2:47', label: 'FAQ' }
   },
   hero: {
-    badge: 'v0.2.0',
+    badge: 'v0.3.0',
     titleStart: 'Turn a music playlist into a',
     titleHighlight: 'YouTube video',
     description:

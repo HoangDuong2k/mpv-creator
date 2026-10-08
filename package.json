@@ -1,7 +1,7 @@
 {
   "name": "playlist-video-maker",
   "productName": "Playlist Video Maker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Ứng dụng desktop dựng video playlist nhạc: cột sóng, hiệu ứng theo nhạc, nút đăng ký/like YouTube",
   "main": "./out/main/index.js",
   "author": "Hoang Duong",

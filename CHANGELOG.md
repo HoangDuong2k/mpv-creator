@@ -3,7 +3,9 @@
 Mỗi phiên bản là một mục `## vX.Y.Z — ngày`. Khi đẩy tag `vX.Y.Z`, CI lấy đúng mục đó làm ghi chú của bản phát hành
 trên GitHub Releases (trang landing hiện lại ở phần "Có gì mới").
 
-## Chưa phát hành
+## v0.3.0 — 2026-10-08
+
+Lời bài hát chạy theo nhạc, có AI căn lời ngay trên máy.
 
 - **Lời bài hát chạy theo nhạc:** lớp lời kiểu một dòng chữ nhỏ, chữ sáng dần theo lời hát (lướt mượt hoặc từng
   chữ), dòng mới trượt lên hoặc mờ dần; 6 mẫu trong thư viện (thẻ Chữ). Tự lấy lời có sẵn trong file nhạc hoặc file
@@ -12,6 +14,17 @@ trên GitHub Releases (trang landing hiện lại ở phần "Có gì mới").
   không gửi đi đâu; mô hình *Nhanh* (~80 MB, khoảng nửa phút mỗi bài) hoặc *Chính xác* (~760 MB, 1–3 phút mỗi bài,
   nghe tiếng Việt tốt hơn nhiều), tải một lần ở lần dùng đầu. Dòng AI chưa chắc được tô vàng để nghe lại.
 - **Gõ nhịp:** phát nhạc rồi nhấn Space đúng lúc mỗi câu bắt đầu; bắt dính beat, nhích mốc bằng phím mũi tên.
+
+**Cài đặt:** app vẫn chưa ký số. Windows: nếu SmartScreen chặn, bấm *More info → Run anyway*. macOS: lần đầu mở, vào
+*Cài đặt hệ thống → Quyền riêng tư & Bảo mật* và chọn *Vẫn mở*. AI căn lời cần mạng ở lần dùng đầu để tải mô hình.
+
+**English:** lyrics that follow the song. A small single-line lyrics layer lights up as each line is sung (a smooth
+sweep or word by word) and slides to the next line, with 6 presets in the library; lyrics embedded in the audio file
+or in an `.lrc` file with the same name load automatically. AI lyric sync listens to the vocals on your computer
+(Whisper) and times every line and word of the lyrics you paste: the Fast model (~80 MB, about half a minute per
+song) or the Accurate one (~760 MB, 1–3 minutes, much better with Vietnamese), downloaded once; lines it is unsure
+about are marked in yellow. You can also tap along with the Space key. The app is still not code-signed: on Windows
+choose *More info → Run anyway*; on macOS allow it once in *System Settings → Privacy & Security*.
 
 ## v0.2.0 — 2026-10-05
 
