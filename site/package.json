@@ -17,7 +17,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.5",
     "marked": "^18.0.14",
-    "momi-ui": "github:HoangDuong2k/momi-ui#v0.2.1",
+    "momi-ui": "github:HoangDuong2k/momi-ui#v0.4.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "simple-icons": "^16.34.0",
@@ -30,5 +30,9 @@
   },
   "engines": {
     "node": ">=22.12"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "github:HoangDuong2k/momi-ui#e08bfae24bb443886a863c04fa9f196f52af332b": true
   }
 }

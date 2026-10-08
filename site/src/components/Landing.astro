@@ -1,7 +1,8 @@
 ---
 /**
  * Toàn bộ trang landing cho một ngôn ngữ. Đầu trang viết bằng Astro (HTML tĩnh, ảnh app tối ưu bằng <Picture>);
- * các phần khác là block của momi-ui. Island (chạy JavaScript): thanh điều hướng, nút tải theo hệ điều hành,
+ * các phần khác là block của momi-ui. Island (chạy JavaScript): hiệu ứng đầu trang (sóng hạt, đom đóm của momi-ui;
+ * dải sóng vẽ bằng engine của app), thanh điều hướng, nút tải theo hệ điều hành,
  * video demo, thư viện mẫu (Lightbox) và các phần có hiệu ứng hiện dần / bấm mở (Tính năng, Cách dùng, Hỏi đáp,
  * lời kêu gọi cuối trang). Hiệu ứng khi cuộn còn lại là CSS (global.css), không cần JavaScript.
  */
@@ -20,6 +21,7 @@ import { DemoVideo, TemplateGallery, type TemplateImage } from './Media'
 import { ChangelogSection, type ReleaseNote } from './ChangelogSection'
 import { WaveStage } from './WaveStage'
 import { HeroFireflies } from './HeroFireflies'
+import { HeroParticleWave } from './HeroParticleWave'
 import appShot from '../assets/shots/app.png'
 import libraryShot from '../assets/shots/library.png'
 import timelineShot from '../assets/shots/timeline.png'
@@ -99,10 +101,12 @@ const poster = await webp(demoPoster, 1280)
   <main>
     <section id={ch.intro.id} class="relative isolate overflow-clip pt-14 sm:pt-20">
       <BackgroundPattern variant="grid" fade="radial" />
-      <!-- Đốm sáng lơ lửng sau tiêu đề (lớp hạt "đom đóm" của engine app) -->
+      <!-- Đốm sáng lơ lửng sau tiêu đề, tò mò bay lại khi con trỏ tới gần (Fireflies của momi-ui) -->
       <HeroFireflies client:idle />
       <Container size="xl">
-        <div class="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+        <div class="hero-copy relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+          <!-- Sóng hạt cong ôm khối chữ, phản ứng theo con trỏ (ParticleWave của momi-ui) -->
+          <HeroParticleWave client:idle />
           <a href={`#${ch.changelog.id}`} class="rounded-full transition-opacity hover:opacity-85" aria-label={ch.changelog.label}>
             <Badge variant="solid" tone="primary" size="md">{release?.version ?? c.hero.badge}</Badge>
           </a>
@@ -114,7 +118,8 @@ const poster = await webp(demoPoster, 1280)
           <p class="text-sm text-muted-foreground">{c.hero.footnote}</p>
         </div>
 
-        <div class="relative mx-auto mt-14 max-w-6xl sm:mt-20">
+        <!-- Cách khối chữ đủ xa cho tâm sáng của sóng hạt nằm giữa -->
+        <div class="relative mx-auto mt-24 max-w-6xl sm:mt-40">
           <div class="hero-glow"></div>
           <div class="hero-shot">
             <AppWindowFrame variant="macos" title="Playlist Video Maker" glow>
